@@ -1,8 +1,8 @@
 SOURCES = ${wildcard src/*.cc src/**/*.cc}
 OBJECTS = ${SOURCES:.cc=.o}
-CC = clang++
+CC = /usr/bin/clang++
 WARNINGS = -Wall -Wswitch -Wno-virtual-dtor
-CFLAGS = -std=c++11 -g ${WARNINGS} ${OPTFLAGS}
+CFLAGS = -std=c++11 -stdlib=libc++ -g ${WARNINGS} ${OPTFLAGS}
 PROGRAM = test
 
 all: ${PROGRAM}

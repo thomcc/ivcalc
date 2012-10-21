@@ -6,18 +6,55 @@
 #include <cstdlib>
 #include <cmath>
 
+// assert at runtime that a condition with a message is true.
+// runs even when NDEBUG is defined, unlike the macros in <cassert>.
 #define EXPECT(CND, FMT, ...) do {\
 	if (!(CND)) {\
-		fprintf(stderr, "Expectation failure: %s::%d " FMT "\n" , __FILE__, __LINE__, ##__VA_ARGS__);\
+		fprintf(stderr, "[ERROR] %s:%s:%d " FMT "\n" , __FILE__, __func__, __LINE__, ##__VA_ARGS__);\
 		exit(1);\
 	}\
 } while (0)
 
-#define DISALLOW_COPY_AND_SWAP(CLASSNAME) \
-	CLASSNAME(const CLASSNAME&); \
-	CLASSNAME &operator=(const CLASSNAME&)
+// assert a condition with no message at runtime.
+#define ASSERT(CND) EXPECT(CND, "Assertation %d is false.", #CND)
+// assert at runtime that something isn't null.
+#define ASSERT_NOT_NULL(VAL) EXPECT((VAL) != NULL, "Expected %s to be non-null", #VAL)
 
+// needs to be in a `private` section, and will expand to the copy constructor
+// and the assignment operator, disallowing, as its name suggests,
+// copy and swap
+#define DISALLOW_COPY_AND_SWAP(CLASSNAME) \
+	CLASSNAME(CLASSNAME const&); \
+	CLASSNAME &operator=(CLASSNAME const&)
+
+// similar to std::min and std::max, but implemented as macros.
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
+
+#define MIN3(a, b, c) MIN(MIN(a, b), c)
+#define MAX3(a, b, c) MAX(MAX(a, b), c)
+
+#define MIN4(a, b, c, d) MIN(MIN(a, b), MIN(c, d))
+#define MAX4(a, b, c, d) MAX(MAX(a, b), MAX(c, d))
+
+
+// paste two tokens.  needs 2 layers of indirections to get macros to expand 
+// right e.g. if __LINE__ is 10, foo##__LINE__ would expand to foo__LINE__, 
+// but TOKENPASTE(foo, __LINE__) would expand to foo10
+#define TOKENPASTE_I(A, B) A ## B
+#define TOKENPASTE(A, B) TOKENPASTE_I(A, B)
+// same as above but for the # preprocessor operator (stringize something)
+#define STRINGIZE_I(X) #X
+#define STRINGIZE(X) STRINGIZE_I(X)
+
+// assert something at compile time
+#define STATIC_ASSERT(e) extern char (*TOKENPASTE(static_assertation, __LINE__)(void)) [sizeof(char[1 - 2*!(e)])]
+
+// assert that t extends s (specifically, that s can be assigned to t).
+// need to be real types (can't be foward declared).
+#define STATIC_ASSERT_SUBTYPE(T, S) \
+while (false) { \
+  *(static_cast<T* volatile*>(0)) = static_cast<S*>(0); \
+}
 
 #endif
