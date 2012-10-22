@@ -1,79 +1,68 @@
-#include "token.hh"
+#include "parser/token.hh"
 
 
 
 namespace numbers {
 
-char const*
-Token::type_string(TokenType t) {
+int
+punct(TokenType t) {
 	switch (t) {
-	case T_LPAREN: 
-		return "(";
-	case T_RPAREN: 
-		return ")";
-	case T_LBRACKET:
-		return "[";
-	case T_RBRACKET:
-		return "]";
+	case T_LPAREN:
+		return '(';
+	case T_RPAREN:
+		return ')';
 	case T_COMMA:
-		return ",";
-	case T_EQ: 
-		return "=";
-	case T_IDENT: 
-		return "variable";
-	case T_NUM: 
-		return "number";
-	case T_CEQ: 
-		return ":=";
-	case T_POW:
-		return "^";
-	case T_PLUS: 
-		return "+";
-	case T_MINUS: 
-		return "-";
-	case T_TIMES: 
-		return "*";
-	case T_DIV: 
-		return "/";
-	case T_LINE: 
-		return "line";
-	case T_EOF: 
-		return "eof";
-	case T_ERROR: 
-		return "error";
-	default: 
-		return "<unknown-token-type>";
-	}
-}
-std::ostream &
-operator<<(std::ostream &o, Token const &token) {
-	switch (token.type()) {
-	case T_IDENT:
-	case T_NUM:
-	case T_ERROR:
-		o << token.text();
-		break;
+		return ',';
+	case T_ASSIGN:
+		return '=';
+	case T_PLUS:
+		return '+';
+	case T_MINUS:
+		return '-';
+	case T_ASTERISK:
+		return '*';
+	case T_SLASH:
+		return '/';
+	case T_CARET:
+		return '^';
+//	case T_PIPE:
+//		return '|';
+//	case T_TILDE:
+//		return '~';
+//	case T_BANG:
+//		return '!';
 	default:
-		o << Token::type_string(token.type());
-		break;
+		return -1;
 	}
-	return o;
 }
 
-Position
-Position::span_to(Position const &end) const {
-	return Position(_file, _start_line, _start_col, end._end_line, end._end_col);
+TokenType
+punct_type(char c) {
+	switch (c) {
+	case '(':
+		return T_LPAREN;
+	case ')':
+		return T_RPAREN;
+	case ',':
+		return T_COMMA;
+	case '=':
+		return T_ASSIGN;
+	case '-':
+		return T_MINUS;
+	case '+':
+		return T_PLUS;
+	case '*':
+		return T_ASTERISK;
+	case '/':
+		return T_SLASH;
+	case '^':
+		return T_CARET;
+//	case '|':
+//		return T_PIPE;
+	default:
+		return T_ERROR;
+	}
 }
-
-
-std::ostream &
-operator<<(std::ostream &o, Position const &pos) {
-	o << "#<position: " << pos.file();
-	o << ":: lines(" << pos.start_line() << " - " << pos.end_line() << ")";
-	o << ", cols(" << pos.start_col() << " - " << pos.end_col() << ")>";
-	return o;
-}
-
 
 }
 

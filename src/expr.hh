@@ -4,7 +4,7 @@
 #include <memory>
 #include "common.hh"
 #include "interval.hh"
-#include "token.hh"
+#include "parser/token.hh"
 #include "visitorbase.hh"
 
 namespace numbers {
@@ -17,59 +17,71 @@ class DivExpr;
 class VarExpr;
 class ExptExpr;
 class LitExpr;
+class AssignExpr;
+class CallExpr;
+class EmptyExpr;
+
+
 
 typedef std::shared_ptr<Expr> ExprSPtr;
 
 class Expr : public BaseVisitable<> {
-	Position _pos;
 public:
 	
-	Expr(Position const &pos) : _pos(pos) {}
-
-	Position const&
-	pos() const {
-		return _pos;
-	}
-
 	virtual ~Expr() {}
 
 	virtual AddExpr*
-	to_add_expr() { 
+	as_add_expr() { 
 		return NULL; 
 	}
 
 	virtual SubExpr*
-	to_sub_expr() { 
+	as_sub_expr() { 
 		return NULL; 
 	}
 
 	virtual NegExpr*
-	to_neg_expr() { 
+	as_neg_expr() { 
 		return NULL; 
 	}
 
 	virtual MulExpr*
-	to_mul_expr() { 
+	as_mul_expr() { 
 		return NULL; 
 	}
 
 	virtual DivExpr*
-	to_div_expr() { 
+	as_div_expr() { 
 		return NULL; 
 	}
 
 	virtual VarExpr*
-	to_var_expr() { 
+	as_var_expr() { 
 		return NULL; 
 	}
 
 	virtual ExptExpr*
-	to_expt_expr() { 
+	as_expt_expr() { 
 		return NULL; 
 	}
 
 	virtual LitExpr*
-	to_lit_expr() {
+	as_lit_expr() {
+		return NULL;
+	}
+
+	virtual AssignExpr*
+	as_assign_expr() {
+		return NULL;
+	}
+
+	virtual CallExpr*
+	as_call_expr() {
+		return NULL;
+	}
+
+	virtual EmptyExpr*
+	as_empty_expr() {
 		return NULL;
 	}
 
@@ -84,8 +96,8 @@ public:
 class AddExpr : public Expr {
 	ExprSPtr _lhs, _rhs;
 public:
-	AddExpr(Position const &pos, ExprSPtr lhs, ExprSPtr rhs)
-	: Expr(pos), _lhs(lhs), _rhs(rhs) {}
+	AddExpr(ExprSPtr lhs, ExprSPtr rhs)
+	: _lhs(lhs), _rhs(rhs) {}
 
 	virtual AddExpr *
 	as_add_expr() {
@@ -115,8 +127,8 @@ private:
 class SubExpr : public Expr {
 	ExprSPtr _lhs, _rhs;
 public:
-	SubExpr(Position const &pos, ExprSPtr lhs, ExprSPtr rhs)
-	: Expr(pos), _lhs(lhs), _rhs(rhs) {}
+	SubExpr(ExprSPtr lhs, ExprSPtr rhs)
+	: _lhs(lhs), _rhs(rhs) {}
 
 	virtual SubExpr*
 	as_sub_expr() {
@@ -146,8 +158,8 @@ private:
 class NegExpr : public Expr {
 	ExprSPtr _value;
 public:
-	NegExpr(Position const &pos, ExprSPtr e)
-	: Expr(pos), _value(e) {}
+	NegExpr(ExprSPtr e)
+	: _value(e) {}
 
 	ExprSPtr
 	value() const {
@@ -172,8 +184,8 @@ private:
 class MulExpr : public Expr {
 	ExprSPtr _lhs, _rhs;
 public:
-	MulExpr(Position const &pos, ExprSPtr lhs, ExprSPtr rhs)
-	: Expr(pos), _lhs(lhs), _rhs(rhs) {}
+	MulExpr(ExprSPtr lhs, ExprSPtr rhs)
+	: _lhs(lhs), _rhs(rhs) {}
 
 	virtual MulExpr *
 	as_mul_expr() {
@@ -203,8 +215,8 @@ private:
 class DivExpr : public Expr {
 	ExprSPtr _lhs, _rhs;
 public:
-	DivExpr(Position const &pos, ExprSPtr lhs, ExprSPtr rhs)
-	: Expr(pos), _lhs(lhs), _rhs(rhs) {}
+	DivExpr(ExprSPtr lhs, ExprSPtr rhs)
+	: _lhs(lhs), _rhs(rhs) {}
 
 	virtual DivExpr *
 	as_div_expr() {
@@ -234,8 +246,8 @@ class VarExpr : public Expr {
 	std::string const _name;
 public:
 
-	VarExpr(Position const &pos, std::string const &name)
-	: Expr(pos), _name(name) {}
+	VarExpr(std::string const &name)
+	: _name(name) {}
 
 	virtual VarExpr *
 	as_var_expr() {
@@ -263,8 +275,8 @@ class ExptExpr : public Expr {
 	int _power;
 	ExprSPtr _base;
 public:
-	ExptExpr(Position const &pos, int power, ExprSPtr base)
-	: Expr(pos), _power(power), _base(base) {}
+	ExptExpr(int power, ExprSPtr base)
+	: _power(power), _base(base) {}
 
 	int
 	power() const {
@@ -294,12 +306,19 @@ private:
 class LitExpr : public Expr {
 	interval _value;
 public:
-	LitExpr(Position const &pos, interval const &value)
-	: Expr(pos), _value(value) {}
+	LitExpr(number_type v)
+	: _value(v) {}
+	LitExpr(interval const &value)
+	: _value(value) {}
 
 	virtual LitExpr*
 	as_lit_expr() {
 		return this;
+	}
+
+	interval const&
+	value() const {
+		return _value;
 	}
 
 	virtual bool
@@ -311,6 +330,97 @@ public:
 private:
 	DISALLOW_COPY_AND_SWAP(LitExpr);
 };
+
+class AssignExpr : public Expr {
+	std::string const _name;
+	ExprSPtr _value;
+public:
+
+	AssignExpr(std::string const &name, ExprSPtr value)
+	: _name(name), _value(value) {}
+
+	virtual AssignExpr *
+	as_assign_expr() {
+		return this;
+	}
+
+	std::string const&
+	name() const {
+		return _name;
+	}
+
+	ExprSPtr
+	value() const {
+		return _value;
+	}
+
+	virtual bool
+	is_constant() const {
+		return false;
+	}
+
+	VISITABLE()
+
+private:
+	DISALLOW_COPY_AND_SWAP(AssignExpr);
+
+};
+
+class CallExpr : public Expr {
+	std::string const _name;
+	std::vector<ExprSPtr> _args;
+public:
+	CallExpr(std::string const &name, std::vector<ExprSPtr> const &args)
+	: _name(name), _args(args) {}
+
+	virtual CallExpr *
+	as_call_expr() {
+		return this;
+	}
+
+	std::string const&
+	name() const {
+		return _name;
+	}
+
+	std::vector<ExprSPtr> const&
+	args() const {
+		return _args;
+	}
+
+	virtual bool
+	is_constant() const {
+		for (ExprSPtr arg : _args)
+			if (!arg->is_constant()) return false;
+		return true;
+	}
+
+	virtual ReturnType
+	Accept(BaseVisitor &v) {
+
+	}
+	VISITABLE()
+
+private:
+	DISALLOW_COPY_AND_SWAP(CallExpr);
+
+};
+
+class EmptyExpr : public Expr {
+public:
+	EmptyExpr() {}
+
+	virtual EmptyExpr*
+	as_empty_expr() {
+		return this;
+	}
+
+	VISITABLE()
+private:
+	DISALLOW_COPY_AND_SWAP(EmptyExpr);
+};
+
+
 
 
 

@@ -1,190 +1,159 @@
-#include "lexer.hh"
+#include "parser/lexer.hh"
 #include "utilities.hh"
 
 namespace numbers {
 
-Token
-Lexer::get_token() {
-	while (true) {
-		Token t = raw_get_token();
-		switch (t.type()) {
-		case T_LPAREN:
-		case T_LBRACKET:
-		case T_EQ:
-		case T_PLUS:
-		case T_MINUS:
-		case T_DIV:
-		case T_CEQ:
-			_skipline = true;
-			break;
-		case T_LINE:
-			if (_skipline) continue;
-			_skipline = true;
-			break;
-		default:
-			_skipline = false;
-			break;
-		}
-		return t;
+
+
+static bool
+is_punct(char c) {
+	switch (c) {
+	case '(': case ')': case ',': case '=':
+	case '+': case '-':	case '*': case '/':
+	case '^': case '|':
+		return true;
+	default:
+		return false;
 	}
 }
 
-Token
-Lexer::raw_get_token() {
-	while (true) {
-		if (finished()) return make_tok(T_EOF, "");
-		_start = _pos;
-		_start_row = _cur_row;
-		_start_col = _cur_col;
-		char c = forward();
-
-		switch (c) {
-		case ' ':
-		case '\t':
-		case '\r':
-		case '\n':
-			while (is_space(peek())) forward();
-			break;
-		case '(': return make_tok(T_LPAREN);
-		case ')': return make_tok(T_RPAREN);
-		case '[': return make_tok(T_LBRACKET);
-		case ']': return make_tok(T_RBRACKET);
-		case ',': return make_tok(T_COMMA);
-		case ':':
-			if (peek() == '=') {
-				forward();
-				return make_tok(T_CEQ);
-			} else return error(strprintf("Unknown character '%c'", c));
-		case '+': return make_tok(T_PLUS);
-		case '-': 
-			if (is_digit(peek()))
-				return read_number();
-			else return make_tok(T_MINUS);
-		case '*':
-			return make_tok(T_TIMES);
-		case '/':
-			if (peek() == '/') skip_line_comment();
-			else if (peek() == '*') skip_block_comment();
-			else return make_tok(T_DIV);
-		case '^':
-			return make_tok(T_POW);
-		default:
-			if (is_ident_start(c)) return read_var();
-			if (is_digit(c)) return read_number();
-			return error(strprintf("Unknown character '%c'.", c));
-		}
-	}
+static inline bool
+starts_var(char c) {
+	if (('a' <= c) && (c <= 'z')) return true;
+	if (('A' <= c) && (c <= 'Z')) return true;
+	if ((c == '_') || (c == '$')) return true;
+	return false;
 }
 
-bool
-Lexer::finished() const {
-	return _pos == _source.size();
-}
-
-bool
-Lexer::is_space(char c) const {
-	return (c == ' ') || (c == '\t') || (c == '\r') || (c == '\v');
-}
-
-bool
-Lexer::is_digit(char c) const {
+static inline bool
+is_number(char c) {
 	return ('0' <= c) && (c <= '9');
 }
 
+static inline bool
+is_var(char c) {
+	return starts_var(c) || is_number(c);
+}
+
+static inline bool
+is_wspace(char c) {
+	return (c == ' ') || (c == '\t') || (c == '\n') || (c == '\r') || (c == '\v');
+}
+
+
 bool
-Lexer::is_ident_start(char c) const {
-	return (c == '_') || (('a' <= c) && (c <= 'z')) || (('A' <= c) && (c <= 'Z'));
+Lexer::finished() const {
+	return _index >= _text.size();
 }
 
-bool
-Lexer::is_ident(char c) const {
-	return is_ident_start(c) || is_digit(c);
+Token 
+Lexer::next() {
+	while (!finished()) {
+		_start = _index;
+		char c = forward();
+		if (is_punct(c))
+			return make_token(punct_type(c));
+		if (starts_var(c))
+			return scan_var();
+		if (is_number(c))
+			return scan_number();
+		if (!is_wspace(c))
+			return error(strprintf("Unknown character '%c'", c));
+	}
+	// keep returning EOF so the parser can fill it's lookahead.
+	return make_token(T_EOF);
 }
 
-
-char
-Lexer::peek(int ahead) const {
-	if (_pos + ahead >= _source.size()) return '\0';
-	return _source.c_str()[_pos + ahead];
+Token
+Lexer::scan_var() {
+	while (is_var(peek())) forward();
+	return make_token(T_NAME);
 }
 
+Token
+Lexer::scan_number() {
+	while (is_number(peek()))
+		forward();
+	if (peek() == '.') {
+		// read decimal
+		do forward();
+		while (is_number(peek()));
+	}
+	if ((peek() == 'e') || (peek() == 'E')) {
+		// read exponent
+		forward();
+		if ((peek() == '+') || (peek() == '-')) {
+			// read optional sign
+			forward();
+		}
+		if (!is_number(peek()))
+			return error("Bad exponent");
+		while (is_number(peek()))
+			forward();
+	}
+	// check that there isn't a suffix on the number
+	if (is_var(peek()))
+		return error("Bad number");
+	return make_token(T_NUMBER);
+}
+
+Token
+Lexer::error(std::string const &message) {
+	return make_token(T_ERROR, message);
+}
 
 char
 Lexer::forward() {
 	char c = peek();
-	if (!finished()) {
-		++_pos;
-		if (c == '\n') {
-			++_cur_row;
-			_cur_col = 1;
-		} else ++_cur_col;
-	}
+	if (!finished()) ++_index;
 	return c;
 }
 
 void
-Lexer::skip_line_comment() {
-	while (!finished() && peek() != '\n') forward();
+Lexer::forward(size_t ahead) {
+	while (ahead--) forward();
 }
 
-void
-Lexer::skip_block_comment() {
-	forward();
-	forward();
-	int nest = 1;
-	while (nest > 0) {
-		if (finished()) return;
-		if ((peek() == '/') && peek(1) == '*') {
-			forward(); forward(); ++nest;
-		} else if ((peek() == '*') && peek(1) == '/') {
-			forward(); forward(); --nest;
-		} else forward();
+Token
+Lexer::make_token(TokenType type) {
+	return make_token(type, _text.substr(_start, _index-_start));
+}
+
+Token
+Lexer::make_token(TokenType t, std::string const &txt) {
+	return Token(t, txt, _start, _index);
+}
+
+
+char
+Lexer::peek(int ahead) {
+	if (ahead + _index >= _text.size()) return '\0';
+	return _text[_index + ahead];
+}
+
+
+
+
+Pos
+Lexer::get_pos(int index) {
+	int line = 1, col = 1;
+	if (index < _text.size() && index > 0) {
+		for (char c : _text) {
+			if (--index <= 0) {
+				struct Pos p = {line, col};
+				return p;
+			}
+			if (c == '\n') {
+				++line;
+				col = 1;
+			} else ++col;
+		}
 	}
-}
-
-Token
-Lexer::make_tok(TokenType t) {
-	return make_tok(t, _source.substr(_start, _pos - _start));
-}
-
-Token
-Lexer::make_tok(TokenType t, std::string s) {
-	Position pos(_file, _start_row, _start_col, _cur_row, _cur_col);
-	return Token(t, s, pos);
-}
-
-Token
-Lexer::error(std::string const &msg) {
-	return make_tok(T_ERROR, msg);
+	struct Pos p = {-1, -1};
+	return p;
 }
 
 
-Token
-Lexer::read_number() {
-	while (is_digit(peek())) forward();
-	if (peek() == '.') {
-		// decimal part
-		do forward();
-		while (is_digit(peek()));
-	}
-	if (peek() == 'e' || peek() == 'E') {
-		forward();
-		if (peek() == '+' || peek() == '-')
-			forward();
-		if (!is_digit(peek()))
-			return error("Bad exponent");
-		while (is_digit(peek())) forward();
-	}
-	if (is_ident(peek())) 
-		return error("bad number");
-	return make_tok(T_NUM);
-}
-
-Token
-Lexer::read_var() {
-	while (is_ident(peek())) forward();
-	return make_tok(T_IDENT);
-}
 
 
 

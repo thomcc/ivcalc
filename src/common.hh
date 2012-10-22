@@ -16,7 +16,7 @@
 } while (0)
 
 // assert a condition with no message at runtime.
-#define ASSERT(CND) EXPECT(CND, "Assertation %d is false.", #CND)
+#define ASSERT(CND) EXPECT(CND, "Assertation %s is false.", #CND)
 // assert at runtime that something isn't null.
 #define ASSERT_NOT_NULL(VAL) EXPECT((VAL) != NULL, "Expected %s to be non-null", #VAL)
 
@@ -27,7 +27,11 @@
 	CLASSNAME(CLASSNAME const&); \
 	CLASSNAME &operator=(CLASSNAME const&)
 
-// similar to std::min and std::max, but implemented as macros.
+// just in case.
+#undef min
+#undef max
+
+// make macro usage explicit
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
@@ -56,5 +60,11 @@
 while (false) { \
   *(static_cast<T* volatile*>(0)) = static_cast<S*>(0); \
 }
+
+
+
+#ifndef __has_attribute
+#  define __has_attribute(X) 0
+#endif
 
 #endif
