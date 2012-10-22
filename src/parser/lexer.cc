@@ -1,7 +1,7 @@
 #include "parser/lexer.hh"
 #include "utilities.hh"
 
-namespace numbers {
+namespace calc {
 
 
 

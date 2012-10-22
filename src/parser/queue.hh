@@ -3,9 +3,7 @@
 #include <memory>
 #include "common.hh"
 
-namespace numbers {
-
-// queue of std::unique_ptrs.
+namespace calc {
 
 template <typename T, size_t Size>
 class Queue {

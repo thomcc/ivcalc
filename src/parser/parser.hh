@@ -8,7 +8,7 @@
 #include "parser/lexer.hh"
 #include "parser/queue.hh"
 #include "colors.hh"
-namespace numbers {
+namespace calc {
 
 enum class ELevel {
 	EGeneric,

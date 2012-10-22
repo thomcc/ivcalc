@@ -7,7 +7,7 @@
 
 
 
-namespace numbers {
+namespace calc {
 
 std::string
 strprintf(char const *fmt, ...) {

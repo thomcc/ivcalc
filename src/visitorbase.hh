@@ -3,7 +3,7 @@
 
 #include "common.hh"
 
-namespace numbers {
+namespace calc {
 
 // Acyclic implementation of the visitor pattern, 
 // based on section 10.3 of Modern C++ Design: 

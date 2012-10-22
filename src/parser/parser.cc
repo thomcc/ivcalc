@@ -4,7 +4,7 @@
 #include "parser/lexer.hh"
 #include "utilities.hh"
 #include <cstdio>
-namespace numbers {
+namespace calc {
 
 void
 ErrorHandler::error(std::string const &msg, ELevel lvl) {

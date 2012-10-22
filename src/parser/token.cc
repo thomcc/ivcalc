@@ -2,7 +2,7 @@
 
 
 
-namespace numbers {
+namespace calc {
 
 int
 punct(TokenType t) {

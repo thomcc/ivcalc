@@ -1,3 +1,3 @@
 #include "interval.hh"
-namespace numbers {
+namespace calc {
 }

@@ -3,7 +3,7 @@
 #include "expr.hh"
 #include "visitorbase.hh"
 #include <sstream>
-namespace numbers {
+namespace calc {
 
 class PrintVisitor
 : public BaseVisitor

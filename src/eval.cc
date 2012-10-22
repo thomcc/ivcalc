@@ -1,5 +1,5 @@
 #include "eval.hh"
-namespace numbers {
+namespace calc {
 
 typedef interval (*fn1)(interval const&);
 typedef interval (*fn2)(interval const&,interval const&);

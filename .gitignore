@@ -1,0 +1,8 @@
+*.o
+*.d
+*~
+*.sublime-*
+build/
+*.dSym
+*.a
+

@@ -7,7 +7,7 @@
 #include "common.hh"
 #include "rounding.hh"
 
-namespace numbers {
+namespace calc {
 
 typedef long double number_type;
 

@@ -4,7 +4,7 @@
 #include "print_visitor.hh"
 #include "eval.hh"
 
-using namespace numbers;
+using namespace calc;
 
 std::string get_line(bool continued){
 	std::string line;

@@ -4,7 +4,7 @@
 #include <iostream>
 #include <string>
 
-namespace numbers {
+namespace calc {
 
 // Must be sequential and have no holes
 enum TokenType {

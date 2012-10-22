@@ -4,7 +4,7 @@
 #include "common.hh"
 #include <sstream>
 
-namespace numbers {
+namespace calc {
 
 // format a std::string like sprintf
 

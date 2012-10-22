@@ -5,7 +5,7 @@
 #include <cfenv>
 #include <cmath>
 #include <cassert>
-namespace numbers {
+namespace calc {
 
 
 struct _roundingBase {

@@ -7,7 +7,7 @@
 #include "parser/token.hh"
 #include "visitorbase.hh"
 
-namespace numbers {
+namespace calc {
 class Expr;
 class AddExpr;
 class SubExpr;

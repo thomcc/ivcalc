@@ -4,7 +4,7 @@
 #include "visitorbase.hh"
 #include "interval.hh"
 #include <map>
-namespace numbers {
+namespace calc {
 
 class Env {
 	std::map<std::string, interval> _impl;

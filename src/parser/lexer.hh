@@ -4,7 +4,7 @@
 #include "parser/token.hh"
 #include <memory>
 
-namespace numbers {
+namespace calc {
 
 struct Pos {
 	int line, column;
