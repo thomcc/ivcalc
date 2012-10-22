@@ -61,9 +61,6 @@ repl(int vrb) {
 
 int
 main(int argc, char *argv[]) {
-	interval a(1), b(2);
-	std::cout << "a + b = " << a << " + " << b << " = " << (a + b) << std::endl;
-
 	int v = 0;
 	for (int i = 1; (i+1 < argc) && argv[1][0] == '-'; ++i) {
 		switch (argv[i][1]) {

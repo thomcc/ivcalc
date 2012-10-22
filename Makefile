@@ -28,9 +28,6 @@ run:
 	./bin/main
 
 ${PROGRAMS}: CXXFLAGS += ${TARGET}
-#	@echo BUILD $@
-#	@${CXX} ${CXXFLAGS} ${TARGET} -o $@ $
-
 
 ${TARGET}: CXXFLAGS += -fPIC
 ${TARGET}: build ${OBJECTS}
