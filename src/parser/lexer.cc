@@ -2,7 +2,7 @@
 #include "utilities.hh"
 
 namespace calc {
-
+/*
 
 
 static bool
@@ -10,15 +10,15 @@ is_punct(char c) {
 	switch (c) {
 	case '(': case ')': case ',': case '=':
 	case '+': case '-':	case '*': case '/':
-	case '^': case '|':
+	case '^': case '|': case '[': case ']':
 		return true;
 	default:
 		return false;
 	}
 }
-
+*/
 static inline bool
-starts_var(char c) {
+starts_ident(char c) {
 	if (('a' <= c) && (c <= 'z')) return true;
 	if (('A' <= c) && (c <= 'Z')) return true;
 	if ((c == '_') || (c == '$')) return true;
@@ -31,13 +31,13 @@ is_number(char c) {
 }
 
 static inline bool
-is_var(char c) {
-	return starts_var(c) || is_number(c);
+is_ident(char c) {
+	return starts_ident(c) || is_number(c);
 }
 
 static inline bool
 is_wspace(char c) {
-	return (c == ' ') || (c == '\t') || (c == '\n') || (c == '\r') || (c == '\v');
+	return (c == ' ') || (c == '\t') || (c == '\n') || (c == '\r');
 }
 
 
@@ -48,25 +48,41 @@ Lexer::finished() const {
 
 Token 
 Lexer::next() {
-	while (!finished()) {
+	for (;;) {
+		if (finished()) return make_token(T_EOF, "");
 		_start = _index;
 		char c = forward();
-		if (is_punct(c))
-			return make_token(punct_type(c));
-		if (starts_var(c))
-			return scan_var();
-		if (is_number(c))
-			return scan_number();
-		if (!is_wspace(c))
-			return error(strprintf("Unknown character '%c'", c));
+		switch (c) {
+		case ' ': case '\t': case '\r': case '\n':
+			while (is_wspace(peek())) forward();
+			break;
+		case '(': return make_token(T_LPAREN);
+		case ')': return make_token(T_RPAREN);
+		case '[': return make_token(T_LBRACKET);
+		case ']': return make_token(T_RBRACKET);
+		case '=': return make_token(T_ASSIGN);
+		case ',': return make_token(T_COMMA);
+		case '+': return make_token(T_PLUS);
+		case '-':
+			if (is_number(peek())) return scan_number();
+			return make_token(T_MINUS);
+		case '*': return make_token(T_ASTERISK);
+		case '/': return make_token(T_SLASH);
+		case '^': return make_token(T_CARET);
+		case '.': 
+			if (is_number(peek())) return scan_number();
+			return error("Expected digit after decimal.");
+		default:
+			if (starts_ident(c)) return scan_ident();
+			if (is_number(c)) return scan_number();
+			return error(std::string("Unknown character '")+c+"'");
+		}
 	}
-	// keep returning EOF so the parser can fill it's lookahead.
-	return make_token(T_EOF);
 }
 
 Token
-Lexer::scan_var() {
-	while (is_var(peek())) forward();
+Lexer::scan_ident() {
+	while (is_ident(peek())) forward();
 	return make_token(T_NAME);
 }
 
@@ -92,7 +108,7 @@ Lexer::scan_number() {
 			forward();
 	}
 	// check that there isn't a suffix on the number
-	if (is_var(peek()))
+	if (is_ident(peek()))
 		return error("Bad number");
 	return make_token(T_NUMBER);
 }
@@ -130,32 +146,6 @@ Lexer::peek(int ahead) {
 	if (ahead + _index >= _text.size()) return '\0';
 	return _text[_index + ahead];
 }
-
-
-
-
-Pos
-Lexer::get_pos(int index) {
-	int line = 1, col = 1;
-	if (index < _text.size() && index > 0) {
-		for (char c : _text) {
-			if (--index <= 0) {
-				struct Pos p = {line, col};
-				return p;
-			}
-			if (c == '\n') {
-				++line;
-				col = 1;
-			} else ++col;
-		}
-	}
-	struct Pos p = {-1, -1};
-	return p;
-}
-
-
-
-
 
 }
 

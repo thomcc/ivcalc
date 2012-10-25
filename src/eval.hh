@@ -51,7 +51,8 @@ class Evaluator
 , public Visitor<LitExpr>
 , public Visitor<AssignExpr>
 , public Visitor<CallExpr>
-, public Visitor<EmptyExpr> {
+, public Visitor<EmptyExpr> 
+{
 
 	Env _env;
 	interval _res;
@@ -131,11 +132,10 @@ public:
 			parms.push_back(eval(expr));
 		_res = _env.apply_function(e.name(), parms);
 	}
-	
+
 	void
-	visit(EmptyExpr &e) {
-		assert(false); // ???
-	}
+	visit(EmptyExpr &e) {}
+
 
 };
 

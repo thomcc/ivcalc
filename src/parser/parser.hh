@@ -8,25 +8,37 @@
 #include "parser/lexer.hh"
 #include "parser/queue.hh"
 #include "colors.hh"
+
 namespace calc {
 
-enum class ELevel {
-	EGeneric,
-	EInfo,
-	EWarn,
-	EFatal,
-	EDebug,
-	EBug,
+enum ELevel {
+	E_Error = 31,
+	E_Warn = 33,
+	E_Info = 32,
+	E_Bug = 34,
 };
 
 class ErrorHandler {
+
 	bool _need_lines;
 	bool _repl;
 	int _errors;
+
 public:
-	ErrorHandler() : _need_lines(false), _repl(false), _errors(0) {}
-	void error(std::string const &msg, ELevel lvl=ELevel::EGeneric);
-	
+
+	ErrorHandler()
+	: _need_lines(false)
+	, _repl(true)
+	, _errors(0)
+	{}
+
+	void error(std::string const &msg, int lvl=E_Error);
+
+	bool
+	at_repl() const {
+		return _repl;
+	}
+
 	int
 	errors() const {
 		return _errors;
@@ -43,10 +55,11 @@ public:
 			_need_lines = true;
 	}
 
+	friend std::ostream &operator<<(std::ostream &o, ErrorHandler const &e) {
+		o << "<EH: repl=" << e.at_repl() << " need_lines?=";
+		return o << e.need_lines() << " errors=" << e.errors() << ">";
+	}
 };
-
-// hand written recursive decent parser with 
-// pratt-style operator precedence
 
 class Parser {
 public:
@@ -58,13 +71,6 @@ public:
 	, _on_error(eh)
 	{}
 
-	Parser(std::string const &text)
-	: _lexer(text)
-	, _lookahead()
-	, _last()
-	, _on_error()
-	{}
-
 	ExprSPtr
 	parse_expression() {
 		return parse_expr();
@@ -73,10 +79,8 @@ public:
 
 private:
 	// parses an infix expression
-	// led stands for "Left Denotation"
 	typedef ExprSPtr (Parser::*Led)(ExprSPtr left, Token const &t);
-	// parses a prefix or non-infix expression
-	// Nud stands for "Null Denotation".
+	// parses a prefix expression
 	typedef ExprSPtr (Parser::*Nud)(Token const &t);
 
 	struct Prefix {
@@ -92,12 +96,8 @@ private:
 	static Prefix _prefixes[NUM_TOKEN_TYPES];
 	static Infix _infixes[NUM_TOKEN_TYPES];
 
-//	struct Sym {
-//		Led infix;
-//		Nud prefix;
-//		int precedence;
-//	};
-
+	long double
+	parse_real(std::string const &s);
 
 	ExprSPtr parse_expr(int precedence = 0);
 	int get_precedence();
@@ -107,7 +107,7 @@ private:
 	ExprSPtr group(Token const &t);
 	ExprSPtr p_plus(Token const &t);
 	ExprSPtr p_minus(Token const &t);
-
+	ExprSPtr ival_lit(Token const &t);
 
 	ExprSPtr assign(ExprSPtr lhs, Token const &t);
 	ExprSPtr plus(ExprSPtr lhs, Token const &t);
@@ -118,10 +118,8 @@ private:
 	ExprSPtr call(ExprSPtr lhs, Token const &t);
 
 	bool look_ahead(TokenType t);
-	bool look_ahead(TokenType t, TokenType t2);
 
 	bool match(TokenType t);
-	void expect(TokenType expected, std::string const &error_msg);
 
 	Token consume();
 	Token consume(TokenType expected, std::string const &msg);
@@ -129,9 +127,9 @@ private:
 	void check_line();
 
 	Lexer _lexer;
-	Queue<Token, 2> _lookahead;
+	Queue<Token, 1> _lookahead;
 	Token _last;
-	ErrorHandler _on_error;
+	ErrorHandler &_on_error;
 
 //	static Sym _syms[NUM_TOKEN_TYPES];
 
@@ -139,21 +137,6 @@ private:
 	DISALLOW_COPY_AND_SWAP(Parser);
 };
 
-
-
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 #endif

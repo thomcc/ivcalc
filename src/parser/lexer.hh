@@ -6,10 +6,6 @@
 
 namespace calc {
 
-struct Pos {
-	int line, column;
-};
-
 class Lexer {
 public:
 	Lexer(std::string const &text)
@@ -18,13 +14,11 @@ public:
 	bool finished() const;
 	Token next();
 
-	Pos get_pos(int index);
-
 private:
 	
-	Token scan_var();
+	Token scan_ident();
 	Token scan_number();
-//	Token scan_operator();
+
 	Token error(std::string const &message);
 
 	Token make_token(TokenType type);

@@ -19,6 +19,9 @@
 #define ASSERT(CND) EXPECT(CND, "Assertation %s is false.", #CND)
 // assert at runtime that something isn't null.
 #define ASSERT_NOT_NULL(VAL) EXPECT((VAL) != NULL, "Expected %s to be non-null", #VAL)
+// assert at runtime that the value is within range
+#define RANGE_CHECK(V, MAX) EXPECT((((V) >= 0) && ((V) < (MAX))), "Expected %d to be in range [0, %d)", ((int)(V)), ((int)(MAX)))
+
 
 // needs to be in a `private` section, and will expand to the copy constructor
 // and the assignment operator, disallowing, as its name suggests,

@@ -3,13 +3,15 @@
 #include <cstdio>
 #include <iostream>
 #include <string>
-
+#include <sstream>
 namespace calc {
 
 // Must be sequential and have no holes
 enum TokenType {
 	T_LPAREN = 0,
 	T_RPAREN,
+	T_LBRACKET,
+	T_RBRACKET,
 	T_COMMA,
 	T_ASSIGN,
 	T_PLUS,
@@ -26,6 +28,9 @@ enum TokenType {
 	T_ERROR,
 	NUM_TOKEN_TYPES
 };
+
+std::string
+type_name(TokenType tt);
 
 class Token {
 	
@@ -62,11 +67,19 @@ public:
 		return _type == tt;
 	}
 
+	std::string
+	describe() const {
+		std::stringstream ss;
+		ss << "<Token [" << type_name(_type) << "] '" << _text << "' (" << _start << " -> " << _end << ")>";
+		return ss.str();
+	}
+
+
 };
 
 inline std::ostream&
 operator<<(std::ostream &o, Token const &token) {
-	return o << token.text();
+	return o << token.describe();//token.text();
 }
 
 int

@@ -30,63 +30,68 @@ public:
 	
 	virtual ~Expr() {}
 
-	virtual AddExpr*
-	as_add_expr() { 
+	virtual AddExpr const*
+	as_add_expr() const { 
 		return NULL; 
 	}
 
-	virtual SubExpr*
-	as_sub_expr() { 
+	virtual SubExpr const*
+	as_sub_expr() const { 
 		return NULL; 
 	}
 
-	virtual NegExpr*
-	as_neg_expr() { 
+	virtual NegExpr const*
+	as_neg_expr() const { 
 		return NULL; 
 	}
 
-	virtual MulExpr*
-	as_mul_expr() { 
+	virtual MulExpr const*
+	as_mul_expr() const { 
 		return NULL; 
 	}
 
-	virtual DivExpr*
-	as_div_expr() { 
+	virtual DivExpr const*
+	as_div_expr() const { 
 		return NULL; 
 	}
 
-	virtual VarExpr*
-	as_var_expr() { 
+	virtual VarExpr const*
+	as_var_expr() const { 
 		return NULL; 
 	}
 
-	virtual ExptExpr*
-	as_expt_expr() { 
+	virtual ExptExpr const*
+	as_expt_expr() const { 
 		return NULL; 
 	}
 
-	virtual LitExpr*
-	as_lit_expr() {
+	virtual LitExpr const*
+	as_lit_expr() const {
 		return NULL;
 	}
 
-	virtual AssignExpr*
-	as_assign_expr() {
+	virtual AssignExpr const*
+	as_assign_expr() const {
 		return NULL;
 	}
 
-	virtual CallExpr*
-	as_call_expr() {
+	virtual CallExpr const*
+	as_call_expr() const {
 		return NULL;
 	}
 
-	virtual EmptyExpr*
-	as_empty_expr() {
+	virtual EmptyExpr const*
+	as_empty_expr() const {
 		return NULL;
 	}
 
 	virtual bool
 	is_constant() const {
+		return false;
+	}
+
+	virtual bool
+	operator==(Expr const &other) const {
 		return false;
 	}
 
@@ -99,8 +104,8 @@ public:
 	AddExpr(ExprSPtr lhs, ExprSPtr rhs)
 	: _lhs(lhs), _rhs(rhs) {}
 
-	virtual AddExpr *
-	as_add_expr() {
+	AddExpr const*
+	as_add_expr() const {
 		return this;
 	}
 
@@ -114,9 +119,16 @@ public:
 		return _lhs;
 	}
 
-	virtual bool
+	bool
 	is_constant() const {
 		return _lhs->is_constant() && _rhs->is_constant();
+	}
+
+	bool
+	operator==(Expr const &other) const {
+		if (AddExpr const *e = other.as_add_expr())
+			return (*_lhs == *e->lhs()) && (*_rhs == *e->rhs());
+		return false;
 	}
 
 	VISITABLE()
@@ -130,8 +142,8 @@ public:
 	SubExpr(ExprSPtr lhs, ExprSPtr rhs)
 	: _lhs(lhs), _rhs(rhs) {}
 
-	virtual SubExpr*
-	as_sub_expr() {
+	SubExpr const*
+	as_sub_expr() const {
 		return this;
 	}
 
@@ -145,9 +157,16 @@ public:
 		return _lhs;
 	}
 
-	virtual bool
+	bool
 	is_constant() const {
 		return _lhs->is_constant() && _rhs->is_constant();
+	}
+
+	bool
+	operator==(Expr const &other) const {
+		if (SubExpr const *e = other.as_sub_expr())
+			return (*_lhs == *e->lhs()) && (*_rhs == *e->rhs());
+		return false;
 	}
 
 	VISITABLE()
@@ -166,14 +185,21 @@ public:
 		return _value;
 	}
 
-	virtual NegExpr *
-	as_neg_expr() {
+	NegExpr const*
+	as_neg_expr() const {
 		return this;
 	}
 
-	virtual bool
+	bool
 	is_constant() const {
 		return _value->is_constant();
+	}
+
+	bool
+	operator==(Expr const &other) const {
+		if (NegExpr const *e = other.as_neg_expr()) 
+			return *_value == *e->value();
+		return false;
 	}
 
 	VISITABLE()
@@ -187,8 +213,8 @@ public:
 	MulExpr(ExprSPtr lhs, ExprSPtr rhs)
 	: _lhs(lhs), _rhs(rhs) {}
 
-	virtual MulExpr *
-	as_mul_expr() {
+	MulExpr const*
+	as_mul_expr() const {
 		return this;
 	}
 	
@@ -202,9 +228,16 @@ public:
 		return _lhs;
 	}
 
-	virtual bool
+	bool
 	is_constant() const {
 		return _lhs->is_constant() && _rhs->is_constant();
+	}
+
+	bool
+	operator==(Expr const &other) const {
+		if (MulExpr const *e = other.as_mul_expr())
+			return (*_lhs == *e->lhs()) && (*_rhs == *e->rhs());
+		return false;
 	}
 
 	VISITABLE()
@@ -218,8 +251,8 @@ public:
 	DivExpr(ExprSPtr lhs, ExprSPtr rhs)
 	: _lhs(lhs), _rhs(rhs) {}
 
-	virtual DivExpr *
-	as_div_expr() {
+	DivExpr const*
+	as_div_expr() const {
 		return this;
 	}
 	
@@ -233,9 +266,16 @@ public:
 		return _lhs;
 	}
 
-	virtual bool
+	bool
 	is_constant() const {
 		return _lhs->is_constant() && _rhs->is_constant();
+	}
+
+	bool
+	operator==(Expr const &other) const {
+		if (DivExpr const *e = other.as_div_expr())
+			return (*_lhs == *e->lhs()) && (*_rhs == *e->rhs());
+		else return false;
 	}
 
 
@@ -249,8 +289,8 @@ public:
 	VarExpr(std::string const &name)
 	: _name(name) {}
 
-	virtual VarExpr *
-	as_var_expr() {
+	VarExpr const *
+	as_var_expr() const {
 		return this;
 	}
 
@@ -259,8 +299,14 @@ public:
 		return _name;
 	}
 
-	virtual bool
+	bool
 	is_constant() const {
+		return false;
+	}
+
+	bool
+	operator==(Expr const &other) const {
+		if (VarExpr const *e = other.as_var_expr()) return _name == e->name();
 		return false;
 	}
 
@@ -283,8 +329,8 @@ public:
 		return _power;
 	}
 
-	virtual ExptExpr*
-	as_expt_expr() {
+	ExptExpr const*
+	as_expt_expr() const {
 		return this;
 	}
 
@@ -293,9 +339,16 @@ public:
 		return _base;
 	}
 
-	virtual bool
+	bool
 	is_constant() const {
 		return _base->is_constant();
+	}
+
+	bool
+	operator==(Expr const &other) const {
+		if (ExptExpr const *e = other.as_expt_expr())
+			return (_power == e->power()) && (*_base == *e->base());
+		return false;
 	}
 
 	VISITABLE()
@@ -310,9 +363,11 @@ public:
 	: _value(v) {}
 	LitExpr(interval const &value)
 	: _value(value) {}
+	LitExpr(interval &&value)
+	: _value(value) {}
 
-	virtual LitExpr*
-	as_lit_expr() {
+	LitExpr const*
+	as_lit_expr() const {
 		return this;
 	}
 
@@ -321,9 +376,15 @@ public:
 		return _value;
 	}
 
-	virtual bool
+	bool
 	is_constant() const {
 		return true;
+	}
+
+	bool
+	operator==(Expr const &other) const {
+		if (LitExpr const *e = other.as_lit_expr()) return _value == e->value();
+		return false;
 	}
 
 	VISITABLE()
@@ -339,8 +400,8 @@ public:
 	AssignExpr(std::string const &name, ExprSPtr value)
 	: _name(name), _value(value) {}
 
-	virtual AssignExpr *
-	as_assign_expr() {
+	AssignExpr const*
+	as_assign_expr() const {
 		return this;
 	}
 
@@ -354,8 +415,15 @@ public:
 		return _value;
 	}
 
-	virtual bool
+	bool
 	is_constant() const {
+		return false;
+	}
+
+	bool
+	operator==(Expr const &other) const {
+		if (AssignExpr const *e = other.as_assign_expr()) 
+			return _name == e->name() && (*_value == *e->value());
 		return false;
 	}
 
@@ -373,8 +441,8 @@ public:
 	CallExpr(std::string const &name, std::vector<ExprSPtr> const &args)
 	: _name(name), _args(args) {}
 
-	virtual CallExpr *
-	as_call_expr() {
+	CallExpr const*
+	as_call_expr() const {
 		return this;
 	}
 
@@ -388,17 +456,27 @@ public:
 		return _args;
 	}
 
-	virtual bool
+	bool
 	is_constant() const {
 		for (ExprSPtr arg : _args)
 			if (!arg->is_constant()) return false;
 		return true;
 	}
 
-	virtual ReturnType
-	Accept(BaseVisitor &v) {
-
+	bool
+	operator==(Expr const &other) const {
+		if (CallExpr const*e = other.as_call_expr()) {
+			if (_name != e->name()) return false;
+			if (_args.size() != e->args().size()) return false;
+			std::vector<ExprSPtr> const &eargs = e->args();
+			for (size_t i = 0; i < _args.size(); ++i)
+				if (!(*_args.at(i) == *eargs.at(i)))
+					return false;
+			return true;
+		} else return false;
 	}
+
+
 	VISITABLE()
 
 private:
@@ -410,9 +488,14 @@ class EmptyExpr : public Expr {
 public:
 	EmptyExpr() {}
 
-	virtual EmptyExpr*
-	as_empty_expr() {
+	EmptyExpr const*
+	as_empty_expr() const {
 		return this;
+	}
+
+	bool
+	operator==(Expr const &other) const {
+		return other.as_empty_expr() ? true : false;
 	}
 
 	VISITABLE()

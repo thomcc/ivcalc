@@ -5,14 +5,14 @@
 
 namespace calc {
 
-template <typename T, size_t Size>
+template <typename T, int Size>
 class Queue {
 public:
 	typedef T ElementType;
 	
 	Queue() : _head(0), _count(0) {}
 
-	size_t
+	int
 	count() const {
 		return _count;
 	}
@@ -22,7 +22,7 @@ public:
 		return _count == 0;
 	}
 
-	size_t
+	int
 	capacity() const {
 		return Size;
 	}
@@ -33,34 +33,49 @@ public:
 	}
 
 	void
-	enqueue(ElementType &item) {
+	enqueue(ElementType const &item) {
 		ASSERT(_count < Size);
+
 		_items[_head] = item;
+		
 		_head = _wrap(_head + 1);
+		
 		++_count;
 	}
 
 	ElementType
 	dequeue() {
-		ASSERT(_count != 0);
-		size_t tail = _wrap(_head - _count);
+		ASSERT(_count > 0);
+		int tail = _wrap(_head - _count);
+		ElementType item = _items[tail];
+		_items[tail] = ElementType();
 		--_count;
-		return _items[tail];
+		return item;
 	}
 
 	ElementType const &
-	operator[](size_t idx) {
+	operator[](int idx) const {
+		RANGE_CHECK(idx, _count);
 		return _items[_wrap(_head - _count + idx)];
+	}
+
+	friend std::ostream&
+	operator<<(std::ostream &o, Queue const &q) {
+		if (q.is_empty()) return o << "{|<empty queue>|}";
+		o << "{";
+		for (int i = 0; i < q.count(); ++i) 
+			o << (i ? " | " : "| ") << q[i];
+		return o << "|}";
 	}
 
 private:
 
-	size_t _head, _count;
+	int _head, _count;
 	
 	ElementType _items[Size];
 
 	inline int
-	_wrap(size_t idx) const {
+	_wrap(int idx) const {
 		return (idx + Size) % Size;
 	}
 
