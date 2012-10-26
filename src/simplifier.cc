@@ -3,15 +3,15 @@
 namespace calc {
 
 ExprSPtr
-Simplifier::simplify(ExprSPtr e) {
-	e->accept(*this);
+Simplifier::simplify(Expr &e) {
+	e.accept(*this);
 	return _simplified;
 }
 
 void
 Simplifier::visit(AddExpr &e) {
-	ExprSPtr l = simplify(e.lhs());
-	ExprSPtr r = simplify(e.rhs());
+	ExprSPtr l = simplify(*e.lhs());
+	ExprSPtr r = simplify(*e.rhs());
 	LitExpr const *ll = l->as_lit_expr();
 	LitExpr const *rl = r->as_lit_expr();
 	if (ll && rl)
@@ -26,8 +26,8 @@ Simplifier::visit(AddExpr &e) {
 
 void
 Simplifier::visit(SubExpr &e) {
-	ExprSPtr l = simplify(e.lhs());
-	ExprSPtr r = simplify(e.rhs());
+	ExprSPtr l = simplify(*e.lhs());
+	ExprSPtr r = simplify(*e.rhs());
 	LitExpr const *ll = l->as_lit_expr();
 	LitExpr const *rl = r->as_lit_expr();
 	if (ll && rl)
@@ -42,7 +42,7 @@ Simplifier::visit(SubExpr &e) {
 
 void
 Simplifier::visit(NegExpr &e) {
-	ExprSPtr v = simplify(e.value());
+	ExprSPtr v = simplify(*e.value());
 	if (LitExpr const *lv = v->as_lit_expr())
 		_simplified = ExprSPtr(new LitExpr(-lv->value()));
 	else
@@ -51,8 +51,8 @@ Simplifier::visit(NegExpr &e) {
 
 void
 Simplifier::visit(MulExpr &e) {
-	ExprSPtr l = simplify(e.lhs());
-	ExprSPtr r = simplify(e.rhs());
+	ExprSPtr l = simplify(*e.lhs());
+	ExprSPtr r = simplify(*e.rhs());
 	LitExpr const *ll = l->as_lit_expr();
 	LitExpr const *rl = r->as_lit_expr();
 	if (ll && rl) {
@@ -70,8 +70,8 @@ Simplifier::visit(MulExpr &e) {
 
 void
 Simplifier::visit(DivExpr &e) {
-	ExprSPtr l = simplify(e.lhs());
-	ExprSPtr r = simplify(e.rhs());
+	ExprSPtr l = simplify(*e.lhs());
+	ExprSPtr r = simplify(*e.rhs());
 	LitExpr const *ll = l->as_lit_expr();
 	LitExpr const *rl = r->as_lit_expr();
 	if (ll && rl) {
@@ -89,7 +89,7 @@ Simplifier::visit(DivExpr &e) {
 	else if (rl && rl->value().is_one()) {
 		_simplified = l;
 	} else 
-		_simplified = ExprSPtr(new MulExpr(l, r));
+		_simplified = ExprSPtr(new DivExpr(l, r));
 }
 
 void
@@ -100,11 +100,11 @@ Simplifier::visit(VarExpr &e) {
 void
 Simplifier::visit(ExptExpr &e) {
 	if (e.power() == 0) _simplified = ExprSPtr(new LitExpr(1));
-	else if (e.power() == 1) _simplified = simplify(e.base());
+	else if (e.power() == 1) _simplified = simplify(*e.base());
 	else {
-		ExprSPtr eb = simplify(e.base());
+		ExprSPtr eb = simplify(*e.base());
 		LitExpr const *l = eb->as_lit_expr();
-		if (l->value().is_one() || l->value().is_zero()) _simplified = eb;
+		if (l && (l->value().is_one() || l->value().is_zero())) _simplified = eb;
 		else _simplified = ExprSPtr(new ExptExpr(e.power(), eb));
 	}
 }
@@ -113,5 +113,26 @@ void
 Simplifier::visit(LitExpr &e) {
 	_simplified = ExprSPtr(new LitExpr(e.value()));
 }
+
+void
+Simplifier::visit(AssignExpr &e) {
+	ExprSPtr rhs = simplify(*e.value());
+	_simplified = ExprSPtr(new AssignExpr(e.name(), rhs));
+}
+
+void
+Simplifier::visit(CallExpr &e) {
+	std::vector<ExprSPtr> nargs;
+	for (ExprSPtr oa : e.args())
+		nargs.push_back(simplify(*oa));
+	_simplified = ExprSPtr(new CallExpr(e.name(), nargs));
+}
+
+void
+Simplifier::visit(EmptyExpr &e) {
+	_simplified = ExprSPtr(new EmptyExpr);
+}
+
+
 
 }

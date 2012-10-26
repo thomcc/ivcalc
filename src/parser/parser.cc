@@ -10,6 +10,7 @@ void
 ErrorHandler::error(std::string const &msg, int lvl) {
 	if (_need_lines) return;
 	++_errors;
+	if (_silent) return;
 	std::string prefix = "[", suffix = "]";
 	if (isatty(STDERR_FILENO)) { // ansi escape code magic
 		std::string level = stringize() << lvl;

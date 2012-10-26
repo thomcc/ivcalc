@@ -31,38 +31,38 @@ public:
 	virtual ~Expr() {}
 
 	virtual AddExpr const*
-	as_add_expr() const { 
-		return NULL; 
+	as_add_expr() const {
+		return NULL;
 	}
 
 	virtual SubExpr const*
-	as_sub_expr() const { 
-		return NULL; 
+	as_sub_expr() const {
+		return NULL;
 	}
 
 	virtual NegExpr const*
-	as_neg_expr() const { 
-		return NULL; 
+	as_neg_expr() const {
+		return NULL;
 	}
 
 	virtual MulExpr const*
-	as_mul_expr() const { 
-		return NULL; 
+	as_mul_expr() const {
+		return NULL;
 	}
 
 	virtual DivExpr const*
-	as_div_expr() const { 
-		return NULL; 
+	as_div_expr() const {
+		return NULL;
 	}
 
 	virtual VarExpr const*
-	as_var_expr() const { 
-		return NULL; 
+	as_var_expr() const {
+		return NULL;
 	}
 
 	virtual ExptExpr const*
-	as_expt_expr() const { 
-		return NULL; 
+	as_expt_expr() const {
+		return NULL;
 	}
 
 	virtual LitExpr const*
@@ -87,6 +87,16 @@ public:
 
 	virtual bool
 	is_constant() const {
+		return false;
+	}
+
+	virtual bool
+	is_lit_zero() const {
+		return false;
+	}
+
+	virtual bool
+	is_lit_one() const {
 		return false;
 	}
 
@@ -379,6 +389,16 @@ public:
 	bool
 	is_constant() const {
 		return true;
+	}
+
+	bool
+	is_lit_zero() const {
+		return _value.is_zero();
+	}
+
+	bool
+	is_lit_one() const {
+		return _value.is_one();
 	}
 
 	bool

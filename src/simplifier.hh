@@ -16,16 +16,16 @@ class Simplifier
 , public Visitor<VarExpr>
 , public Visitor<ExptExpr>
 , public Visitor<LitExpr>
-//, public Visitor<CallExpr>// hrm.
-//, public Visitor<EmptyExpr> 
-//, public Visitor<AssignExpr>
+, public Visitor<CallExpr>
+, public Visitor<EmptyExpr> 
+, public Visitor<AssignExpr>
 {
 	ExprSPtr _simplified;
 public:
 
 	Simplifier() {}
 
-	ExprSPtr simplify(ExprSPtr e);
+	ExprSPtr simplify(Expr &e);
 	void visit(AddExpr &e);
 	void visit(SubExpr &e);
 	void visit(NegExpr &e);
@@ -34,9 +34,9 @@ public:
 	void visit(VarExpr &e);
 	void visit(ExptExpr &e);
 	void visit(LitExpr &e);
-//	void visit(AssignExpr &e);
-//	void visit(CallExpr &e);
-//	void visit(EmptyExpr &e);
+	void visit(AssignExpr &e);
+	void visit(CallExpr &e);
+	void visit(EmptyExpr &e);
 
 
 };

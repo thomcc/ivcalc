@@ -15,7 +15,7 @@ template <typename Rounding>
 class Interval {
 public:
 	Interval(number_type lo, number_type hi) {
-		if (lo < hi) std::swap(lo, hi);
+		if (lo > hi) std::swap(lo, hi);
 		Rounding c;
 		_lo = c.r_down(lo);
 		_hi = c.r_up(hi);

@@ -22,13 +22,15 @@ class ErrorHandler {
 
 	bool _need_lines;
 	bool _repl;
+	bool _silent;
 	int _errors;
 
 public:
 
-	ErrorHandler()
+	ErrorHandler(bool silent=false, bool repl=true)
 	: _need_lines(false)
-	, _repl(true)
+	, _repl(repl)
+	, _silent(silent)
 	, _errors(0)
 	{}
 

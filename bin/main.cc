@@ -1,7 +1,8 @@
 #include "common.hh"
 #include "interval.hh"
 #include "parser/parser.hh"
-#include "print_visitor.hh"
+#include "printer.hh"
+#include "simplifier.hh"
 #include "eval.hh"
 #include <cstdio>
 #include <cstdlib>
@@ -49,7 +50,8 @@ repl(int vrb) {
 	std::cout << "Press Ctrl+C to exit" << std::endl;
 	std::cout << std::endl;
 	Evaluator e;
-	PrintVisitor print(std::cout, true);
+	Simplifier s;
+	Printer print(std::cout, true);
 	for (;;) {
 		std::string src;
 		ExprSPtr expr;
@@ -77,17 +79,42 @@ repl(int vrb) {
 		}
 		if (expr.get()) {
 			if (vrb) {
-				if (vrb > 2) std::cout << "PRINT" << std::endl;
-				print.print(expr);
+				if (vrb > 2) std::cout << "READ: ";
+				print.print(*expr);
 				std::cout << std::endl;
 			}
-			if (vrb > 2) std::cout << "EVAL" << std::endl;
+			
+			ExprSPtr simplified;
+
+			if (vrb > 2) std::cout << "SIMPLIFY: ";
+						
+			try {
+				simplified = s.simplify(*expr);
+				print.print(*simplified);
+			} catch (std::string s) {
+				std::cout << std::endl << "Error: " << s;
+			}
+			std::cout << std::endl;
+
+			if (vrb > 2) std::cout << "EVAL (NOSIMP): ";
 			try {
 				interval res = e.eval(expr);
 				print.print_interval(res);
 			} catch (std::string s) {
-				std::cout << "Error: " << s;
+				std::cout << std::endl << "Error: " << s;
 			}
+
+			std::cout << std::endl;
+			
+			if (vrb > 2) std::cout << "EVAL (SIMP): ";
+			try {
+				interval res = e.eval(simplified);
+				print.print_interval(res);
+			} catch (std::string s) {
+				std::cout << std::endl << "Error: " << s;
+			}
+			
+
 			std::cout << std::endl;
 		} else {
 			std::cerr << "Error: NULL expr!" << std::endl;

@@ -1,5 +1,5 @@
-#ifndef __QUEUE_TEST_HH__
-#define __QUEUE_TEST_HH__
+#ifndef __QUEUE_TESTS_HH__
+#define __QUEUE_TESTS_HH__
 
 #include "test.hh"
 

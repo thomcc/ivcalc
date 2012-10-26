@@ -1,4 +1,4 @@
-#include "queue_test.hh"
+#include "queue_tests.hh"
 #include "parser/queue.hh"
 namespace calc {
 

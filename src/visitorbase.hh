@@ -5,11 +5,6 @@
 
 namespace calc {
 
-// Acyclic implementation of the visitor pattern, 
-// based on section 10.3 of Modern C++ Design: 
-// Generic Programming and Design Patterns Applied
-// by Andrei Alexandrescu
-
 class BaseVisitor {
 public:
 	virtual ~BaseVisitor() {}
