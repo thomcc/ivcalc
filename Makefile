@@ -23,16 +23,22 @@ TARGET = build/libcalc.a
 rebuild: clean
 rebuild: all
 
-all: ${TARGET} tests ${PROGRAMS}
+all: ${TARGET} tests ${PROGRAMS} run_tests
 
 
 #tests: CXXFLAGS += ${TARGET}
 tests: ${TESTS}
 	@echo LINK ${TESTMAIN}
 	@${CXX} ${CXXFLAGS} ${TARGET} ${TESTS} -o ${TESTMAIN}
-	./${TESTMAIN}
+
+run_tests:
+	@echo running tests...
+	@./${TESTMAIN}
 
 ${PROGRAMS}: CXXFLAGS += ${TARGET}
+${PROGRAMS}:
+	@echo CC ${addsuffix .cc, $@}
+	@${CXX} ${CXXFLAGS} ${addsuffix .cc, $@} -o $@
 
 ${TARGET}: CXXFLAGS += -fPIC
 ${TARGET}: build ${OBJECTS}
@@ -54,4 +60,4 @@ clean:
 	@rm -rf `find . -name "*.dSYM" -print`
 
 
-.PHONY: clean all rebuild run build tests
+.PHONY: clean all rebuild run build tests run_tests

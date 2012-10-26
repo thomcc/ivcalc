@@ -35,9 +35,9 @@ void
 Derivator::visit(MulExpr &e) {
 	ExprSPtr left = derive(e.lhs());
 	ExprSPtr right = derive(e.rhs());
-	ExprSPtr rr(new MulExpr(e.lhs(), right));
-	ExprSPtr ll(new MulExpr(left, e.rhs()));
-	_derived = ExprSPtr(new AddExpr(ll, rr));
+	ExprSPtr rr(new MulExpr(right, e.lhs()));
+	ExprSPtr ll(new MulExpr(e.rhs(), left));
+	_derived = ExprSPtr(new AddExpr(rr, ll));
 }
 
 void
@@ -45,16 +45,18 @@ Derivator::visit(DivExpr &e) {
 	ExprSPtr dl = derive(e.lhs());
 	ExprSPtr dr = derive(e.rhs());
 	ExprSPtr denom(new ExptExpr(2, e.rhs()));
-	ExprSPtr nl(new MulExpr(dl, e.lhs()));
-	ExprSPtr nr(new MulExpr(dr, e.rhs()));
+	ExprSPtr nl(new MulExpr(e.rhs(), dl));
+	ExprSPtr nr(new MulExpr(dr, e.lhs()));
 	ExprSPtr numer(new SubExpr(nl, nr));
 	_derived = ExprSPtr(new DivExpr(numer, denom));
 }
 
 void
 Derivator::visit(VarExpr &e) {
-	if (e.name() == _var) _derived = ExprSPtr(new LitExpr(1));
-	else _derived = ExprSPtr(new LitExpr(1));
+	if (e.name() == _var)
+		_derived = ExprSPtr(new LitExpr(1));
+	else
+		_derived = ExprSPtr(new LitExpr(0));
 }
 
 void

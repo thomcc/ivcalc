@@ -2,6 +2,10 @@
 #define __TEST_HH__
 
 #include <iostream>
+#include <string>
+#include <vector>
+#include <memory>
+
 #include "common.hh"
 #include "colors.hh"
 
@@ -9,6 +13,7 @@
 #define CheckNot(cnd) Check(!(cnd))
 #define CheckMsg(cnd, msg) _msg_check(__FILE__, __LINE__, __func__, msg, cnd)
 #define CheckEq(expected, actual) _eql_check(__FILE__, __LINE__, __func__, #actual, expected, actual);
+#define CheckNull(val) _null_check(__FILE__, __LINE__, __func__, #val, val)
 
 
 namespace calc {
@@ -26,7 +31,7 @@ public:
 
 	static void summary();
 
-	static int 
+	static int
 	failures() {
 		return _failures;
 	}
@@ -50,10 +55,10 @@ private:
 
 
 protected:
-	
+
 	static enum verbosity _verbosity;
 
-	static void 
+	static bool
 	_check(char const *file,
 	       int line,
 	       char const *func,
@@ -64,15 +69,16 @@ protected:
 			++_failures;
 			if (_verbosity > quiet) {
 				cout << R_BOLD("Failed")" @ (";
-				cout << file << " : " << func << " : " << line << "): "; 
+				cout << file << " : " << func << " : " << line << "): ";
 				cout << expr << " was false." << endl;
 			}
 		} else if (_verbosity == verbose) {
 			cout << G_BOLD("Passed") ": " << expr << endl;
 		}
+		return cnd;
 	}
 
-	static void
+	static bool
 	_msg_check(char const *file,
 	           int line,
 	           char const *func,
@@ -89,30 +95,53 @@ protected:
 		} else if (_verbosity == verbose) {
 			cout << G_BOLD("Passed") ": " << msg << endl;
 		}
+		return cnd;
 	}
 
 	template <typename L, typename R>
-	static void
+	static bool
 	_eql_check(char const *file,
 	           int line,
 	           char const *func,
-	           char const *expr, 
+	           char const *expr,
 	           L const &val_lhs,
 	           R const &val_rhs) {
 		++_tests;
-		if (!(val_lhs == val_rhs)) {
+		bool okay = val_lhs == val_rhs;
+		if (!okay) {
 			++_failures;
 			if (_verbosity > quiet) {
 				cout << R_BOLD("Failed")" @ (";
 				cout << file << " : " << func << " : " << line << "): ";
-				cout << "Expected that" << expr << " == " << val_lhs;
+				cout << "Expected " << expr << " == " << val_lhs;
 				cout << ", got " << val_rhs << "." << endl;
 			}
 		} else if (_verbosity == verbose) {
 			cout << G_BOLD("Passed") ": " << expr << " == " << val_lhs << endl;
 		}
+		return okay;
 	}
 
+	template <typename T>
+	static T*
+	_null_check(char const *file,
+	            int line,
+	            char const *func,
+	            char const *expr,
+	            T *val) {
+		++_tests;
+		if (val == nullptr) {
+			++_failures;
+			if (_verbosity > quiet) {
+				cout << R_BOLD("Failed")" @ (";
+				cout << file << " : " << func << " : " << line << "): ";
+				cout << "Expected " << expr << " not null." << endl;
+			}
+		} else if (_verbosity == verbose) {
+			cout << G_BOLD("Passed") ": " << expr << " is not null." << endl;
+		}
+		return val;
+	}
 
 
 };

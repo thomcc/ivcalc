@@ -22,7 +22,11 @@ Test::summary() {
 
 void
 Test::run() {
-	run_tests();
+	try {
+		run_tests();
+	} catch (...) {
+		CheckMsg(false, "Failure: uncaught exception");
+	}
 }
 
 
