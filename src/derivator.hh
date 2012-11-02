@@ -17,7 +17,7 @@ class Derivator
 , public Visitor<ExptExpr>
 , public Visitor<LitExpr>
 //, public Visitor<CallExpr>// hrm.
-//, public Visitor<EmptyExpr> 
+//, public Visitor<EmptyExpr>
 //, public Visitor<AssignExpr>
 {
 
@@ -28,7 +28,7 @@ public:
 	Derivator(std::string const &v);
 
 
-	ExprSPtr derive(ExprSPtr e);
+	ExprSPtr derive(Expr &e);
 	void visit(AddExpr &e);
 	void visit(SubExpr &e);
 	void visit(NegExpr &e);

@@ -2,75 +2,75 @@
 
 namespace calc {
 Derivator::Derivator(std::string const &v)
-: _var(v), _derived(new LitExpr(0)) {}
+: _var(v), _derived(Expr::make<LitExpr>(0)) {}
 
 ExprSPtr
-Derivator::derive(ExprSPtr e) {
+Derivator::derive(Expr &e) {
 	_derived = NULL;
-	e->accept(*this);
+	e.accept(*this);
 	return _derived;
 }
 
 void
 Derivator::visit(AddExpr &e) {
-	ExprSPtr left = derive(e.lhs());
-	ExprSPtr right = derive(e.rhs());
-	_derived = ExprSPtr(new AddExpr(left, right));
+	ExprSPtr left = derive(*e.lhs());
+	ExprSPtr right = derive(*e.rhs());
+	_derived = Expr::make<AddExpr>(left, right);
 }
 
 void
 Derivator::visit(SubExpr &e) {
-	ExprSPtr left = derive(e.lhs());
-	ExprSPtr right = derive(e.rhs());
-	_derived = ExprSPtr(new SubExpr(left, right));
+	ExprSPtr left = derive(*e.lhs());
+	ExprSPtr right = derive(*e.rhs());
+	_derived = Expr::make<SubExpr>(left, right);
 }
 
 void
 Derivator::visit(NegExpr &e) {
-	ExprSPtr v = derive(e.value());
-	_derived = ExprSPtr(new NegExpr(v));
+	ExprSPtr v = derive(*e.value());
+	_derived = Expr::make<NegExpr>(v);
 }
 
 void
 Derivator::visit(MulExpr &e) {
-	ExprSPtr left = derive(e.lhs());
-	ExprSPtr right = derive(e.rhs());
-	ExprSPtr rr(new MulExpr(right, e.lhs()));
-	ExprSPtr ll(new MulExpr(e.rhs(), left));
-	_derived = ExprSPtr(new AddExpr(rr, ll));
+	ExprSPtr left = derive(*e.lhs());
+	ExprSPtr right = derive(*e.rhs());
+	ExprSPtr rr = Expr::make<MulExpr>(right, e.lhs());
+	ExprSPtr ll = Expr::make<MulExpr>(e.rhs(), left);
+	_derived = Expr::make<AddExpr>(rr, ll);
 }
 
 void
 Derivator::visit(DivExpr &e) {
-	ExprSPtr dl = derive(e.lhs());
-	ExprSPtr dr = derive(e.rhs());
-	ExprSPtr denom(new ExptExpr(2, e.rhs()));
-	ExprSPtr nl(new MulExpr(e.rhs(), dl));
-	ExprSPtr nr(new MulExpr(dr, e.lhs()));
-	ExprSPtr numer(new SubExpr(nl, nr));
-	_derived = ExprSPtr(new DivExpr(numer, denom));
+	ExprSPtr dl = derive(*e.lhs());
+	ExprSPtr dr = derive(*e.rhs());
+	ExprSPtr denom = Expr::make<ExptExpr>(e.rhs(), 2);
+	ExprSPtr nl = Expr::make<MulExpr>(e.rhs(), dl);
+	ExprSPtr nr = Expr::make<MulExpr>(dr, e.lhs());
+	ExprSPtr numer = Expr::make<SubExpr>(nl, nr);
+	_derived = Expr::make<DivExpr>(numer, denom);
 }
 
 void
 Derivator::visit(VarExpr &e) {
 	if (e.name() == _var)
-		_derived = ExprSPtr(new LitExpr(1));
+		_derived = Expr::make<LitExpr>(1);
 	else
-		_derived = ExprSPtr(new LitExpr(0));
+		_derived = Expr::make<LitExpr>(0);
 }
 
 void
 Derivator::visit(ExptExpr &e) {
-	ExprSPtr left = derive(e.base());
-	ExprSPtr pc(new LitExpr(e.power()));
-	ExprSPtr npow(new ExptExpr(e.power()-1, e.base()));
-	ExprSPtr mul(new MulExpr(left, npow));
-	_derived = ExprSPtr(new MulExpr(pc, mul));
+	ExprSPtr left = derive(*e.base());
+	ExprSPtr pc = Expr::make<LitExpr>(e.power());
+	ExprSPtr npow = Expr::make<ExptExpr>(e.base(), e.power()-1);
+	ExprSPtr mul = Expr::make<MulExpr>(left, npow);
+	_derived = Expr::make<MulExpr>(pc, mul);
 }
 
 void
 Derivator::visit(LitExpr &e) {
-	_derived = ExprSPtr(new LitExpr(0));
+	_derived = Expr::make<LitExpr>(0);
 }
 
 

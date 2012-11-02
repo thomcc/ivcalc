@@ -3,591 +3,444 @@
 
 #include <cfloat>
 #include <limits>
-
+#include <stdexcept>
 #include "common.hh"
 #include "rounding.hh"
-
+#include "utilities.hh"
 namespace calc {
 
-typedef long double number_type;
-
-template <typename Rounding>
-class Interval {
+class iv_arithmetic_error : public std::runtime_error {
 public:
-	Interval(number_type lo, number_type hi) {
-		if (lo > hi) std::swap(lo, hi);
-		Rounding c;
-		_lo = c.r_down(lo);
-		_hi = c.r_up(hi);
-	}
+	iv_arithmetic_error()
+	: std::runtime_error("iv_arithmetic_error")
+	{}
 
-	explicit
-	Interval(number_type n) {
-		Rounding c;
-		_lo = c.r_down(n);
-		_hi = c.r_up(n);
-	}
+	iv_arithmetic_error(char const *msg)
+	: std::runtime_error(msg)
+	{}
 
-	Interval() : _lo(0), _hi(0) {}
+	iv_arithmetic_error(std::string const &msg)
+	: std::runtime_error(msg)
+	{}
 
-	Interval(Interval const &i) : _lo(i._lo), _hi(i._hi) {}
-
-	~Interval() {}
-
-	Interval&
-	operator=(Interval const &rhs) {
-		_lo = rhs._lo;
-		_hi = rhs._hi;
-		return *this;
-	}
-
-	Interval&
-	operator=(number_type n) {
-		_lo = n;
-		_hi = n;
-		return *this;
-	}
-
-	Interval&
-	operator+=(Interval const &y) {
-		Rounding r;
-		_lo = r.add_d(_lo, y._lo);
-		_hi = r.add_u(_hi, y._hi);
-		return *this;
-	}
-
-	Interval&
-	operator+=(number_type n) {
-		Rounding r;
-		_lo = r.add_d(_lo, n);
-		_hi = r.add_u(_hi, n);
-		return *this;
-	}
-
-	Interval&
-	operator-=(Interval const &y) {
-		Rounding r;
-		_lo = r.sub_d(_lo, y._lo);
-		_hi = r.sub_u(_lo, y._hi);
-		return *this;
-	}
-
-	Interval&
-	operator-=(number_type n) {
-		Rounding r;
-		_lo = r.sub_d(_lo, n);
-		_hi = r.sub_u(_hi, n);
-		return *this;
-	}
-
-	Interval
-	operator*(Interval const &y) const {
-		Rounding r;
-		number_type xl = _lo, xu = _hi, yl = y._lo, yu = y._hi;
-		if (xl < 0) {
-			if (xu > 0) {
-				if (yl < 0) {
-					if (yu > 0) {
-						return Interval(std::min(r.mul_d(xl, yu), r.mul_d(xu, yl)),
-						                std::max(r.mul_u(xl, yl), r.mul_u(xu, yu)));
-					} else return Interval(r.mul_d(xu, yl), r.mul_u(xl, yl));
-				}
-				if (yu > 0) return Interval(r.mul_d(xl, yu), r.mul_u(xu, yu));
-				else return iv_zero();
-			}
-			if (yl < 0) {
-				if (yu > 0) return Interval(r.mul_d(xl, yu), r.mul_u(xl, yl));
-				else return Interval(r.mul_d(xu, yu), r.mul_u(xl, yl));
-			} else if (yu > 0)
-				return Interval(r.mul_d(xu, yl), r.mul_u(xu, yl));
-			return iv_zero();
-		}
-		if (xu > 0) {
-			if (yl < 0) {
-				if (yu > 0) return Interval(r.mul_d(xu, yl), r.mul_u(xu, yu));
-				return Interval(r.mul_d(xu, yl), r.mul_u(xl, yu));
-			} else if (yu > 0)
-				return Interval(r.mul_d(xl, yl), r.mul_u(xu, yu));
-			return iv_zero();
-		}
-
-		return iv_zero();
-	} 
-
-	Interval
-	operator*(number_type n) const {
-		Rounding r;
-		if (n < 0)
-			return Interval(r.mul_d(n, _hi), r.mul_u(n, _lo));
-		else if (n == 0)
-			return Interval(0, 0);
-		return Interval(r.mul_d(n, _lo), r.mul_u(n, _hi));
-	}
-
-	Interval
-	operator/(Interval const &y) const {
-		if ((y._lo <= 0) && (y._hi >= 0)) {
-			if (y._lo != 0) {
-				if (y._hi != 0) return zdiv();
-				return n_zdiv(y._lo);
-			}
-			if (y._hi != 0) return p_zdiv(y._hi);
-			return iv_empty();
-		}
-		return do_div(y);
-	}
-
-	Interval
-	operator/(number_type n) const {
-		if (n == 0) return iv_empty();
-		Rounding r;
-		if (n < 0) return Interval(r.div_d(_hi, n), r.div_u(_lo, n));
-		return Interval(r.div_d(_lo, n), r.div_u(_hi, n));
-	}
-
-	Interval&
-	operator/=(Interval const &i) {
-		return *this = *this / i;
-	}
-
-	Interval&
-	operator/=(number_type n) {
-		return *this = *this / n;
-	}
-
-	Interval&
-	operator*=(Interval const &y) {
-		return *this = *this * y;
-	}
-
-	Interval&
-	operator*=(number_type n) {
-		return *this = *this * n;
-	}
-
-	Interval const&
-	operator+() const {
-		return *this;
-	}
-
-	Interval 
-	operator+(Interval const &rhs) const {
-		Rounding r;
-		return Interval(r.add_d(_lo, rhs._lo), r.add_u(_hi, rhs._hi));
-	}
-
-	Interval
-	operator+(number_type n) const {
-		Rounding r;
-		return Interval(r.add_d(_lo, n), r.add_u(_hi, n));
-	}
-
-	Interval
-	operator-(Interval const &rhs) const {
-		Rounding r;
-		return Interval(r.sub_d(_lo, rhs._hi), r.sub_u(_hi, rhs._lo));
-	}
-
-	Interval
-	operator-(number_type n) const {
-		Rounding r;
-		return Interval(r.sub_d(_lo, n), r.sub_u(_hi, n));
-	}
-
-	Interval
-	operator-() const {
-		return Interval(-_lo, -_hi);
-	}
-
-	bool
-	is_one() const {
-		return is_singleton() && (_lo == 1);
-	}
-
-	bool
-	is_zero() const {
-		return (_lo == 0) && (_hi == 0);
-	}
-
-	bool
-	has_zero() const {
-		return (_lo < 0) && (_hi > 0);
-	}
-
-	bool
-	contains(number_type n) const {
-		return _lo <= n && n <= _hi;
-	}
-
-	bool
-	contains(Interval const &i) const {
-		return contains(i.lo()) && contains(i.hi());
-	}
-
-	bool
-	operator==(Interval const &rhs) const {
-		return (rhs._lo == _lo) && (rhs._hi == _hi);
-	}
-
-	bool
-	operator!=(Interval const &rhs) const {
-		return !(*this == rhs);
-	}
-
-	bool
-	is_empty() const {
-		return (_lo != _lo) && (_hi != _hi);
-	}
-
-	bool
-	is_finite() const {
-		return isfinite(_lo) && isfinite(_hi);
-	}
-
-	bool
-	is_singleton() const {
-		return _lo == _hi;
-	}
-
-	number_type
-	uncertainty() const {
-		return size() / 2.0;
-	}
-
-	number_type
-	lo() const {
-		return _lo;
-	}
-
-	number_type
-	hi() const {
-		return _hi;
-	}
-
-	number_type
-	mid() const {
-		Rounding r;
-		return r.avg(_lo, _hi);
-	}
-
-	Interval
-	inverse() const {
-		Rounding r;
-		if (has_zero()) {
-			if (_lo != 0) {
-				if (_hi != 0) return iv_biggest();
-				return from_neg_inf(r.div_u(1, _lo));
-			}
-			if (_hi != 0) return to_pos_inf(r.div_d(1, _hi));
-			return iv_empty();
-		}
-		return Interval(r.div_d(1, _hi), r.div_u(1, _lo));
-	}
-
-	Interval expt(int p) const {
-		if (!p) {
-			if ((_lo == 0) && (_hi == 0)) return iv_empty();
-			return Interval(static_cast<number_type>(1));
-		} else if (p < 0) return expt(-p).inverse();
-		if (_hi < 0) {
-			number_type ll = expt_d(-_hi, p), uu = expt_u(-_lo, p);
-			if (p & 1) return Interval(-uu, -ll);
-			return Interval(ll, uu);
-		} else if (_lo < 0) {
-			if (p & 1) return Interval(-expt_u(-_lo, p), expt_u(_hi, p));
-			return Interval(0, expt_u(std::max(-_lo, _hi), p));
-		}
-		return Interval(expt_d(_lo, p), expt_u(_hi, p));
-	}
-
-
-	number_type
-	size() const {
-		Rounding r;
-		number_type n = r.sub_u(_hi, _lo);
-		return (n != n) ? 0 : std::abs(n);
-	}
-
-	static Interval
-	empty() {
-		return Interval<Rounding>(
-			std::numeric_limits<number_type>::quiet_NaN(),
-			std::numeric_limits<number_type>::quiet_NaN()
-		);
-	}
-
-	static Interval
-	inf() {
-		return Interval<Rounding>(
-			-std::numeric_limits<number_type>::infinity(),
-			 std::numeric_limits<number_type>::infinity()
-		);
-	}
-
-	static Interval
-	hull(number_type a, number_type b) {
-		if (a != a) {
-			if (b != b) return empty();
-			return Interval(b, b);
-		} else if (b != b) return Interval(a, a);
-		if (a < b) return Interval(a, b);
-		return Interval(b, a);
-	}
-
-	static Interval
-	zero() {
-		return Interval<Rounding>(-0.0, 0.0);
-	}
-
-
-private:
-
-	number_type
-	expt_d(number_type b, int e) const {
-		Rounding r;
-		number_type res = (e & 1) ? b : 1;
-		e >>= 1;
-		while (e > 0) {
-			b = r.mul_d(b, b);
-			if (e & 1) res = r.mul_d(b, res);
-			e >>= 1;
-		}
-		return res;
-	}
-
-	number_type
-	expt_u(number_type b, int e) const {
-		Rounding r;
-		number_type res = (e & 1) ? b : 1;
-		e >>= 1;
-		while (e > 0) {
-			b = r.mul_u(b, b);
-			if (e & 1) res = r.mul_u(b, res);
-			e >>= 1;
-		}
-		return res;
-	}
-
-	Interval
-	iv_empty() const {
-		return Interval(
-			std::numeric_limits<number_type>::quiet_NaN(),
-			std::numeric_limits<number_type>::quiet_NaN()
-		);
-	}
-
-	Interval
-	iv_zero() const {
-		return Interval(0,0);
-	}
-	
-	Interval
-	iv_biggest() const {
-		return Interval(
-			-std::numeric_limits<number_type>::infinity(),
-			 std::numeric_limits<number_type>::infinity()
-		);
-	}
-
-	Interval
-	from_neg_inf(number_type n) const {
-		return Interval(-std::numeric_limits<number_type>::infinity(), n);
-	}
-
-	Interval
-	to_pos_inf(number_type n) const {
-		return Interval(n, std::numeric_limits<number_type>::infinity());
-	}
-
-	Interval
-	zdiv() const {
-		if (is_zero()) return iv_zero();
-		return iv_biggest();
-	}
-
-	Interval
-	n_zdiv(number_type n) const {
-		Rounding r;
-		if (is_zero()) return iv_zero();
-		if (_hi < 0) return to_pos_inf(r.div_d(_hi, n));
-		if (_lo < 0) return iv_biggest();
-		return from_neg_inf(r.div_u(_lo, n));
-	}
-
-	Interval
-	p_zdiv(number_type n) const {
-		Rounding r;
-		if (is_zero()) return iv_zero();
-		if (_hi < 0) return from_neg_inf(r.div_u(_hi, n));
-		if (_lo < 0) return iv_biggest();
-		return to_pos_inf(r.div_d(_lo, n));
-	}
-
-	Interval
-	do_div(Interval const &y) const {
-		Rounding r;
-		number_type xu = _hi, xl = _lo, yu = y._hi, yl = y._lo;
-		if (xu < 0) {
-			if (yu < 0) return Interval(r.div_d(xu, yl), r.div_u(xl, yu));
-			return Interval(r.div_d(xl, yl), r.div_u(xu, yu));
-		}
-		if (xl < 0) {
-			if (yu < 0) return Interval(r.div_d(xu, yu), r.div_u(xl, yu));
-			return Interval(r.div_d(xl, yl), r.div_u(xu, yl));
-		}
-		if (yu < 0) return Interval(r.div_d(xu, yu), r.div_u(xl, yl));
-		return Interval(r.div_d(xl, yu), r.div_u(xu, yl));
-	}
-
-	number_type _lo, _hi;
 };
 
-// change fp round mode every time
-typedef Interval<RoundStandard> interval_rstd;
 
-// never change fp rounding mode
-typedef Interval<RoundExact> interval_rexact;
+class interval {
+private:
+	real _lo, _hi;
+public:
+	interval();
+	interval(real x);
+	interval(real lo, real hi);
+	interval(interval const &other);
 
-// change fp rounding mode infrequently by using tricks like
-// round_down(a + b) == -round_up(-a - b).
-typedef Interval<RoundFast> interval_rfast;
+	real lo() const;
+	real hi() const;
 
-typedef interval_rstd interval;
+	interval &operator=(interval const &i);
+	interval &operator=(real r);
 
-template <typename R>
+	bool operator==(interval const &other) const;
+	bool operator!=(interval const &other) const;
+
+	interval &operator+=(interval const &i);
+	interval &operator+=(real r);
+	interval &operator-=(interval const &i);
+	interval &operator-=(real r);
+	interval &operator*=(interval const &i);
+	interval &operator*=(real r);
+	interval &operator/=(interval i);
+	interval &operator/=(real r);
+
+	friend std::ostream &operator<<(std::ostream &o, interval const &i);
+
+	bool is_singleton() const;
+	bool is_empty() const;
+	bool is_infinite() const;
+	bool is_zero() const;
+	bool is_one() const;
+	bool has_zero() const;
+
+	void set_lo(real lo);
+	void set_hi(real hi);
+
+	interval &intersect(interval const &i);
+	interval intersection(interval const &i) const;
+
+	interval &join(interval const &i);
+	interval joined(interval const &i) const;
+
+	static interval empty();
+	static interval full();
+	static interval zero();
+	static interval one();
+	static interval minus_one();
+	static interval pi();
+	static interval two_pi();
+	static interval half_pi();
+	static interval hull(real r1, real r2);
+
+};
+
+interval sin2pi(interval const &x);
+interval cos2pi(interval const &x);
+interval even_power(interval const &x, real y);
+interval odd_power(interval const &x, real y);
+interval even_root(interval const &x, real y);
+interval odd_root(interval const &x, real y);
+interval integral_pow(interval const &x, interval const &y);
+interval int_pow(interval const &x, int y);
+interval integral_root(interval const &x, interval const &y);
+interval midpoint(interval const &x);
+interval leftendpoint(interval const &x);
+interval rightendpoint(interval const &x);
+
+
+inline interval::interval(real lo, real hi)
+: _lo(lo), _hi(hi) {
+	if (_lo > _hi) std::swap(_lo, _hi);
+}
+
+inline interval::interval(real x)
+: _lo(x), _hi(x) {}
+
+inline interval::interval()
+: _lo(real_zero), _hi(real_zero) {}
+
+inline interval::interval(interval const &other)
+: _lo(other._lo), _hi(other._hi) {}
+
+inline real
+interval::lo() const {
+	return _lo;
+}
+
+inline real
+interval::hi() const {
+	return _hi;
+}
+
+inline interval&
+interval::operator=(interval const &i) {
+	_lo = i._lo;
+	_hi = i._hi;
+	return *this;
+}
+
+inline interval&
+interval::operator=(real r) {
+	_lo = _hi = r;
+	return *this;
+}
+
+inline bool
+interval::operator==(interval const &other) const {
+	return (_lo == other._lo) && (_hi == other._hi);
+}
+
+inline bool
+interval::operator!=(interval const &other) const {
+	return !(*this == other);
+}
+
+inline interval&
+interval::operator+=(interval const &i) {
+	_lo = rmath::add_lo(_lo, i._lo);
+	_hi = rmath::add_hi(_hi, i._hi);
+	return *this;
+}
+
+inline interval&
+interval::operator+=(real r) {
+	_lo = rmath::add_lo(_lo, r);
+	_hi = rmath::add_hi(_hi, r);
+	return *this;
+}
+
+inline interval&
+interval::operator-=(interval const &i) {
+	_lo = rmath::sub_lo(_lo, i._hi);
+	_hi = rmath::sub_hi(_hi, i._lo);
+	return *this;
+}
+
+inline interval&
+interval::operator-=(real r) {
+	_lo = rmath::sub_lo(_lo, r);
+	_hi = rmath::sub_hi(_hi, r);
+	return *this;
+}
+
+inline interval&
+interval::operator*=(real r) {
+	return *this *= interval(r);
+}
+
+inline interval&
+interval::operator/=(real r) {
+	return *this /= interval(r);
+}
+
 inline std::ostream&
-operator<<(std::ostream &out, Interval<R> i) {
-	return out << "[" << i.lo() << ", " << i.hi() << "]";
+operator<<(std::ostream &o, interval const &i) {
+	if (i.is_empty()) return o << "[]";
+	if (i.is_singleton()) return o << "[" << i.lo() << "]";
+	return o << "[" << i.lo() << ", " << i.hi() << "]";
 }
 
-template <typename Rounding>
-inline Interval<Rounding>
-operator+(number_type n, Interval<Rounding> const &i) {
-	Rounding r;
-	return Interval<Rounding>(r.add_d(n, i.lo()), r.add_u(n, i.hi()));
+inline bool
+interval::is_singleton() const {
+	return _lo == _hi;
 }
 
-template <typename Rounding>
-inline Interval<Rounding>
-operator-(number_type n, Interval<Rounding> const &i) {
-	Rounding r;
-	return Interval<Rounding>(r.sub_d(n, i.hi()), r.sub_u(n, i.lo()));
-
+inline bool
+interval::is_empty() const {
+	return rmath::is_nan(_lo) || rmath::is_nan(_hi);
 }
 
-template <typename Rounding>
-inline Interval<Rounding>
-operator*(number_type n, Interval<Rounding> const &i) {
-	Rounding r;
-	if (n < 0) return Interval<Rounding>(r.mul_d(n, i.hi()), r.mul_u(n, i.lo()));
-	else if (n == 0) return Interval<Rounding>(0, 0);
-	return Interval<Rounding>(r.mul_d(n, i.lo()), r.mul_u(n, i.hi()));
+inline bool
+interval::is_infinite() const {
+	return !(std::isfinite(_lo) && std::isfinite(_hi));
 }
 
-template <typename Rounding>
-inline Interval<Rounding>
-operator/(number_type n, Interval<Rounding> const &i) {
-	return Interval<Rounding>(n) / i;
+inline bool
+interval::is_zero() const {
+	return (_lo == real_zero) && (_hi == real_zero);
 }
 
-
-template <typename Rounding>
-inline Interval<Rounding>
-fmod(Interval<Rounding> const &a, Interval<Rounding> const &b) {
-	Rounding r;
-	number_type n = r.floor(r.div_d(a.lo(), ((a.lo() < 0) ? b.lo() : b.hi())));
-	return a - n * b;
+inline bool
+interval::is_one() const {
+	return (_hi == real_one) && (_lo == real_one);
 }
 
-template <typename Rounding>
-inline Interval<Rounding>
-fmod(Interval<Rounding> const &a, number_type b) {
-	Rounding r;
-	number_type n = r.floor(r.div_d(a.lo(), b));
-	return a - n * Interval<Rounding>(b);
+inline bool
+interval::has_zero() const {
+	return (_lo <= real_zero) && (real_zero <= _hi);
 }
 
-template <typename Rounding>
-inline Interval<Rounding>
-fmod(number_type a, Interval<Rounding> const &b) {
-	Rounding r;
-	number_type n = r.floor(r.div_d(a, ((a < 0) ? b.lo() : b.hi())));
-	return a - n * b;
+inline interval&
+interval::intersect(interval const &i) {
+	_lo = std::max(_lo, i._lo);
+	_hi = std::min(_lo, i._lo);
+	return *this;
 }
 
-static const long double pi_lo = (3373259426.0 + 273688.0 / (1<<21)) / (1<<30);
-static const long double pi_hi = (3373259426.0 + 273689.0 / (1<<21)) / (1<<30);
-template <typename Rounding>
-inline Interval<Rounding>
-pi() {
-	return Interval<Rounding>(pi_lo, pi_hi);
+inline interval
+interval::intersection(interval const &i) const {
+	return interval(*this).intersect(i);
 }
 
-template <typename Rounding>
-inline Interval<Rounding>
-half_pi() {
-	return Interval<Rounding>(pi_lo / 2, pi_hi / 2);
+inline void
+interval::set_lo(real lo) {
+	_lo = lo;
 }
 
-template <typename Rounding>
-inline Interval<Rounding> two_pi() {
-	return Interval<Rounding>(pi_lo * 2, pi_hi * 2);
+inline void
+interval::set_hi(real hi) {
+	_hi = hi;
 }
 
-template <typename Rounding>
-inline Interval<Rounding>
-tan(Interval<Rounding> const &i) {
-	Rounding r;
-	const Interval<Rounding> p(pi<Rounding>());
-	Interval<Rounding> i2 = fmod(i, p);
-	number_type ph = pi_lo/2;
-	if (i2.lo() >= ph) i2 -= p;
-	if (i2.lo() <= -ph || i2.hi() >= ph) 
-		return Interval<Rounding>::inf();
-	return Interval<Rounding>(r.tan_d(i2.lo()), r.tan_u(i2.hi()));
+inline interval&
+interval::join(interval const &i) {
+	_lo = std::min(_lo, i._lo);
+	_hi = std::max(_hi, i._hi);
+	return *this;
 }
 
-template <typename Rounding>
-inline Interval<Rounding>
-cos(Interval<Rounding> const &i) {
-	Rounding r;
-	const Interval<Rounding> pi_pi(two_pi<Rounding>());
-	Interval<Rounding> i2(fmod(i, pi_pi));
-	if (i2.size() >= pi_pi.lo()) 
-		return Interval<Rounding>(-1, 1);
-	if (i2.lo() >= pi_hi) 
-		return -cos(i2 - pi<Rounding>());
-	number_type l = i2.lo(), u = i2.hi();
-	if (u <= pi_lo) 
-		return Interval<Rounding>(r.cos_d(u), r.cos_u(l));
-	if (u <= pi_pi.lo()) 
-		return Interval<Rounding>(-1, r.cos_u(std::min(r.sub_d(pi_pi.lo(), u), l)));
-	return Interval<Rounding>(-1, 1);
-}
-
-template<typename Rounding>
-inline Interval<Rounding>
-sin(Interval<Rounding> const &i) {
-	return cos(i - half_pi<Rounding>());
+inline interval
+interval::joined(interval const &i) const {
+	return interval(*this).join(i);
 }
 
 
-template<typename Rounding>
-inline Interval<Rounding>
-exp(Interval<Rounding> const &i) {
-	Rounding r;
-	return Interval<Rounding>(r.exp_d(i.lo()), r.exp_u(i.hi()));
+inline interval
+interval::empty() {
+	return interval(rmath::NaN(), rmath::NaN());
 }
 
-template<typename Rounding>
-inline Interval<Rounding>
-log(Interval<Rounding> const &i) {
-	if (i.hi() < 0) return Interval<Rounding>::empty();
-	Rounding r;
-	number_type low = (i.lo() < 0) ? -std::numeric_limits<number_type>::infinity() : r.log_d(i.lo());
-	return Interval<Rounding>(low, r.log_u(i.hi()));
+inline interval
+interval::full() {
+	return interval(rmath::neg_inf(), rmath::pos_inf());
 }
 
+inline interval
+interval::zero() {
+	return interval(real_zero, real_zero);
+}
+
+inline interval
+interval::one() {
+	return interval(real_one, real_one);
+}
+
+inline interval
+interval::minus_one() {
+	return interval(real_neg_one, real_neg_one);
+}
+
+inline interval
+interval::pi() {
+	return interval(rmath::pi_lo(), rmath::pi_hi());
+}
+
+inline interval
+interval::two_pi() {
+	return interval(rmath::pi_times_two_lo(), rmath::pi_times_two_hi());
+}
+
+inline interval
+interval::half_pi() {
+	return interval(rmath::pi_over_two_lo(), rmath::pi_over_two_hi());
+}
+
+inline interval
+interval::hull(real r1, real r2) {
+	bool b1 = rmath::is_nan(r1), b2 = rmath::is_nan(r2);
+	if (b1 && b2) return interval::empty();
+	if (b1) return interval(r2, r2);
+	if (b2) return interval(r1, r1);
+	if (r1 <= r2) return interval(r1, r2);
+	return interval(r2, r1);
+}
+
+inline interval
+operator+(interval const &a, interval const &b) {
+	return interval(rmath::add_lo(a.lo(), b.lo()), rmath::add_hi(a.hi(), b.hi()));
+}
+
+inline interval
+operator+(interval const &a, real b) {
+	return interval(rmath::add_lo(a.lo(), b), rmath::add_hi(a.hi(), b));
+}
+
+inline interval
+operator+(real a, interval const &b) {
+	return interval(rmath::add_lo(a, b.lo()), rmath::add_hi(a, b.hi()));
+}
+
+inline interval
+operator+(interval a) {
+	return a;
+}
+
+inline interval
+operator-(interval const &a, interval const &b) {
+	return interval(rmath::sub_lo(a.lo(), b.hi()), rmath::sub_hi(a.hi(), b.lo()));
+}
+
+inline interval
+operator-(interval const &a, real b) {
+	return interval(rmath::sub_lo(a.lo(), b), rmath::sub_hi(a.hi(), b));
+}
+
+inline interval
+operator-(real a, interval const &b) {
+	return interval(rmath::sub_lo(a, b.hi()), rmath::sub_hi(a, b.lo()));
+}
+
+inline interval
+operator-(interval const &b) {
+	return interval(-b.hi(), -b.lo());
+}
+
+inline interval
+operator*(interval a, interval const &b) {
+	return a *= b;
+}
+
+inline interval
+operator/(interval a, interval const &b) {
+	return a /= b;
+}
+
+inline interval
+operator*(interval a, real b) {
+	return a *= interval(b);
+}
+
+inline interval
+operator*(real b, interval const &a) {
+	return interval(b) * a;
+}
+
+inline interval
+operator/(real b, interval const &a) {
+	return interval(b) / a;
+}
+
+inline interval
+exp(interval const &x) {
+	return interval(rmath::exp_lo(x.lo()), rmath::exp_hi(x.hi()));
+}
+
+inline interval
+log(interval const &x) {
+	if (x.hi() <= real_zero) return interval::empty();
+	return interval(rmath::log_lo(std::max(x.lo(), real_zero)), rmath::log_hi(x.hi()));
+}
+
+inline interval
+tan2pi(interval const &x) {
+	return sin2pi(x) / cos2pi(x);
+}
+
+inline interval
+sin(interval const &x) {
+	return sin2pi(x / interval::two_pi());
+}
+
+inline interval
+cos(interval const &x) {
+	return cos2pi(x / interval::two_pi());
+}
+
+inline interval
+tan(interval const &x) {
+	return tan2pi(x / interval::two_pi());
+}
+
+inline interval
+asin(interval const &x) {
+	interval y = x.intersection(interval(real_neg_one, real_one));
+	return interval(rmath::asin_lo(y.lo()), rmath::asin_hi(y.hi()));
+}
+
+inline interval
+acos(interval const &x) {
+	return interval(rmath::acos_lo(x.hi()), rmath::acos_hi(x.lo()));
+}
+
+inline interval
+atan(interval const &x) {
+	return interval(rmath::atan_lo(x.lo()), rmath::atan_hi(x.hi()));
+}
+
+inline interval
+asin2pi(interval const &x) {
+	interval y = x.intersection(interval(real_neg_one, real_one));
+	return interval(rmath::asin2pi_lo(y.lo()), rmath::asin2pi_hi(x.hi()));
+}
+
+inline interval
+acos2pi(interval const &x) {
+	return interval(rmath::acos2pi_lo(x.hi()), rmath::acos2pi_hi(x.lo()));
+}
+
+inline interval
+atan2pi(interval const &x) {
+	return interval(rmath::atan2pi_lo(x.lo()), rmath::atan2pi_hi(x.hi()));
+}
+
+
+inline interval
+power(interval const &x, interval const &y) {
+	if (x.hi() <= 0) {
+		std::string s = stringize() << "power(x, y): x <= 0 not allowed. got: " << x;
+		throw iv_arithmetic_error(s);
+	}
+	return exp(y * log(interval(std::max(x.lo(), real_zero), x.hi())));
+}
 
 
 

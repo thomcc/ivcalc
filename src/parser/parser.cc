@@ -21,7 +21,7 @@ ErrorHandler::error(std::string const &msg, int lvl) {
 	case E_Warn: std::cerr << prefix << "Warning" << suffix << " "; break;
 	case E_Error: std::cerr << prefix << "Error" << suffix << " "; break;
 	case E_Info: std::cerr << prefix << "Info" << suffix << " "; break;
-	case E_Bug: 
+	case E_Bug:
 	default: std::cerr << prefix << "Bug" << suffix << " "; break;
 	}
 	std::cerr << msg << std::endl;
@@ -72,9 +72,9 @@ Parser::Prefix Parser::_prefixes[] = {
 	{ NULL,              -1       }, // T_ERROR
 };
 
-long double
+real
 Parser::parse_real(std::string const &s) {
-	long double d;
+	real d;
 	if (!sscanf(s.c_str(), "%Lf", &d)) {
 		_on_error.error("Invalid number: '"+s+"'");
 		d = 0.0;
@@ -91,8 +91,8 @@ Parser::var(Token const &t) {
 // `num`
 ExprSPtr
 Parser::number(Token const &t) {
-	long double d = parse_real(t.text());
-	return ExprSPtr(new LitExpr(d));
+	real d = parse_real(t.text());
+	return Expr::make<LitExpr>(d);
 }
 
 // `[num, num]`
@@ -101,10 +101,11 @@ Parser::ival_lit(Token const &t) {
 	Token lo = consume(T_NUMBER, "Expected number in interval literal.");
 	consume(T_COMMA, "Expected comma in interval literal.");
 	Token hi = consume(T_NUMBER, "Expected number in interval literal.");
-	long double l = Parser::parse_real(lo.text());
-	long double h = Parser::parse_real(hi.text());
-	interval i(l, h);
-	return ExprSPtr(new LitExpr(i));
+	real l = Parser::parse_real(lo.text());
+	real h = Parser::parse_real(hi.text());
+	return Expr::make<LitExpr>(l, h);
+//	interval i(l, h);
+//	return ExprSPtr(new LitExpr(i));
 }
 
 // `name(expr, ...)`
@@ -119,7 +120,8 @@ Parser::call(ExprSPtr lhs, Token const &t) {
 		while (match(T_COMMA));
 		consume(T_RPAREN, "Expected ')' after call");
 	}
-	return ExprSPtr(new CallExpr(name, args));
+	return Expr::make<CallExpr>(name, args);
+//	return ExprSPtr(new CallExpr(name, args));
 }
 
 // `(expr)`
@@ -137,20 +139,22 @@ Parser::assign(ExprSPtr lhs, Token const &t) {
 	std::string name("");
 	if (VarExpr const *e = lhs->as_var_expr()) name = e->name();
 	else _on_error.error(strprintf("'%s' is not assignable!", t.text().c_str()));
-	return ExprSPtr(new AssignExpr(name, rhs));
+	return Expr::make<AssignExpr>(name, rhs);
+//	return ExprSPtr(new AssignExpr(name, rhs));
 }
 
 // `+expr`
-ExprSPtr 
+ExprSPtr
 Parser::p_plus(Token const &t) {
 	return parse_expr(P_Prefix);
 }
 
 // `-expr`
-ExprSPtr 
+ExprSPtr
 Parser::p_minus(Token const &t) {
 	ExprSPtr rhs = parse_expr(P_Prefix);
-	return ExprSPtr(new NegExpr(rhs));
+	return Expr::make<NegExpr>(rhs);
+//	return ExprSPtr(new NegExpr(rhs));
 }
 
 // todo: combine +, -, *, /
@@ -159,40 +163,47 @@ Parser::p_minus(Token const &t) {
 ExprSPtr
 Parser::plus(ExprSPtr lhs, Token const &t) {
 	ExprSPtr rhs = parse_expr(P_Term);
-	return ExprSPtr(new AddExpr(lhs, rhs));
+	return Expr::make<AddExpr>(lhs, rhs);
+//	return ExprSPtr(new AddExpr(lhs, rhs));
 }
 
 // `lhs_expr - rhs_expr`
 ExprSPtr
 Parser::minus(ExprSPtr lhs, Token const &t) {
 	ExprSPtr rhs = parse_expr(P_Term);
-	return ExprSPtr(new SubExpr(lhs, rhs));
+	return Expr::make<SubExpr>(lhs, rhs);
+//	return ExprSPtr(new SubExpr(lhs, rhs));
 }
 
 // `lhs_expr * rhs_expr`
 ExprSPtr
 Parser::times(ExprSPtr lhs, Token const &t) {
 	ExprSPtr rhs = parse_expr(P_Prod);
-	return ExprSPtr(new MulExpr(lhs, rhs));
+	return Expr::make<MulExpr>(lhs, rhs);
+//	return ExprSPtr(new MulExpr(lhs, rhs));
 }
 
 // `lhs_expr / rhs_expr`
 ExprSPtr
 Parser::divide(ExprSPtr lhs, Token const &t) {
 	ExprSPtr rhs = parse_expr(P_Prod);
-	return ExprSPtr(new DivExpr(lhs, rhs));
+	return Expr::make<DivExpr>(lhs, rhs);
+//	return ExprSPtr(new DivExpr(lhs, rhs));
 }
 
 // `lhs_expr ^ an_integer`
+// TODO: support lhs ^ arbitrary expr evaluating to integer
+// and move check to runtime ?
 ExprSPtr
 Parser::expt(ExprSPtr lhs, Token const &t) {
 	Token tt = consume(T_NUMBER, "Expected number in exponent");
-	long double d = parse_real(tt.text());
+	real d = parse_real(tt.text());
 	if (d != std::rint(d)) {
 		std::string s = stringize() << "Expected integer in exponent. rounding " << d << " to int.";
 		_on_error.error(s, 0);
 	}
-	return ExprSPtr(new ExptExpr((int)std::rint(d), lhs));
+	return Expr::make<ExptExpr>(lhs, (int)std::rint(d));
+//	return ExprSPtr(new ExptExpr((int)std::rint(d), lhs));
 }
 
 // actually parse an expression
@@ -203,7 +214,7 @@ Parser::parse_expr(int precedence) {
 	Prefix p = _prefixes[t.type()];
 	if (!p.prefix) {
 		_on_error.error(strprintf("Couldn't parse (prefix) '%s'.", t.describe().c_str()));
-		return ExprSPtr(new EmptyExpr);
+		return Expr::make<EmptyExpr>();//ExprSPtr(new EmptyExpr);
 	}
 	ExprSPtr left = (this->*p.prefix)(t);
 	// if the next token's precedence is high enough,
@@ -262,7 +273,7 @@ Parser::get_precedence() {
 }
 
 // if we're at the end of a line, tell the error handler we want more lines
-void 
+void
 Parser::check_line() {
 	if (look_ahead(T_EOF)) _on_error.want_lines();
 }

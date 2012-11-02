@@ -27,7 +27,7 @@ typedef std::shared_ptr<Expr> ExprSPtr;
 
 class Expr : public BaseVisitable<> {
 public:
-	
+
 	virtual ~Expr() {}
 
 	virtual AddExpr const*
@@ -105,6 +105,15 @@ public:
 		return false;
 	}
 
+	// utility factory method which avoids unnecessary allocation
+	// used like ExprSPtr s = Expr::make<AddExpr>(lhs, rhs); or similar
+	template <typename T, typename... Args>
+	static ExprSPtr
+	make(Args&&... args) {
+		std::shared_ptr<T> eptr = std::make_shared<T>(std::forward<Args>(args)...);
+		return std::static_pointer_cast<Expr>(eptr);
+	}
+
 	VISITABLE()
 };
 
@@ -119,7 +128,7 @@ public:
 		return this;
 	}
 
-	ExprSPtr 
+	ExprSPtr
 	rhs() const {
 		return _rhs;
 	}
@@ -142,8 +151,6 @@ public:
 	}
 
 	VISITABLE()
-private:
-	DISALLOW_COPY_AND_SWAP(AddExpr);
 };
 
 class SubExpr : public Expr {
@@ -180,8 +187,8 @@ public:
 	}
 
 	VISITABLE()
-private:
-	DISALLOW_COPY_AND_SWAP(SubExpr);
+//private:
+//	DISALLOW_COPY_AND_SWAP(SubExpr);
 };
 
 class NegExpr : public Expr {
@@ -207,14 +214,12 @@ public:
 
 	bool
 	operator==(Expr const &other) const {
-		if (NegExpr const *e = other.as_neg_expr()) 
+		if (NegExpr const *e = other.as_neg_expr())
 			return *_value == *e->value();
 		return false;
 	}
 
 	VISITABLE()
-private:
-	DISALLOW_COPY_AND_SWAP(NegExpr);
 };
 
 class MulExpr : public Expr {
@@ -227,8 +232,8 @@ public:
 	as_mul_expr() const {
 		return this;
 	}
-	
-	ExprSPtr 
+
+	ExprSPtr
 	rhs() const {
 		return _rhs;
 	}
@@ -251,8 +256,6 @@ public:
 	}
 
 	VISITABLE()
-private:
-	DISALLOW_COPY_AND_SWAP(MulExpr);
 };
 
 class DivExpr : public Expr {
@@ -265,8 +268,8 @@ public:
 	as_div_expr() const {
 		return this;
 	}
-	
-	ExprSPtr 
+
+	ExprSPtr
 	rhs() const {
 		return _rhs;
 	}
@@ -287,7 +290,6 @@ public:
 			return (*_lhs == *e->lhs()) && (*_rhs == *e->rhs());
 		else return false;
 	}
-
 
 	VISITABLE()
 };
@@ -321,8 +323,6 @@ public:
 	}
 
 	VISITABLE()
-private:
-	DISALLOW_COPY_AND_SWAP(VarExpr);
 };
 
 
@@ -331,7 +331,7 @@ class ExptExpr : public Expr {
 	int _power;
 	ExprSPtr _base;
 public:
-	ExptExpr(int power, ExprSPtr base)
+	ExptExpr(ExprSPtr base, int power)
 	: _power(power), _base(base) {}
 
 	int
@@ -362,19 +362,14 @@ public:
 	}
 
 	VISITABLE()
-private:
-	DISALLOW_COPY_AND_SWAP(ExptExpr);
 };
 
 class LitExpr : public Expr {
 	interval _value;
 public:
-	LitExpr(number_type v)
-	: _value(v) {}
-	LitExpr(interval const &value)
-	: _value(value) {}
-	LitExpr(interval &&value)
-	: _value(value) {}
+	LitExpr(real v) : _value(v) {}
+	LitExpr(interval value) : _value(value) {}
+	LitExpr(real min, real max) : _value(min, max) {}
 
 	LitExpr const*
 	as_lit_expr() const {
@@ -408,8 +403,6 @@ public:
 	}
 
 	VISITABLE()
-private:
-	DISALLOW_COPY_AND_SWAP(LitExpr);
 };
 
 class AssignExpr : public Expr {
@@ -442,16 +435,12 @@ public:
 
 	bool
 	operator==(Expr const &other) const {
-		if (AssignExpr const *e = other.as_assign_expr()) 
+		if (AssignExpr const *e = other.as_assign_expr())
 			return _name == e->name() && (*_value == *e->value());
 		return false;
 	}
 
 	VISITABLE()
-
-private:
-	DISALLOW_COPY_AND_SWAP(AssignExpr);
-
 };
 
 class CallExpr : public Expr {
@@ -498,10 +487,6 @@ public:
 
 
 	VISITABLE()
-
-private:
-	DISALLOW_COPY_AND_SWAP(CallExpr);
-
 };
 
 class EmptyExpr : public Expr {
@@ -519,8 +504,6 @@ public:
 	}
 
 	VISITABLE()
-private:
-	DISALLOW_COPY_AND_SWAP(EmptyExpr);
 };
 
 

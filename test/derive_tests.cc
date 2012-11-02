@@ -20,14 +20,14 @@ void
 DeriveTest::var() {
 	ExprSPtr x = get_expr("x + 20*y");
 	Derivator xd("x");
-	ExprSPtr dx = xd.derive(x);
+	ExprSPtr dx = xd.derive(*x);
 	Simplifier s;
 	ExprSPtr sdx = s.simplify(*dx);
 	Check(sdx.get());
 	if (Check(sdx->as_lit_expr()))
 		CheckEq(interval(1), sdx->as_lit_expr()->value());
 	Derivator yd("y");
-	ExprSPtr dy = yd.derive(x);
+	ExprSPtr dy = yd.derive(*x);
 	ExprSPtr sdy = s.simplify(*dy);
 	Check(sdy.get());
 	if (Check(sdy->as_lit_expr()))
@@ -38,7 +38,7 @@ void
 DeriveTest::expt() {
 	ExprSPtr x2 = get_expr("x^2");
 	Derivator xd("x");
-	ExprSPtr dx = xd.derive(x2);
+	ExprSPtr dx = xd.derive(*x2);
 	Simplifier s;
 	ExprSPtr sdx = s.simplify(*dx);
 	Check(sdx.get());
@@ -57,7 +57,7 @@ DeriveTest::expt() {
 	}
 
 	ExprSPtr ee = get_expr("40^2");
-	ExprSPtr eedx = xd.derive(ee);
+	ExprSPtr eedx = xd.derive(*ee);
 	ExprSPtr seedx = s.simplify(*eedx);
 	Check(seedx->is_lit_zero());
 }
@@ -67,7 +67,7 @@ DeriveTest::lit() {
 	ExprSPtr n = get_expr("110");
 	Derivator xd("x");
 	Simplifier s;
-	ExprSPtr ndx = xd.derive(n);
+	ExprSPtr ndx = xd.derive(*n);
 	ExprSPtr sndx = s.simplify(*ndx);
 	Check(sndx->is_lit_zero());
 }
@@ -76,7 +76,7 @@ void
 DeriveTest::plus() {
 	ExprSPtr x = get_expr("x + x^2");
 	Derivator xd("x");
-	ExprSPtr dx = xd.derive(x);
+	ExprSPtr dx = xd.derive(*x);
 	Simplifier s;
 	ExprSPtr sdx = s.simplify(*dx);
 	Check(sdx.get());
@@ -98,7 +98,7 @@ void
 DeriveTest::minus() {
 	ExprSPtr x = get_expr("x - x^2");
 	Derivator xd("x");
-	ExprSPtr dx = xd.derive(x);
+	ExprSPtr dx = xd.derive(*x);
 	Simplifier s;
 	ExprSPtr sdx = s.simplify(*dx);
 	Check(sdx.get());
@@ -122,7 +122,7 @@ DeriveTest::mul() {
 	// d/dx should = 2 * (3*x + 2) + 3 * (2 * x + 3)
 	// this is going to be a pain.
 	Derivator d("x");
-	ExprSPtr dx = d.derive(x);
+	ExprSPtr dx = d.derive(*x);
 	Simplifier s;
 	ExprSPtr e = s.simplify(*dx);
 	if (!CheckNull(e.get())) return;
@@ -178,7 +178,7 @@ DeriveTest::div() {
 	// d/dx should = ((2*x + 3) * 3 - (3 * x + 2) * 2) / (2*x+3)^2
 	// this is going to be a pain.
 	Derivator d("x");
-	ExprSPtr dx = d.derive(x);
+	ExprSPtr dx = d.derive(*x);
 	Simplifier s;
 	ExprSPtr e = s.simplify(*dx);
 	if (!CheckNull(e.get())) return;

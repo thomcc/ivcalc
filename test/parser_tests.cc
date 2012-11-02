@@ -108,10 +108,10 @@ ParserTest::lit() {
 	LitExpr const *e2 = e->as_lit_expr();
 	Check(e2);
 	if (e2) {
-		number_type lo = e2->value().lo();
-		number_type hi = e2->value().hi();
-		CheckEq(static_cast<number_type>(1), lo);
-		CheckEq(static_cast<number_type>(3), hi);
+		real lo = e2->value().lo();
+		real hi = e2->value().hi();
+		CheckEq(static_cast<real>(1), lo);
+		CheckEq(static_cast<real>(3), hi);
 	}
 }
 

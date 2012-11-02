@@ -8,7 +8,7 @@ namespace calc {
 
 // format a std::string like sprintf
 
-std::string 
+std::string
 strprintf(char const *fmt, ...)
 #if __has_attribute(format) || defined(__GNUC__)
 __attribute__((format(printf, 1, 2)))
@@ -21,7 +21,7 @@ class stringize {
 private:
 	std::ostringstream _ss;
 public:
-	
+
 	template <typename T>
 	stringize&operator <<(T const &v) {
 		_ss << v;
@@ -42,11 +42,11 @@ slurp(std::string const &filename);
 void
 slurp_into(std::string const &filename, std::string &dest);
 
-template<typename T, typename... Args>
-inline std::unique_ptr<T>
-make_unique(Args&&... args) {
-	return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
-}
+//template<typename T, typename... Args>
+//inline std::unique_ptr<T>
+//make_unique(Args&&... args) {
+//	return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+//}
 
 
 

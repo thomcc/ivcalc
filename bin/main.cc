@@ -83,37 +83,43 @@ repl(int vrb) {
 				print.print(*expr);
 				std::cout << std::endl;
 			}
-			
+
 			ExprSPtr simplified;
 
 			if (vrb > 2) std::cout << "SIMPLIFY: ";
-						
+
 			try {
 				simplified = s.simplify(*expr);
 				print.print(*simplified);
 			} catch (std::string s) {
 				std::cout << std::endl << "Error: " << s;
+			} catch (std::exception &e) {
+				std::cout << std::endl << "Error: " << e.what();
 			}
 			std::cout << std::endl;
 
 			if (vrb > 2) std::cout << "EVAL (NOSIMP): ";
 			try {
-				interval res = e.eval(expr);
+				interval res = e.eval(*expr);
 				print.print_interval(res);
 			} catch (std::string s) {
 				std::cout << std::endl << "Error: " << s;
+			} catch (std::exception &e) {
+				std::cout << std::endl << "Error: " << e.what();
 			}
 
 			std::cout << std::endl;
-			
+
 			if (vrb > 2) std::cout << "EVAL (SIMP): ";
 			try {
-				interval res = e.eval(simplified);
+				interval res = e.eval(*simplified);
 				print.print_interval(res);
 			} catch (std::string s) {
 				std::cout << std::endl << "Error: " << s;
+			} catch (std::exception &e) {
+				std::cout << std::endl << "Error: " << e.what();
 			}
-			
+
 
 			std::cout << std::endl;
 		} else {
