@@ -25,7 +25,7 @@ ParserTest::add() {
 void
 ParserTest::sub() {
 	ErrorHandler eh(true, false);
-	Parser p("1 - 2", eh);
+	Parser p("1-2", eh);
 	ExprSPtr e = p.parse_expression();
 	Check(!eh.errors());
 	SubExpr const *e2 = e->as_sub_expr();
@@ -85,17 +85,18 @@ ParserTest::div() {
 void
 ParserTest::pow() {
 	ErrorHandler eh(true, false);
-	Parser p("1 ^ 2", eh);
+	Parser p("1 / 1 ^ 2", eh);
 	ExprSPtr e = p.parse_expression();
 	Check(!eh.errors());
-	ExptExpr const *e2 = e->as_expt_expr();
-	Check(e2);
-	if (e2) {
-		LitExpr const *lhs = e2->base()->as_lit_expr();
-		int power = e2->power();
-		Check(lhs);
-		Check(power == 2);
-		if (lhs) Check(lhs->value().is_one());
+	if (DivExpr const *ed = CheckNull(e->as_div_expr())) {
+		if (LitExpr const *e1 = CheckNull(ed->lhs()->as_lit_expr()))
+			CheckEq(e1->value(), interval::one());
+		if (ExptExpr const *e2 = CheckNull(ed->rhs()->as_expt_expr())) {
+			LitExpr const *lhs = e2->base()->as_lit_expr();
+			int power = e2->power();
+			Check(lhs);
+			Check(power == 2);
+		}
 	}
 }
 

@@ -126,8 +126,6 @@ namespace {
 		default: return interval(-1.0, 1.0);
 		}
 	}
-
-
 }
 
 interval

@@ -2,21 +2,7 @@
 #include "utilities.hh"
 
 namespace calc {
-/*
 
-
-static bool
-is_punct(char c) {
-	switch (c) {
-	case '(': case ')': case ',': case '=':
-	case '+': case '-':	case '*': case '/':
-	case '^': case '|': case '[': case ']':
-		return true;
-	default:
-		return false;
-	}
-}
-*/
 static inline bool
 starts_ident(char c) {
 	if (('a' <= c) && (c <= 'z')) return true;
@@ -46,7 +32,7 @@ Lexer::finished() const {
 	return _index >= _text.size();
 }
 
-Token 
+Token
 Lexer::next() {
 	for (;;) {
 		if (finished()) return make_token(T_EOF, "");
@@ -64,12 +50,12 @@ Lexer::next() {
 		case ',': return make_token(T_COMMA);
 		case '+': return make_token(T_PLUS);
 		case '-':
-			if (is_number(peek())) return scan_number();
+//			if (is_number(peek())) return scan_number();
 			return make_token(T_MINUS);
 		case '*': return make_token(T_ASTERISK);
 		case '/': return make_token(T_SLASH);
 		case '^': return make_token(T_CARET);
-		case '.': 
+		case '.':
 			if (is_number(peek())) return scan_number();
 			return error("Expected digit after decimal.");
 		default:

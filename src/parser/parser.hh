@@ -53,7 +53,7 @@ public:
 
 	void
 	want_lines() {
-		if (_repl) 
+		if (_repl)
 			_need_lines = true;
 	}
 
@@ -62,6 +62,16 @@ public:
 		return o << e.need_lines() << " errors=" << e.errors() << ">";
 	}
 };
+
+enum Precedence {
+	P_Assign  = 1,
+	P_Term    = 2,
+	P_Prod    = 3,
+	P_Expt    = 4,
+	P_Prefix  = 5,
+	P_Call    = 7
+};
+
 
 class Parser {
 public:

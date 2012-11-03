@@ -9,7 +9,7 @@ template <typename T, int Size>
 class Queue {
 public:
 	typedef T ElementType;
-	
+
 	Queue() : _head(0), _count(0) {}
 
 	int
@@ -37,9 +37,9 @@ public:
 		ASSERT(_count < Size);
 
 		_items[_head] = item;
-		
+
 		_head = _wrap(_head + 1);
-		
+
 		++_count;
 	}
 
@@ -63,7 +63,7 @@ public:
 	operator<<(std::ostream &o, Queue const &q) {
 		if (q.is_empty()) return o << "{|<empty queue>|}";
 		o << "{";
-		for (int i = 0; i < q.count(); ++i) 
+		for (int i = 0; i < q.count(); ++i)
 			o << (i ? " | " : "| ") << q[i];
 		return o << "|}";
 	}
@@ -71,7 +71,7 @@ public:
 private:
 
 	int _head, _count;
-	
+
 	ElementType _items[Size];
 
 	inline int

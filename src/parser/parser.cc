@@ -3,6 +3,7 @@
 #include "expr.hh"
 #include "parser/lexer.hh"
 #include "utilities.hh"
+#include "printer.hh"
 #include <cstdio>
 namespace calc {
 
@@ -21,20 +22,12 @@ ErrorHandler::error(std::string const &msg, int lvl) {
 	case E_Warn: std::cerr << prefix << "Warning" << suffix << " "; break;
 	case E_Error: std::cerr << prefix << "Error" << suffix << " "; break;
 	case E_Info: std::cerr << prefix << "Info" << suffix << " "; break;
-	case E_Bug:
-	default: std::cerr << prefix << "Bug" << suffix << " "; break;
+	case E_Bug: default:
+		std::cerr << prefix << "Bug" << suffix << " "; break;
 	}
 	std::cerr << msg << std::endl;
 }
 
-enum Precedence {
-	P_Assign  = 1,
-	P_Term    = 2,
-	P_Prod    = 3,
-	P_Expt    = 4,
-	P_Prefix  = 5,
-	P_Call    = 7
-};
 
 Parser::Infix Parser::_infixes[] = {
 	{ &Parser::call,    P_Call   }, // T_LPAREN,
@@ -85,7 +78,7 @@ Parser::parse_real(std::string const &s) {
 // `var`
 ExprSPtr
 Parser::var(Token const &t) {
-	return ExprSPtr(new VarExpr(t.text()));
+	return Expr::make<VarExpr>(t.text());
 }
 
 // `num`
@@ -104,8 +97,6 @@ Parser::ival_lit(Token const &t) {
 	real l = Parser::parse_real(lo.text());
 	real h = Parser::parse_real(hi.text());
 	return Expr::make<LitExpr>(l, h);
-//	interval i(l, h);
-//	return ExprSPtr(new LitExpr(i));
 }
 
 // `name(expr, ...)`
@@ -121,7 +112,6 @@ Parser::call(ExprSPtr lhs, Token const &t) {
 		consume(T_RPAREN, "Expected ')' after call");
 	}
 	return Expr::make<CallExpr>(name, args);
-//	return ExprSPtr(new CallExpr(name, args));
 }
 
 // `(expr)`
@@ -133,14 +123,24 @@ Parser::group(Token const &t) {
 }
 
 // `var = expr`
+// `udf(arg1, arg2, ...) = expr`
 ExprSPtr
 Parser::assign(ExprSPtr lhs, Token const &t) {
 	ExprSPtr rhs = parse_expr(P_Assign);
-	std::string name("");
-	if (VarExpr const *e = lhs->as_var_expr()) name = e->name();
-	else _on_error.error(strprintf("'%s' is not assignable!", t.text().c_str()));
-	return Expr::make<AssignExpr>(name, rhs);
-//	return ExprSPtr(new AssignExpr(name, rhs));
+	if (VarExpr const *e = lhs->as_var_expr()) {
+		std::string name("");
+		name = e->name();
+		return Expr::make<AssignExpr>(name, rhs);
+	} else if (CallExpr const *e = lhs->as_call_expr()) {
+		std::string const &name = e->name();
+		std::vector<std::string> prams;
+		for (auto const &a : e->args())
+			if (VarExpr const *ve = a->as_var_expr()) prams.push_back(ve->name());
+			else _on_error.error("Error: non-identifier in function parameter list: '" + Printer::stringify(a) + "'.");
+		return Expr::make<FuncExpr>(name, prams, rhs);
+	}
+	_on_error.error(strprintf("'%s' is not assignable!", t.text().c_str()));
+	return Expr::make<EmptyExpr>();
 }
 
 // `+expr`
@@ -154,7 +154,6 @@ ExprSPtr
 Parser::p_minus(Token const &t) {
 	ExprSPtr rhs = parse_expr(P_Prefix);
 	return Expr::make<NegExpr>(rhs);
-//	return ExprSPtr(new NegExpr(rhs));
 }
 
 // todo: combine +, -, *, /
@@ -164,7 +163,6 @@ ExprSPtr
 Parser::plus(ExprSPtr lhs, Token const &t) {
 	ExprSPtr rhs = parse_expr(P_Term);
 	return Expr::make<AddExpr>(lhs, rhs);
-//	return ExprSPtr(new AddExpr(lhs, rhs));
 }
 
 // `lhs_expr - rhs_expr`
@@ -172,7 +170,6 @@ ExprSPtr
 Parser::minus(ExprSPtr lhs, Token const &t) {
 	ExprSPtr rhs = parse_expr(P_Term);
 	return Expr::make<SubExpr>(lhs, rhs);
-//	return ExprSPtr(new SubExpr(lhs, rhs));
 }
 
 // `lhs_expr * rhs_expr`
@@ -180,7 +177,6 @@ ExprSPtr
 Parser::times(ExprSPtr lhs, Token const &t) {
 	ExprSPtr rhs = parse_expr(P_Prod);
 	return Expr::make<MulExpr>(lhs, rhs);
-//	return ExprSPtr(new MulExpr(lhs, rhs));
 }
 
 // `lhs_expr / rhs_expr`
@@ -188,7 +184,6 @@ ExprSPtr
 Parser::divide(ExprSPtr lhs, Token const &t) {
 	ExprSPtr rhs = parse_expr(P_Prod);
 	return Expr::make<DivExpr>(lhs, rhs);
-//	return ExprSPtr(new DivExpr(lhs, rhs));
 }
 
 // `lhs_expr ^ an_integer`
@@ -203,7 +198,6 @@ Parser::expt(ExprSPtr lhs, Token const &t) {
 		_on_error.error(s, 0);
 	}
 	return Expr::make<ExptExpr>(lhs, (int)std::rint(d));
-//	return ExprSPtr(new ExptExpr((int)std::rint(d), lhs));
 }
 
 // actually parse an expression
@@ -214,7 +208,7 @@ Parser::parse_expr(int precedence) {
 	Prefix p = _prefixes[t.type()];
 	if (!p.prefix) {
 		_on_error.error(strprintf("Couldn't parse (prefix) '%s'.", t.describe().c_str()));
-		return Expr::make<EmptyExpr>();//ExprSPtr(new EmptyExpr);
+		return Expr::make<EmptyExpr>();
 	}
 	ExprSPtr left = (this->*p.prefix)(t);
 	// if the next token's precedence is high enough,

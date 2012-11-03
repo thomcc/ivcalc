@@ -17,8 +17,9 @@ class Simplifier
 , public Visitor<ExptExpr>
 , public Visitor<LitExpr>
 , public Visitor<CallExpr>
-, public Visitor<EmptyExpr> 
+, public Visitor<EmptyExpr>
 , public Visitor<AssignExpr>
+, public Visitor<FuncExpr>
 {
 	ExprSPtr _simplified;
 public:
@@ -36,6 +37,7 @@ public:
 	void visit(LitExpr &e);
 	void visit(AssignExpr &e);
 	void visit(CallExpr &e);
+	void visit(FuncExpr &e);
 	void visit(EmptyExpr &e);
 
 

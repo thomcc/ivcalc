@@ -4,6 +4,7 @@
 #include "printer.hh"
 #include "simplifier.hh"
 #include "eval.hh"
+#include "derivator.hh"
 #include <cstdio>
 #include <cstdlib>
 #define LINE_LEN 4096
@@ -45,16 +46,19 @@ get_line(bool continued){
 
 int
 repl(int vrb) {
+
 	std::cout << std::endl;
 	std::cout << "calc" << std::endl;
 	std::cout << "Press Ctrl+C to exit" << std::endl;
 	std::cout << std::endl;
+
 	Evaluator e;
 	Simplifier s;
 	Printer print(std::cout, true);
 	for (;;) {
 		std::string src;
 		ExprSPtr expr;
+
 		for (;;) {
 			bool cont = src.size() != 0;
 			std::string line = get_line(cont);
@@ -78,50 +82,37 @@ repl(int vrb) {
 			return 2;
 		}
 		if (expr.get()) {
-			if (vrb) {
-				if (vrb > 2) std::cout << "READ: ";
-				print.print(*expr);
-				std::cout << std::endl;
+
+			if (FuncExpr const *fe = expr->as_func_expr()) {
+				std::vector<std::pair<std::string, ExprSPtr>> partials = Derivator::partials(*fe);
+				std::stringstream ss;
+				ss << "(";
+				for (size_t i = 0; i < fe->params().size(); ++i)
+					if (i) ss << ", " << fe->params().at(i);
+					else ss << fe->params().at(i);
+				ss << ")";
+				std::string paramlist = ss.str();
+				std::cout << "Derived " << partials.size() << " partials." << std::endl;
+				for (auto const &ep : partials) {
+					Simplifier s;
+					ExprSPtr sp = s.simplify(*ep.second);
+					std::cout << "\t∂" << fe->name() << "/∂" << ep.first << paramlist << " = ";
+					print.print(*sp);
+					std::cout << std::endl;
+				}
 			}
 
-			ExprSPtr simplified;
-
-			if (vrb > 2) std::cout << "SIMPLIFY: ";
-
-			try {
-				simplified = s.simplify(*expr);
-				print.print(*simplified);
-			} catch (std::string s) {
-				std::cout << std::endl << "Error: " << s;
-			} catch (std::exception &e) {
-				std::cout << std::endl << "Error: " << e.what();
-			}
-			std::cout << std::endl;
-
-			if (vrb > 2) std::cout << "EVAL (NOSIMP): ";
-			try {
-				interval res = e.eval(*expr);
-				print.print_interval(res);
-			} catch (std::string s) {
-				std::cout << std::endl << "Error: " << s;
-			} catch (std::exception &e) {
-				std::cout << std::endl << "Error: " << e.what();
+			if (!expr->as_empty_expr() && !expr->as_func_expr()) {
+				try {
+					interval res = e.eval(*expr);
+					std::cout << "=> ";
+					print.print_interval(res);
+					std::cout << std::endl;
+				} catch (std::exception &e) {
+					std::cout << "Error: " << e.what() << std::endl;
+				}
 			}
 
-			std::cout << std::endl;
-
-			if (vrb > 2) std::cout << "EVAL (SIMP): ";
-			try {
-				interval res = e.eval(*simplified);
-				print.print_interval(res);
-			} catch (std::string s) {
-				std::cout << std::endl << "Error: " << s;
-			} catch (std::exception &e) {
-				std::cout << std::endl << "Error: " << e.what();
-			}
-
-
-			std::cout << std::endl;
 		} else {
 			std::cerr << "Error: NULL expr!" << std::endl;
 			return 4;
@@ -131,7 +122,7 @@ repl(int vrb) {
 
 int
 main(int argc, char *argv[]) {
-	int v = 1;
+	int v = 4;
 	for (int i = 1; (i < argc) && argv[i][0] == '-'; ++i) {
 		switch (argv[i][1]) {
 		case 'v': ++v; break;

@@ -6,7 +6,6 @@
 #include <sstream>
 namespace calc {
 
-// Must be sequential and have no holes
 enum TokenType {
 	T_LPAREN = 0,
 	T_RPAREN,
@@ -33,19 +32,19 @@ std::string
 type_name(TokenType tt);
 
 class Token {
-	
+
 	TokenType _type;
 	std::string _text;
 	int _start, _end;
 public:
-	Token(TokenType t, std::string const &s, int start, int end) 
+	Token(TokenType t, std::string const &s, int start, int end)
 	: _type(t)
 	, _text(s)
 	, _start(start)
 	, _end(end)
 	{}
 
-	Token() 
+	Token()
 	: _type(T_ERROR)
 	, _text("")
 	, _start(-1)

@@ -44,7 +44,6 @@ public:
 
 
 // could probably use templates
-
 class Fn1Arg : public BaseFunc {
 public:
 	typedef std::function<interval(interval const&)> impl_function;
@@ -69,6 +68,8 @@ private:
 	impl_function _impl;
 };
 
+
+
 class UserDefinedFn : public BaseFunc {
 public:
 	UserDefinedFn(std::vector<std::string> const &param_names, ExprSPtr expr)
@@ -83,6 +84,8 @@ private:
 	ExprSPtr _impl;
 };
 
+
+
 class Env {
 	Env const *_parent;
 	std::map<std::string, interval> _vars;
@@ -96,6 +99,7 @@ public:
 	interval apply(std::string const &s, std::vector<interval> const &args) const;
 	void put(std::string const &s, interval e);
 	void def(std::string const &name, std::vector<std::string> const &prams, ExprSPtr v);
+	// was getting repetitive
 	template <typename T, typename... Args>
 	void add_func(Args&&... args) {
 		std::shared_ptr<T> eptr = std::make_shared<T>(std::forward<Args>(args)...);
@@ -122,110 +126,116 @@ class Evaluator
 , public Visitor<AssignExpr>
 , public Visitor<CallExpr>
 , public Visitor<EmptyExpr>
+, public Visitor<FuncExpr>
 {
-
 	Env _env;
 	interval _res;
+
 public:
 
 	Evaluator() : _env(Env::global()), _res(0) {}
 	Evaluator(Env &env);
 
-	interval
-	eval(Expr &e)  {
-		_res = 0;
-		e.accept(*this);
-		return _res;
-	}
-
-	void
-	visit(AddExpr &e) {
-		interval lhs = eval(*e.lhs());
-		interval rhs = eval(*e.rhs());
-		_res = lhs + rhs;
-	}
-
-	void
-	visit(SubExpr &e) {
-		interval lhs = eval(*e.lhs());
-		interval rhs = eval(*e.rhs());
-		_res = lhs - rhs;
-	}
-
-	void
-	visit(NegExpr &e) {
-		interval vv = eval(*e.value());
-		_res = -vv;
-	}
-
-	void
-	visit(MulExpr &e) {
-		interval lhs = eval(*e.lhs());
-		interval rhs = eval(*e.rhs());
-		_res = lhs * rhs;
-	}
-
-	void
-	visit(DivExpr &e) {
-		interval lhs = eval(*e.lhs());
-		interval rhs = eval(*e.rhs());
-		_res = lhs / rhs;
-	}
-
-	void
-	visit(VarExpr &e) {
-		if (!_env.has(e.name()) || !_env.get(e.name(), _res))
-			throw "Error: unbound variable '" + e.name() + "'";
-	}
-
-	void
-	visit(ExptExpr &e) {
-		interval v = eval(*e.base());
-		_res = int_pow(v, e.power());
-	}
-
-	void
-	visit(LitExpr &e) {
-		_res = e.value();
-	}
-
-	void
-	visit(AssignExpr &e) {
-		interval v = eval(*e.value());
-		_env.put(e.name(), v);
-		_res = v;
-	}
-
-	void
-	visit(CallExpr &e) {
-		std::vector<interval> parms;
-		for (auto const &eptr : e.args())
-			parms.push_back(eval(*eptr));
-		_res = _env.apply(e.name(), parms);
-	}
-
-	void
-	visit(EmptyExpr &e) {}
-
-
+	interval eval(Expr &e);
+	void visit(AddExpr &e);
+	void visit(SubExpr &e);
+	void visit(NegExpr &e);
+	void visit(MulExpr &e);
+	void visit(DivExpr &e);
+	void visit(VarExpr &e);
+	void visit(ExptExpr &e);
+	void visit(LitExpr &e);
+	void visit(AssignExpr &e);
+	void visit(CallExpr &e);
+	void visit(EmptyExpr &e);
+	void visit(FuncExpr &e);
 };
 
+inline interval
+Evaluator::eval(Expr &e)  {
+	_res = 0;
+	e.accept(*this);
+	return _res;
+}
+
+inline void
+Evaluator::visit(AddExpr &e) {
+	interval lhs = eval(*e.lhs());
+	interval rhs = eval(*e.rhs());
+	_res = lhs + rhs;
+}
+
+inline void
+Evaluator::visit(SubExpr &e) {
+	interval lhs = eval(*e.lhs());
+	interval rhs = eval(*e.rhs());
+	_res = lhs - rhs;
+}
+
+inline void
+Evaluator::visit(NegExpr &e) {
+	interval vv = eval(*e.value());
+	_res = -vv;
+}
+
+inline void
+Evaluator::visit(MulExpr &e) {
+	interval lhs = eval(*e.lhs());
+	interval rhs = eval(*e.rhs());
+	_res = lhs * rhs;
+}
+
+inline void
+Evaluator::visit(DivExpr &e) {
+	interval lhs = eval(*e.lhs());
+	interval rhs = eval(*e.rhs());
+	_res = lhs / rhs;
+}
+
+inline void
+Evaluator::visit(VarExpr &e) {
+	if (!_env.has(e.name()) || !_env.get(e.name(), _res))
+		throw iv_arithmetic_error("Error: unbound variable '" + e.name() + "'");
+}
+
+inline void
+Evaluator::visit(ExptExpr &e) {
+	interval v = eval(*e.base());
+	_res = int_pow(v, e.power());
+}
+
+inline void
+Evaluator::visit(LitExpr &e) {
+	_res = e.value();
+}
+
+inline void
+Evaluator::visit(AssignExpr &e) {
+	interval v = eval(*e.value());
+	_env.put(e.name(), v);
+	_res = v;
+}
+
+inline void
+Evaluator::visit(CallExpr &e) {
+	std::vector<interval> parms;
+	for (auto const &eptr : e.args())
+		parms.push_back(eval(*eptr));
+	_res = _env.apply(e.name(), parms);
+}
+
+inline void
+Evaluator::visit(EmptyExpr &e) {}
 
 
-
-
-
+inline void
+Evaluator::visit(FuncExpr &e) {
+	_env.def(e.name(), e.params(), e.impl());
+	_res = interval::empty();
 }
 
 
 
 
-
-
-
-
-
-
-
-
+}
 #endif

@@ -20,7 +20,7 @@ class LitExpr;
 class AssignExpr;
 class CallExpr;
 class EmptyExpr;
-
+class FuncExpr;
 
 
 typedef std::shared_ptr<Expr> ExprSPtr;
@@ -80,10 +80,16 @@ public:
 		return NULL;
 	}
 
+	virtual FuncExpr const*
+	as_func_expr() const {
+		return NULL;
+	}
+
 	virtual EmptyExpr const*
 	as_empty_expr() const {
 		return NULL;
 	}
+
 
 	virtual bool
 	is_constant() const {
@@ -120,8 +126,7 @@ public:
 class AddExpr : public Expr {
 	ExprSPtr _lhs, _rhs;
 public:
-	AddExpr(ExprSPtr lhs, ExprSPtr rhs)
-	: _lhs(lhs), _rhs(rhs) {}
+	AddExpr(ExprSPtr lhs, ExprSPtr rhs) : _lhs(lhs), _rhs(rhs) {}
 
 	AddExpr const*
 	as_add_expr() const {
@@ -156,8 +161,7 @@ public:
 class SubExpr : public Expr {
 	ExprSPtr _lhs, _rhs;
 public:
-	SubExpr(ExprSPtr lhs, ExprSPtr rhs)
-	: _lhs(lhs), _rhs(rhs) {}
+	SubExpr(ExprSPtr lhs, ExprSPtr rhs) : _lhs(lhs), _rhs(rhs) {}
 
 	SubExpr const*
 	as_sub_expr() const {
@@ -194,8 +198,7 @@ public:
 class NegExpr : public Expr {
 	ExprSPtr _value;
 public:
-	NegExpr(ExprSPtr e)
-	: _value(e) {}
+	NegExpr(ExprSPtr e) : _value(e) {}
 
 	ExprSPtr
 	value() const {
@@ -225,8 +228,7 @@ public:
 class MulExpr : public Expr {
 	ExprSPtr _lhs, _rhs;
 public:
-	MulExpr(ExprSPtr lhs, ExprSPtr rhs)
-	: _lhs(lhs), _rhs(rhs) {}
+	MulExpr(ExprSPtr lhs, ExprSPtr rhs) : _lhs(lhs), _rhs(rhs) {}
 
 	MulExpr const*
 	as_mul_expr() const {
@@ -261,8 +263,7 @@ public:
 class DivExpr : public Expr {
 	ExprSPtr _lhs, _rhs;
 public:
-	DivExpr(ExprSPtr lhs, ExprSPtr rhs)
-	: _lhs(lhs), _rhs(rhs) {}
+	DivExpr(ExprSPtr lhs, ExprSPtr rhs) : _lhs(lhs), _rhs(rhs) {}
 
 	DivExpr const*
 	as_div_expr() const {
@@ -298,8 +299,7 @@ class VarExpr : public Expr {
 	std::string const _name;
 public:
 
-	VarExpr(std::string const &name)
-	: _name(name) {}
+	VarExpr(std::string const &name) : _name(name) {}
 
 	VarExpr const *
 	as_var_expr() const {
@@ -331,8 +331,7 @@ class ExptExpr : public Expr {
 	int _power;
 	ExprSPtr _base;
 public:
-	ExptExpr(ExprSPtr base, int power)
-	: _power(power), _base(base) {}
+	ExptExpr(ExprSPtr base, int power) : _power(power), _base(base) {}
 
 	int
 	power() const {
@@ -411,7 +410,7 @@ class AssignExpr : public Expr {
 public:
 
 	AssignExpr(std::string const &name, ExprSPtr value)
-	: _name(name), _value(value) {}
+		: _name(name), _value(value) {}
 
 	AssignExpr const*
 	as_assign_expr() const {
@@ -448,7 +447,7 @@ class CallExpr : public Expr {
 	std::vector<ExprSPtr> _args;
 public:
 	CallExpr(std::string const &name, std::vector<ExprSPtr> const &args)
-	: _name(name), _args(args) {}
+		: _name(name), _args(args) {}
 
 	CallExpr const*
 	as_call_expr() const {
@@ -474,20 +473,59 @@ public:
 
 	bool
 	operator==(Expr const &other) const {
-		if (CallExpr const*e = other.as_call_expr()) {
-			if (_name != e->name()) return false;
-			if (_args.size() != e->args().size()) return false;
-			std::vector<ExprSPtr> const &eargs = e->args();
-			for (size_t i = 0; i < _args.size(); ++i)
-				if (!(*_args.at(i) == *eargs.at(i)))
-					return false;
-			return true;
-		} else return false;
+		if (CallExpr const*e = other.as_call_expr())
+			return (_name == e->name()) && (_args == e->args());
+		return false;
 	}
 
 
 	VISITABLE()
 };
+
+class FuncExpr : public Expr {
+	std::string const _name;
+	std::vector<std::string> _params;
+	ExprSPtr _impl;
+public:
+
+	FuncExpr(std::string const &name, std::vector<std::string> const &params, ExprSPtr impl)
+		: _name(name), _params(params), _impl(impl) {}
+
+	std::string const&
+	name() const {
+		return _name;
+	}
+
+	std::vector<std::string> const&
+	params() const {
+		return _params;
+	}
+
+	ExprSPtr
+	impl() const {
+		return _impl;
+	}
+
+	FuncExpr const*
+	as_func_expr() const {
+		return this;
+	}
+
+	bool
+	is_constant() const {
+		return _impl->is_constant();
+	}
+
+	bool
+	operator==(Expr const &other) const {
+		if (FuncExpr const *e = other.as_func_expr())
+			return (_name == e->name()) && (_params == e->params()) && (*_impl == *e->impl());
+		return false;
+	}
+
+		VISITABLE()
+};
+
 
 class EmptyExpr : public Expr {
 public:
@@ -505,10 +543,6 @@ public:
 
 	VISITABLE()
 };
-
-
-
-
 
 }
 

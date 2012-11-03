@@ -11,18 +11,9 @@ namespace calc {
 
 class iv_arithmetic_error : public std::runtime_error {
 public:
-	iv_arithmetic_error()
-	: std::runtime_error("iv_arithmetic_error")
-	{}
-
-	iv_arithmetic_error(char const *msg)
-	: std::runtime_error(msg)
-	{}
-
-	iv_arithmetic_error(std::string const &msg)
-	: std::runtime_error(msg)
-	{}
-
+	iv_arithmetic_error() : std::runtime_error("iv_arithmetic_error") {}
+	iv_arithmetic_error(char const *msg) : std::runtime_error(msg) {}
+	iv_arithmetic_error(std::string const &msg) : std::runtime_error(msg) {}
 };
 
 
@@ -95,6 +86,9 @@ interval integral_root(interval const &x, interval const &y);
 interval midpoint(interval const &x);
 interval leftendpoint(interval const &x);
 interval rightendpoint(interval const &x);
+
+
+
 
 
 inline interval::interval(real lo, real hi)
@@ -441,6 +435,54 @@ power(interval const &x, interval const &y) {
 	}
 	return exp(y * log(interval(std::max(x.lo(), real_zero), x.hi())));
 }
+
+
+inline interval
+abs(interval const &x) {
+	if (x.lo() > 0) return x;
+	if (x.hi() < 0) return -x;
+	return interval(real_zero, std::max(-x.lo(), x.hi()));
+}
+
+inline interval
+sgn(interval const &x) {
+	if (x.hi() < 0) return interval::minus_one();
+	if (x.lo() > 0) return interval::one();
+	return interval::zero();
+}
+
+inline interval
+iv_max(interval const &x, interval const &y) {
+	return interval(std::max(y.lo(), x.lo()), std::max(y.hi(), x.hi()));
+}
+
+inline interval
+iv_min(interval const &x, interval const &y) {
+	return interval(std::min(x.lo(), y.lo()), std::min(x.hi(), y.hi()));
+}
+
+inline interval
+hull(interval const &x, interval const &y) {
+	if (x.is_empty()) return y;
+	else if (y.is_empty()) return x;
+	return interval(std::min(x.lo(), y.lo()), std::max(x.hi(), y.hi()));
+}
+
+inline interval
+sqrt(interval const &x) {
+	if (x.hi() < 0) return interval::empty();
+	real l = (x.lo() <= 0) ? real_zero : rmath::sqrt_lo(x.lo());
+	return interval(l, rmath::sqrt_hi(x.hi()));
+}
+
+inline interval
+square(interval const &x) {
+	real xl = x.lo(), xh = x.hi();
+	if (xh < 0) return interval(rmath::mul_lo(xh, xh), rmath::mul_hi(xl, xl));
+	if (xl > 0) return interval(rmath::mul_lo(xl, xl), rmath::mul_hi(xh, xh));
+	return interval(real_zero, (-xl > xh ? rmath::mul_hi(xl, xl) : rmath::mul_hi(xh, xh)));
+}
+
 
 
 

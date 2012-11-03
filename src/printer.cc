@@ -1,5 +1,5 @@
 #include "printer.hh"
-
+#include <parser/parser.hh>
 namespace calc {
 
 enum Style {
@@ -87,45 +87,46 @@ Printer::print_interval(interval i) {
 
 void
 Printer::visit(AddExpr &e) {
-	_os << "(";
-	print(*e.lhs());
+	if (_prec > P_Term) _os << "(";
+	print(*e.lhs(), P_Term);
 	style_out(" + ", Operator);
-	print(*e.rhs());
-	_os << ")";	}
+	print(*e.rhs(), P_Term);
+	if (_prec > P_Term) _os << ")";
+}
 
 void
 Printer::visit(SubExpr &e) {
-	_os << "(";
-	print(*e.lhs());
+	if (_prec > P_Term) _os << "(";
+	print(*e.lhs(), P_Term);
 	style_out(" - ", Operator);
-	print(*e.rhs());
-	_os << ")";
+	print(*e.rhs(), P_Term);
+	if (_prec > P_Term) _os << ")";
 }
 
 void
 Printer::visit(NegExpr &e) {
-	_os << "(";
+	if (_prec > P_Prefix) _os << "(";
 	style_out("-", Operator);
-	print(*e.value());
-	_os << ")";
+	print(*e.value(), P_Prefix);
+	if (_prec > P_Prefix) _os << ")";
 }
 
 void
 Printer::visit(MulExpr &e) {
-	_os << "(";
-	print(*e.lhs());
+	if (_prec > P_Prod) _os << "(";
+	print(*e.lhs(), P_Prod);
 	style_out(" * ", Operator);
-	print(*e.rhs());
-	_os << ")";
+	print(*e.rhs(), P_Prod);
+	if (_prec > P_Prod) _os << ")";
 }
 
 void
 Printer::visit(DivExpr &e) {
-	_os << "(";
-	print(*e.lhs());
+	if (_prec > P_Prod) _os << "(";
+	print(*e.lhs(), P_Prod);
 	style_out(" / ", Operator);
-	print(*e.rhs());
-	_os << ")";
+	print(*e.rhs(), P_Prod);
+	if (_prec > P_Prod) _os << ")";
 }
 
 void
@@ -135,7 +136,7 @@ Printer::visit(VarExpr &e) {
 
 void
 Printer::visit(ExptExpr &e) {
-	print(*e.base());
+	print(*e.base(), P_Expt);
 	style_out("^", Operator);
 	style_out(e.power(), Number);
 }
@@ -157,7 +158,7 @@ Printer::visit(CallExpr &e) {
 	style_out(e.name(), Func);
 	_os << "(";
 	bool fst = true;
-	for (ExprSPtr ex : e.args()) {
+	for (auto const &ex : e.args()) {
 		if (fst) fst = false;
 		else _os << ", ";
 		print(*ex);
@@ -166,8 +167,24 @@ Printer::visit(CallExpr &e) {
 }
 
 void
+Printer::visit(FuncExpr &e) {
+	style_out(e.name(), Func);
+	_os << "(";
+	bool fst = true;
+	for (auto const &p : e.params()) {
+		if (fst) fst = false;
+		else _os << ", ";
+		style_out(p, Var);
+	}
+	_os << ") = ";
+	print(*e.impl());
+}
+
+void
 Printer::visit(EmptyExpr &e) {
 	style_out("(#empty)", Empty);
 }
+
+
 
 }

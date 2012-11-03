@@ -17,28 +17,28 @@ LexerTest::number() {
 } while (0)
 
 	CHECK_NUM("431");
-	CHECK_NUM("-431");
-	
+//	CHECK_NUM("-431");
+
 	CHECK_NUM("44.2");
-	CHECK_NUM("-44.4");
-	
+//	CHECK_NUM("-44.4");
+
 	CHECK_NUM("24e5");
-	CHECK_NUM("-24e5");
+//	CHECK_NUM("-24e5");
 	CHECK_NUM("24e+5");
 
 	CHECK_NUM("24e-5");
-	CHECK_NUM("-24e-5");
-	CHECK_NUM("-24e+5");
+//	CHECK_NUM("-24e-5");
+//	CHECK_NUM("-24e+5");
 
 	CHECK_NUM("1.2e4");
 	CHECK_NUM("1.2e+4");
 	CHECK_NUM("1.2e-4");
 
-	CHECK_NUM("-1.2e4");
-	CHECK_NUM("-1.2e+4");
-	CHECK_NUM("-1.2e-4");
+//	CHECK_NUM("-1.2e4");
+//	CHECK_NUM("-1.2e+4");
+//	CHECK_NUM("-1.2e-4");
 
-	CHECK_NUM("-0e4");
+//	CHECK_NUM("-0e4");
 	CHECK_NUM("0e+0");
 	CHECK_NUM("0001000");
 
@@ -63,28 +63,28 @@ void
 LexerTest::tokens() {
 	std::string src("()[]foo+3-/*^=,");
 	Lexer lexer(src);
-	
+
 	Token t = lexer.next();
 	CheckEq(T_LPAREN, t.type());
-	
+
 	t = lexer.next();
 	CheckEq(T_RPAREN, t.type());
-	
+
 	t = lexer.next();
 	CheckEq(T_LBRACKET, t.type());
-	
+
 	t = lexer.next();
 	CheckEq(T_RBRACKET, t.type());
-	
+
 	t = lexer.next();
 	CheckEq(T_NAME, t.type());
-	
+
 	t = lexer.next();
 	CheckEq(T_PLUS, t.type());
-	
+
 	t = lexer.next();
 	CheckEq(T_NUMBER, t.type());
-	
+
 	t = lexer.next();
 	CheckEq(T_MINUS, t.type());
 

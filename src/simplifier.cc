@@ -112,6 +112,12 @@ Simplifier::visit(CallExpr &e) {
 }
 
 void
+Simplifier::visit(FuncExpr &e) {
+	ExprSPtr simpl = simplify(*e.impl());
+	_simplified = Expr::make<FuncExpr>(e.name(), e.params(), simpl);
+}
+
+void
 Simplifier::visit(EmptyExpr &e) {
 	_simplified = Expr::make<EmptyExpr>();
 }

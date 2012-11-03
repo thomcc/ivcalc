@@ -16,7 +16,8 @@ class Derivator
 , public Visitor<VarExpr>
 , public Visitor<ExptExpr>
 , public Visitor<LitExpr>
-//, public Visitor<CallExpr>// hrm.
+, public Visitor<FuncExpr>
+, public Visitor<CallExpr>
 //, public Visitor<EmptyExpr>
 //, public Visitor<AssignExpr>
 {
@@ -37,9 +38,19 @@ public:
 	void visit(VarExpr &e);
 	void visit(ExptExpr &e);
 	void visit(LitExpr &e);
+	void visit(FuncExpr &e);
+	void visit(CallExpr &e);
 //	void visit(AssignExpr &e);
-//	void visit(CallExpr &e);
 //	void visit(EmptyExpr &e);
+	static void partials(FuncExpr const &e, std::vector<std::pair<std::string, ExprSPtr>> &dest);
+
+	static std::vector<std::pair<std::string, ExprSPtr>>
+	partials(FuncExpr const &e) {
+		std::vector<std::pair<std::string, ExprSPtr>> res;
+		partials(e, res);
+		return res;
+	}
+
 
 
 };

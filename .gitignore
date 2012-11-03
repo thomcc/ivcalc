@@ -6,3 +6,5 @@ build/
 *.dSym
 *.a
 
+bin/main
+test/test_main

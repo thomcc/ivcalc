@@ -277,7 +277,7 @@ HI_LO_FUNC(tanh)
 HI_LO_FUNC(asinh)
 HI_LO_FUNC(acosh)
 HI_LO_FUNC(atanh)
-
+HI_LO_FUNC(sqrt)
 
 #undef HI_LO_FUNC
 
