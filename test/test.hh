@@ -50,6 +50,12 @@ public:
 		_verbosity = v;
 	}
 
+	static void
+	reset() {
+		_tests = 0;
+		_failures = 0;
+	}
+
 private:
 	static int _tests, _failures;
 

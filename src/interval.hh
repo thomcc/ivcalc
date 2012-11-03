@@ -62,6 +62,9 @@ public:
 	interval &join(interval const &i);
 	interval joined(interval const &i) const;
 
+	bool has(interval const &i) const;
+	bool has(real r) const;
+	bool overlap(interval const &i) const;
 	static interval empty();
 	static interval full();
 	static interval zero();
@@ -86,10 +89,6 @@ interval integral_root(interval const &x, interval const &y);
 interval midpoint(interval const &x);
 interval leftendpoint(interval const &x);
 interval rightendpoint(interval const &x);
-
-
-
-
 
 inline interval::interval(real lo, real hi)
 : _lo(lo), _hi(hi) {
@@ -247,6 +246,20 @@ interval::joined(interval const &i) const {
 	return interval(*this).join(i);
 }
 
+inline bool
+interval::has(interval const &i) const {
+	return i.is_empty() || (!is_empty() && _lo <= i._lo && i._hi <= _hi);
+}
+
+inline bool
+interval::has(real r) const {
+	return !is_empty() && _lo <= r && r <= _hi;
+}
+
+inline bool
+interval::overlap(interval const &i) const {
+	return (_lo <= i._lo && i._lo <= _hi) || (i._lo <= _lo && _lo <= i._hi);
+}
 
 inline interval
 interval::empty() {
@@ -287,6 +300,8 @@ inline interval
 interval::half_pi() {
 	return interval(rmath::pi_over_two_lo(), rmath::pi_over_two_hi());
 }
+
+
 
 inline interval
 interval::hull(real r1, real r2) {
@@ -482,7 +497,6 @@ square(interval const &x) {
 	if (xl > 0) return interval(rmath::mul_lo(xl, xl), rmath::mul_hi(xh, xh));
 	return interval(real_zero, (-xl > xh ? rmath::mul_hi(xl, xl) : rmath::mul_hi(xh, xh)));
 }
-
 
 
 

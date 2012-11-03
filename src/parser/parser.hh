@@ -7,7 +7,7 @@
 #include "expr.hh"
 #include "parser/lexer.hh"
 #include "parser/queue.hh"
-#include "colors.hh"
+//#include "colors.hh"
 
 namespace calc {
 
@@ -108,7 +108,7 @@ private:
 	static Prefix _prefixes[NUM_TOKEN_TYPES];
 	static Infix _infixes[NUM_TOKEN_TYPES];
 
-	long double
+	real
 	parse_real(std::string const &s);
 
 	ExprSPtr parse_expr(int precedence = 0);

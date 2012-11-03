@@ -16,6 +16,7 @@ public:
 		minus();
 		mul();
 		div();
+		partials();
 	}
 private:
 	void var();
@@ -25,6 +26,7 @@ private:
 	void minus();
 	void mul();
 	void div();
+	void partials();
 	ExprSPtr get_expr(std::string const &) const;
 
 

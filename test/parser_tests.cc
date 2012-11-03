@@ -219,4 +219,22 @@ ParserTest::group() {
 	}
 }
 
+
+void
+ParserTest::func() {
+	ErrorHandler eh(true, false);
+	Parser p("f(x) = x", eh);
+	ExprSPtr e = p.parse_expression();
+	Check(!eh.errors());
+	if (!CheckNull(e.get())) return;
+	if (FuncExpr const *fe = CheckNull(e->as_func_expr())) {
+		std::vector<std::string> const &ps = fe->params();
+		CheckEq(1, ps.size());
+		CheckEq("x", ps.at(0));
+		CheckEq("f", fe->name());
+		if (VarExpr const *ve = CheckNull(fe->impl()->as_var_expr()))
+			CheckEq("x", ve->name());
+	}
+}
+
 }

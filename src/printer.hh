@@ -52,7 +52,7 @@ public:
 
 	Printer(std::ostream &os, bool color=false)
 	: _os(os), _color(color), _prec(0) {
-		_os.precision(std::numeric_limits<long double>::digits10 + 1);
+		_os.precision(std::numeric_limits<real>::digits10 + 1);
 	}
 
 	void

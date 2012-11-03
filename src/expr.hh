@@ -281,8 +281,8 @@ public:
 	}
 
 	bool
-	is_constant() const {
-		return _lhs->is_constant() && _rhs->is_constant();
+	is_constant() const {// <expr1>/0 isn't constant
+		return _lhs->is_constant() && _rhs->is_constant() && !_rhs->is_lit_zero();
 	}
 
 	bool

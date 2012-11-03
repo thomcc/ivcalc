@@ -40,6 +40,10 @@ public:
 	void visit(FuncExpr &e);
 	void visit(EmptyExpr &e);
 
+	static ExprSPtr
+	simplified(ExprSPtr const &e) {
+		return Simplifier().simplify(*e);
+	}
 
 };
 

@@ -35,7 +35,7 @@ run_tests:
 	@./${TESTMAIN}
 
 ${PROGRAMS}: CXXFLAGS += ${TARGET}
-${PROGRAMS}:
+${PROGRAMS}: ${addsuffix .cc, $@}
 	@echo CC ${addsuffix .cc, $@}
 	@${CXX} ${CXXFLAGS} -o $@ ${addsuffix .cc, $@} -MD
 # -MD ${addsuffix .d, $@}

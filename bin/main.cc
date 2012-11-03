@@ -88,8 +88,7 @@ repl(int vrb) {
 				std::stringstream ss;
 				ss << "(";
 				for (size_t i = 0; i < fe->params().size(); ++i)
-					if (i) ss << ", " << fe->params().at(i);
-					else ss << fe->params().at(i);
+					ss << (i ? ", " : "") << fe->params().at(i);
 				ss << ")";
 				std::string paramlist = ss.str();
 				std::cout << "Derived " << partials.size() << " partials." << std::endl;
@@ -100,6 +99,7 @@ repl(int vrb) {
 					print.print(*sp);
 					std::cout << std::endl;
 				}
+				e.eval(*expr);
 			}
 
 			if (!expr->as_empty_expr() && !expr->as_func_expr()) {

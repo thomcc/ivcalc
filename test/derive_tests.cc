@@ -248,6 +248,71 @@ DeriveTest::div() {
 }
 
 
+void
+DeriveTest::partials() {
+	ExprSPtr x = get_expr("f(x, y, z) = x^2 + x*y + y*z + 2*z");
+	FuncExpr const *fe = x->as_func_expr();
+	if (!CheckNull(fe)) return;
+	// ∂f/∂x = 2*x + y
+	// ∂f/∂y = x + z
+	// ∂f/∂z = y + 2
+	using namespace std;
+	vector<pair<string, ExprSPtr>> ps;
+	Derivator::partials(*fe, ps);
+
+	Check(ps.size() == 3);
+	for (auto &p : ps)
+		p.second = Simplifier::simplified(p.second);
+
+	ExprSPtr const &dx = ps[0].second;
+	ExprSPtr const &dy = ps[1].second;
+	ExprSPtr const &dz = ps[2].second;
+
+	if (AddExpr const *ax = CheckNull(dx->as_add_expr())) {
+		// ∂f/∂x = 2*x + y
+		ExprSPtr l = ax->lhs(), r = ax->rhs();
+		if (!l->as_mul_expr() && r->as_mul_expr()) std::swap(l, r);
+		if (MulExpr const *me = CheckNull(l->as_mul_expr())) {
+			ExprSPtr ll = me->lhs(), lr = me->rhs();
+			if (!ll->as_lit_expr() && lr->as_lit_expr()) std::swap(ll, lr);
+			if (LitExpr const *le = CheckNull(ll->as_lit_expr()))
+				CheckEq(interval(2), le->value());
+			if (VarExpr const *ve = CheckNull(lr->as_var_expr()))
+				CheckEq("x", ve->name());
+		}
+		if (VarExpr const *ve = CheckNull(r->as_var_expr()))
+			CheckEq("y", ve->name());
+	}
+
+	if (AddExpr const *ay = CheckNull(dy->as_add_expr())) {
+		// ∂f/∂y = x + z
+		ExprSPtr l = ay->lhs(), r = ay->rhs();
+		if (CheckNull(l->as_var_expr()) && CheckNull(r->as_var_expr())) {
+			VarExpr const *ve0 = l->as_var_expr();
+			VarExpr const *ve1 = r->as_var_expr();
+			// need to allow both orderings x+z, z+x
+			if (ve0->name() == "x") {
+				CheckEq("x", ve0->name());
+				CheckEq("z", ve1->name());
+			} else {//if (ve1->name() == "x") {
+				CheckEq("z", ve0->name());
+				CheckEq("x", ve1->name());
+			}
+		}
+	}
+
+	if (AddExpr const *az = CheckNull(dz->as_add_expr())) {
+		// ∂f/∂z = y + 2
+		ExprSPtr l = az->lhs(), r = az->rhs();
+		if (!l->as_var_expr() && r->as_var_expr()) std::swap(l, r);
+		if (VarExpr const *ve = CheckNull(l->as_var_expr()))
+			CheckEq("y", ve->name());
+		if (LitExpr const *le = CheckNull(r->as_lit_expr()))
+			CheckEq(interval(2), le->value());
+	}
+}
+
+
 
 
 }

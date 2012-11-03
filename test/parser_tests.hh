@@ -16,6 +16,7 @@ public:
 		pow();
 		lit();
 		assign();
+		func();
 		group();
 		precedence();
 	}
@@ -28,7 +29,7 @@ private:
 	void lit();
 	void assign();
 	void group();
-	void call();
+	void func();
 	void precedence();
 };
 
