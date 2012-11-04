@@ -68,7 +68,7 @@ Parser::Prefix Parser::_prefixes[] = {
 real
 Parser::parse_real(std::string const &s) {
 	real d;
-	if (!sscanf(s.c_str(), "%Lf", &d)) {
+	if (!sscanf(s.c_str(), REAL_FMT, &d)) {
 		_on_error.error("Invalid number: '"+s+"'");
 		d = 0.0;
 	}
@@ -91,11 +91,14 @@ Parser::number(Token const &t) {
 // `[num, num]`
 ExprSPtr
 Parser::ival_lit(Token const &t) {
+	if (match(T_RBRACKET)) return Expr::make<LitExpr>(interval::empty());
 	Token lo = consume(T_NUMBER, "Expected number in interval literal.");
 	consume(T_COMMA, "Expected comma in interval literal.");
 	Token hi = consume(T_NUMBER, "Expected number in interval literal.");
+	consume(T_RBRACKET, "Missing closing ']' in interval literal");
 	real l = Parser::parse_real(lo.text());
 	real h = Parser::parse_real(hi.text());
+
 	return Expr::make<LitExpr>(l, h);
 }
 

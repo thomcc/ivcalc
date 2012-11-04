@@ -84,17 +84,36 @@ Derivator::visit(FuncExpr &e) {
 }
 
 static map<string, string> dx_rules{
-	{"sin", "cos(_1)"},
-	{"cos", "-sin(_1)"},
-	{"tan", "1 / (cos(_1)^2)"},
 	{"log", "1 / _1"},
 	{"exp", "exp(_1)"},
 	{"abs", "sgn(_1)"},
 	{"square", "2 * _1"},
 	{"sqrt", "1 / (2 * sqrt(_1))"},
+
+
+	{"sin", "cos(_1)"},
+	{"cos", "-sin(_1)"},
+	{"tan", "1 / (cos(_1)^2)"},
+
+	{"sec", "sec(_1) * tan(_1)"},
+	{"csc", "-csc(_1) * cot(_1)"},
+	{"cot", "sec(_1)^2"},
+
 	{"asin", "1 / sqrt(1 - _1^2)"},
 	{"acos", "-1 / sqrt(1 - _1^2)"},
-	{"atan", "1 / (1 + _1^2)"}
+	{"atan", "1 / (1 + _1^2)"},
+
+	{"asec", "1 / (_1 * sqrt(_1^2 - 1))"},
+	{"acsc", "-1 / (_1 * sqrt(_1^2 - 1))"},
+	{"acot", "-1 / (1 + _1^2)"},
+
+	{"sinh", "cosh(_1)"},
+	{"cosh", "sinh(_1)"},
+	{"tanh", "(1 / cosh(_1))^2"},
+
+	{"asinh", "1 / (sqrt(1 + _1^2))"},
+	{"acosh", "1 / (sqrt(_1 - 1) * sqrt(_1 + 1))"},
+	{"atanh", "1 / (1 - _1^2)"},
 };
 
 static vector<string> placeholder_vars{

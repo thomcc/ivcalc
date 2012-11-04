@@ -1,5 +1,5 @@
 #include "eval.hh"
-
+#include <parser/parser.hh>
 namespace calc {
 
 unsigned long BaseFunc::gs_entropy = 0;
@@ -76,6 +76,12 @@ Env::global() {
 	FN1(asin);
 	FN1(acos);
 	FN1(atan);
+	FN1(sinh);
+	FN1(cosh);
+	FN1(tanh);
+	FN1(acosh);
+	FN1(asinh);
+	FN1(atanh);
 	FN2(power);
 	FN2(hull);
 	FN1(abs);
@@ -86,17 +92,58 @@ Env::global() {
 #undef FN2
 #undef FN1
 
-	e.add_func<Fn2Args>("iroot", integral_root);
 	e.add_func<Fn2Args>("max", iv_max);
 	e.add_func<Fn2Args>("min", iv_min);
 	e.add_func<Fn1Arg>("mid", midpoint);
 	e.add_func<Fn1Arg>("left", leftendpoint);
 	e.add_func<Fn1Arg>("right", rightendpoint);
+	e.add_builtins({
+		"sec(x) = 1 / cos(x)",
+		"csc(x) = 1 / sin(x)",
+		"cot(x) = 1 / tan(x)",
+
+		"asec(x) = acos(1/x)",
+		"acsc(x) = asin(1/x)",
+		"acot(x) = atan(1/x)",
+
+
+		"sech(x) = 1 / cosh(x)",
+		"csch(x) = 1 / sinh(x)",
+		"coth(x) = cosh(x) / sinh(x)",
+
+		"asech(x) = acosh(1/x)",
+		"acsch(x) = asinh(1/x)",
+		"acoth(x) = atanh(1/x)"
+	});
 
 	e.put("pi", interval::pi());
 	e.put("two_pi", interval::two_pi());
 	return e;
 
+}
+
+void
+Env::add_builtin(std::string const &text) {
+	ErrorHandler eh(true, false);
+	Parser p(text, eh);
+	ExprSPtr eptr = p.parse_expression();
+	if ((eh.errors() != 0) || !eptr.get())
+		throw iv_arithmetic_error("Bug: error adding builtin: parser error");
+	FuncExpr const *fe = eptr->as_func_expr();
+	if (!fe)
+		throw iv_arithmetic_error("Bug: error adding builtin: incorrectly parsed.");
+	def(fe->name(), fe->params(), fe->impl());
+}
+
+void
+Env::add_builtins(std::initializer_list<std::string> const &funcs) {
+	for (auto const &func : funcs) {
+		try {
+			add_builtin(func);
+		} catch (...) {
+			std::cerr << "Warning: failed to add builtin `" << func << "`." << std::endl;
+		}
+	}
 }
 
 void

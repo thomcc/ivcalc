@@ -90,6 +90,8 @@ class Env {
 	Env const *_parent;
 	std::map<std::string, interval> _vars;
 	std::map<std::string, std::shared_ptr<BaseFunc>> _funcs;
+	void add_builtin(std::string const &func);
+	void add_builtins(std::initializer_list<std::string> const &funcs);
 public:
 	Env();
 	Env(Env const &) = default;

@@ -15,7 +15,7 @@ main() {
 	DeriveTest().run();
 	Test::summary();
 	Test::reset();
-	std::cout << "Beginning (a great number of) interval tests..." << std::endl;
+	std::cout << "running interval tests..." << std::endl;
 	IntervalTest().run();
 	Test::summary();
 	return Test::failures();

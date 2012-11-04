@@ -78,6 +78,7 @@ repl(int vrb) {
 			}
 			if (eh.need_lines()) continue;
 			if (eh.errors() == 0) break;
+			else continue;
 			if (std::cin.eof()) return 0;
 			return 2;
 		}

@@ -12,7 +12,7 @@
 #define Check(cnd) _check(__FILE__, __LINE__, __func__, #cnd, cnd)
 #define CheckNot(cnd) Check(!(cnd))
 #define CheckMsg(cnd, msg) _msg_check(__FILE__, __LINE__, __func__, msg, cnd)
-#define CheckEq(expected, actual) _eql_check(__FILE__, __LINE__, __func__, #actual, expected, actual);
+#define CheckEq(expected, actual) _eql_check(__FILE__, __LINE__, __func__, #expected, #actual, expected, actual);
 #define CheckNull(val) _null_check(__FILE__, __LINE__, __func__, #val, val)
 
 
@@ -94,8 +94,8 @@ protected:
 		if (!cnd) {
 			++_failures;
 			if (_verbosity > quiet) {
-				cout << R_BOLD("Failed")" @ (";
-				cout << file << " : " << func << " : " << line << "): ";
+				cout << R_BOLD("Failed")" @ ";
+				cout << file << ":" << line << "(testing " << func << ")"<< ": ";
 				cout << msg << endl;
 			}
 		} else if (_verbosity == verbose) {
@@ -109,7 +109,8 @@ protected:
 	_eql_check(char const *file,
 	           int line,
 	           char const *func,
-	           char const *expr,
+	           char const *expect,
+	           char const *actual,
 	           L const &val_lhs,
 	           R const &val_rhs) {
 		++_tests;
@@ -117,13 +118,13 @@ protected:
 		if (!okay) {
 			++_failures;
 			if (_verbosity > quiet) {
-				cout << R_BOLD("Failed")" @ (";
-				cout << file << " : " << func << " : " << line << "): ";
-				cout << "Expected " << expr << " == " << val_lhs;
-				cout << ", got " << val_rhs << "." << endl;
+				cout << R_BOLD("Failed")" @ ";
+				cout << file << ":" << line << "(testing " << func << ")"<< ": ";
+				cout << "Expected " << expect << " == " << actual;
+				cout << ", got " << val_lhs << " != " << val_rhs << "." << endl;
 			}
 		} else if (_verbosity == verbose) {
-			cout << G_BOLD("Passed") ": " << expr << " == " << val_lhs << endl;
+			cout << G_BOLD("Passed") ": " << expect << " == " << actual << endl;
 		}
 		return okay;
 	}
@@ -139,8 +140,8 @@ protected:
 		if (val == nullptr) {
 			++_failures;
 			if (_verbosity > quiet) {
-				cout << R_BOLD("Failed")" @ (";
-				cout << file << " : " << func << " : " << line << "): ";
+				cout << R_BOLD("Failed")" @ ";
+				cout << file << ":" << line << "(testing " << func << ")"<< ": ";
 				cout << "Expected " << expr << " not null." << endl;
 			}
 		} else if (_verbosity == verbose) {

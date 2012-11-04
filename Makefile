@@ -21,10 +21,10 @@ TESTMAIN = test/test_main
 
 TARGET = build/libcalc.a
 
+all: ${TARGET} tests ${PROGRAMS} run_tests
+
 rebuild: clean
 rebuild: all
-
-all: ${TARGET} tests ${PROGRAMS} run_tests
 
 tests: ${TESTS}
 	@echo LINK ${TESTMAIN}
