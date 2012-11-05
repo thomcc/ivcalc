@@ -1,8 +1,8 @@
 #include "interval.hh"
+#include <iostream>
 namespace calc {
 
-interval&
-interval::operator*=(interval const &i) {
+interval &interval::operator*=(interval const &i) {
 	if (is_empty()) return *this;
 	if (i.is_empty()) return *this = interval::empty();
 	real xl = _lo, xh = _hi, yl = i._lo, yh = i._hi;
@@ -117,8 +117,7 @@ interval modulo(real a, interval const &b) {
 	return a - rr * b;
 }
 
-interval
-midpoint(interval const &x) {
+interval midpoint(interval const &x) {
 	real zz = rmath::avg(x.lo(), x.hi());
 	if (isfinite(zz)) return interval(zz, zz);
 	if (x.lo() == rmath::neg_inf()) {
@@ -134,21 +133,18 @@ midpoint(interval const &x) {
 	return interval(x);
 }
 
-interval
-leftendpoint(interval const &x) {
+interval leftendpoint(interval const &x) {
 	if (isfinite(x.lo())) return interval(x.lo(), x.lo());
 	return interval(rmath::r_down(x.lo()), rmath::r_up(x.lo()));
 }
 
-interval
-rightendpoint(interval const &x) {
+interval rightendpoint(interval const &x) {
 	if (isfinite(x.hi())) return interval(x.hi(), x.hi());
 	return interval(rmath::r_down(x.hi()), rmath::r_up(x.hi()));
 }
 
 
-static inline real
-int_pow_lo(real x, int y) {
+static inline real int_pow_lo(real x, int y) {
 	real res = (y & 1) ? x : 1;
 	y >>= 1;
 	while (y > 0) {
@@ -159,8 +155,7 @@ int_pow_lo(real x, int y) {
 	return res;
 }
 
-static inline real
-int_pow_hi(real x, int y) {
+static inline real int_pow_hi(real x, int y) {
 	real res = (y & 1) ? x : 1;
 	y >>= 1;
 	while (y > 0) {
@@ -174,8 +169,7 @@ int_pow_hi(real x, int y) {
 
 
 
-interval
-int_pow(interval const &x, int y) {
+interval int_pow(interval const &x, int y) {
 	if (y == 0) return x.is_zero() ? interval::empty() : interval::one();
 	if (y < 0) return interval(1) / int_pow(x, -y);
 	if (x.hi() < 0) {
@@ -188,16 +182,4 @@ int_pow(interval const &x, int y) {
 }
 
 
-
-/*
-interval
-integral_root(interval const &x, interval const &y) {
-	if ((y.lo() != y.hi()) || (remainderl(y.lo(), real_one) != real_zero))
-		return interval::full();
-	if (remainderl(y.lo(), 2.0l) == real_zero)
-		return even_root(x, y.lo());
-	return odd_root(x, y.lo());
-}
-
-*/
 }

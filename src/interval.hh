@@ -7,6 +7,7 @@
 #include "common.hh"
 #include "rounding.hh"
 #include "utilities.hh"
+
 namespace calc {
 
 class iv_arithmetic_error : public std::runtime_error {
@@ -171,8 +172,6 @@ inline bool interval::has(real r) const { return (!is_empty()) &&( _lo <= r) && 
 inline bool interval::has(interval const &i) const {
 	return i.is_empty() || (!is_empty() && _lo <= i._lo && i._hi <= _hi);
 }
-
-
 
 inline bool interval::overlap(interval const &i) const {
 	return (_lo <= i._lo && i._lo <= _hi) || (i._lo <= _lo && _lo <= i._hi);

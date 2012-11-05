@@ -1,9 +1,11 @@
 #ifndef __DERIVATOR_HH__
 #define __DERIVATOR_HH__
-#include "expr.hh"
+//#include "expr.hh"
 #include "visitorbase.hh"
-#include "interval.hh"
-#include <map>
+#include "common.hh"
+#include <string>
+#include <vector>
+
 namespace calc {
 
 class Derivator
@@ -40,12 +42,9 @@ public:
 	void visit(LitExpr &e);
 	void visit(FuncExpr &e);
 	void visit(CallExpr &e);
-//	void visit(AssignExpr &e);
-//	void visit(EmptyExpr &e);
 	static void partials(FuncExpr const &e, std::vector<std::pair<std::string, ExprSPtr>> &dest);
 
-	static std::vector<std::pair<std::string, ExprSPtr>>
-	partials(FuncExpr const &e) {
+	static std::vector<std::pair<std::string, ExprSPtr>> partials(FuncExpr const &e) {
 		std::vector<std::pair<std::string, ExprSPtr>> res;
 		partials(e, res);
 		return res;

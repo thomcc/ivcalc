@@ -1,10 +1,12 @@
 #include "parser/parser.hh"
 #include <sstream>
 #include "expr.hh"
-#include "parser/lexer.hh"
 #include "utilities.hh"
 #include "printer.hh"
 #include <cstdio>
+#include <iostream>
+#include <unistd.h>
+
 namespace calc {
 
 void
@@ -22,13 +24,15 @@ ErrorHandler::error(std::string const &msg, int lvl) {
 	case E_Warn: std::cerr << prefix << "Warning" << suffix << " "; break;
 	case E_Error: std::cerr << prefix << "Error" << suffix << " "; break;
 	case E_Info: std::cerr << prefix << "Info" << suffix << " "; break;
-	case E_Bug: default:
-		std::cerr << prefix << "Bug" << suffix << " "; break;
+	case E_Bug: default: std::cerr << prefix << "Bug" << suffix << " "; break;
 	}
 	std::cerr << msg << std::endl;
 }
 
-
+std::ostream &operator<<(std::ostream &o, ErrorHandler const &e) {
+	o << "<EH: repl=" << e.at_repl() << " need_lines?=";
+	return o << e.need_lines() << " errors=" << e.errors() << ">";
+}
 Parser::Infix Parser::_infixes[] = {
 	{ &Parser::call,    P_Call   }, // T_LPAREN,
 	{ NULL,             -1       }, // T_RPAREN,
@@ -65,8 +69,7 @@ Parser::Prefix Parser::_prefixes[] = {
 	{ NULL,              -1       }, // T_ERROR
 };
 
-real
-Parser::parse_real(std::string const &s) {
+real Parser::parse_real(std::string const &s) {
 	real d;
 	if (!sscanf(s.c_str(), REAL_FMT, &d)) {
 		_on_error.error("Invalid number: '"+s+"'");
@@ -76,21 +79,14 @@ Parser::parse_real(std::string const &s) {
 }
 
 // `var`
-ExprSPtr
-Parser::var(Token const &t) {
-	return Expr::make<VarExpr>(t.text());
-}
+ExprSPtr Parser::var(Token const &t) { return Expr::make<VarExpr>(t.text()); }
 
 // `num`
-ExprSPtr
-Parser::number(Token const &t) {
-	real d = parse_real(t.text());
-	return Expr::make<LitExpr>(d);
-}
+ExprSPtr Parser::number(Token const &t) { return Expr::make<LitExpr>(parse_real(t.text())); }
 
 // `[num, num]`
-ExprSPtr
-Parser::ival_lit(Token const &t) {
+// todo: support negative numbers
+ExprSPtr Parser::ival_lit(Token const &t) {
 	if (match(T_RBRACKET)) return Expr::make<LitExpr>(interval::empty());
 	Token lo = consume(T_NUMBER, "Expected number in interval literal.");
 	consume(T_COMMA, "Expected comma in interval literal.");
@@ -103,8 +99,7 @@ Parser::ival_lit(Token const &t) {
 }
 
 // `name(expr, ...)`
-ExprSPtr
-Parser::call(ExprSPtr lhs, Token const &t) {
+ExprSPtr Parser::call(ExprSPtr lhs, Token const &t) {
 	std::vector<ExprSPtr> args;
 	std::string name;
 	if (VarExpr const *e = lhs->as_var_expr()) name = e->name();
@@ -118,17 +113,15 @@ Parser::call(ExprSPtr lhs, Token const &t) {
 }
 
 // `(expr)`
-ExprSPtr
-Parser::group(Token const &t) {
+ExprSPtr Parser::group(Token const &t) {
 	ExprSPtr e = parse_expression();
 	consume(T_RPAREN, "Expected ')' in grouping");
 	return e;
 }
 
 // `var = expr`
-// `udf(arg1, arg2, ...) = expr`
-ExprSPtr
-Parser::assign(ExprSPtr lhs, Token const &t) {
+// `func_name(arg1, arg2, ...) = expr`
+ExprSPtr Parser::assign(ExprSPtr lhs, Token const &t) {
 	ExprSPtr rhs = parse_expr(P_Assign);
 	if (VarExpr const *e = lhs->as_var_expr()) {
 		std::string name("");
@@ -147,53 +140,41 @@ Parser::assign(ExprSPtr lhs, Token const &t) {
 }
 
 // `+expr`
-ExprSPtr
-Parser::p_plus(Token const &t) {
+ExprSPtr Parser::p_plus(Token const &t) {
 	return parse_expr(P_Prefix);
 }
 
 // `-expr`
-ExprSPtr
-Parser::p_minus(Token const &t) {
-	ExprSPtr rhs = parse_expr(P_Prefix);
-	return Expr::make<NegExpr>(rhs);
+ExprSPtr Parser::p_minus(Token const &t) {
+	return Expr::make<NegExpr>(parse_expr(P_Prefix));
 }
 
 // todo: combine +, -, *, /
 
 // `lhs_expr + rhs_expr`
-ExprSPtr
-Parser::plus(ExprSPtr lhs, Token const &t) {
-	ExprSPtr rhs = parse_expr(P_Term);
-	return Expr::make<AddExpr>(lhs, rhs);
+ExprSPtr Parser::plus(ExprSPtr lhs, Token const &t) {
+	return Expr::make<AddExpr>(lhs, parse_expr(P_Term));
 }
 
 // `lhs_expr - rhs_expr`
-ExprSPtr
-Parser::minus(ExprSPtr lhs, Token const &t) {
-	ExprSPtr rhs = parse_expr(P_Term);
-	return Expr::make<SubExpr>(lhs, rhs);
+ExprSPtr Parser::minus(ExprSPtr lhs, Token const &t) {
+	return Expr::make<SubExpr>(lhs, parse_expr(P_Term));
 }
 
 // `lhs_expr * rhs_expr`
-ExprSPtr
-Parser::times(ExprSPtr lhs, Token const &t) {
-	ExprSPtr rhs = parse_expr(P_Prod);
-	return Expr::make<MulExpr>(lhs, rhs);
+ExprSPtr Parser::times(ExprSPtr lhs, Token const &t) {
+	return Expr::make<MulExpr>(lhs, parse_expr(P_Prod));
 }
 
 // `lhs_expr / rhs_expr`
-ExprSPtr
-Parser::divide(ExprSPtr lhs, Token const &t) {
-	ExprSPtr rhs = parse_expr(P_Prod);
-	return Expr::make<DivExpr>(lhs, rhs);
+ExprSPtr Parser::divide(ExprSPtr lhs, Token const &t) {
+	return Expr::make<DivExpr>(lhs, parse_expr(P_Prod));
 }
 
 // `lhs_expr ^ an_integer`
 // TODO: support lhs ^ arbitrary expr evaluating to integer
 // and move check to runtime ?
-ExprSPtr
-Parser::expt(ExprSPtr lhs, Token const &t) {
+ExprSPtr Parser::expt(ExprSPtr lhs, Token const &t) {
 	Token tt = consume(T_NUMBER, "Expected number in exponent");
 	real d = parse_real(tt.text());
 	if (d != std::rint(d)) {
@@ -204,8 +185,7 @@ Parser::expt(ExprSPtr lhs, Token const &t) {
 }
 
 // actually parse an expression
-ExprSPtr
-Parser::parse_expr(int precedence) {
+ExprSPtr Parser::parse_expr(int precedence) {
 	// parse a prefix expression (includes vars, numbers)
 	Token t = consume();
 	Prefix p = _prefixes[t.type()];
@@ -229,24 +209,19 @@ Parser::parse_expr(int precedence) {
 }
 
 // check if the next token has the given type
-bool
-Parser::look_ahead(TokenType t) {
+bool Parser::look_ahead(TokenType t) {
 	fill_look_ahead(1);
 	return _lookahead[0].is_a(t);
 }
 
 // consume the next token if it has the given type
-bool
-Parser::match(TokenType t) {
-	if (look_ahead(t)) {
-		consume();
-		return true;
-	} else return false;
+bool Parser::match(TokenType t) {
+	if (look_ahead(t)) { consume(); return true; }
+	return false;
 }
 
 // get the next token
-Token
-Parser::consume() {
+Token Parser::consume() {
 	fill_look_ahead(1);
 	_last = _lookahead.dequeue();
 	if (_last.is_a(T_EOF)) _on_error.want_lines();
@@ -254,30 +229,26 @@ Parser::consume() {
 }
 
 // get the next token, register an error if its not the given type.
-Token
-Parser::consume(TokenType expected, std::string const &msg) {
+Token Parser::consume(TokenType expected, std::string const &msg) {
 	if (look_ahead(expected)) return consume();
 	_on_error.error(msg);
 	return consume();
 }
 
 // get the precedence of the next token
-int
-Parser::get_precedence() {
+int Parser::get_precedence() {
 	fill_look_ahead(1);
 	int p = _infixes[_lookahead[0].type()].precedence;
 	return (p < 0) ? 0 : p;
 }
 
 // if we're at the end of a line, tell the error handler we want more lines
-void
-Parser::check_line() {
+void Parser::check_line() {
 	if (look_ahead(T_EOF)) _on_error.want_lines();
 }
 
 // fill the look ahead buffer
-void
-Parser::fill_look_ahead(size_t size) {
+void Parser::fill_look_ahead(size_t size) {
 	while (_lookahead.count() < size) {
 		Token t = _lexer.next();
 		if (t.is_a(T_ERROR)) _on_error.error(t.text());

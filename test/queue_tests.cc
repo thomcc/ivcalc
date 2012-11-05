@@ -2,15 +2,14 @@
 #include "parser/queue.hh"
 namespace calc {
 
-void
-QueueTest::enqueue_dequeue() {
+void QueueTest::enqueue_dequeue() {
 	Queue<int, 3> q;
-	
+
 	CheckEq(0, q.count());
 	CheckEq(3, q.capacity());
-	
+
 	q.enqueue(2);
-	
+
 	CheckEq(1, q.count());
 	CheckEq(2, q[0]);
 
@@ -20,8 +19,7 @@ QueueTest::enqueue_dequeue() {
 	CheckEq(2, r);
 }
 
-void
-QueueTest::enqueue_seq() {
+void QueueTest::enqueue_seq() {
 	Queue<int,3> q;
 	for (size_t i = 0; i < 6; ++i) {
 		CheckEq(0, q.count());
@@ -31,8 +29,7 @@ QueueTest::enqueue_seq() {
 	}
 }
 
-void
-QueueTest::enqueue_several() {
+void QueueTest::enqueue_several() {
 	Queue<int, 3> q;
 	q.enqueue(5);
 	q.enqueue(6);
@@ -50,8 +47,7 @@ QueueTest::enqueue_several() {
 	CheckEq(0, q.count());
 }
 
-void
-QueueTest::count() {
+void QueueTest::count() {
 	Queue<int, 3> q;
 	CheckEq(0, q.count());
 	q.enqueue(1);
@@ -72,8 +68,7 @@ QueueTest::count() {
     CheckEq(0, q.count());
 }
 
-void
-QueueTest::access() {
+void QueueTest::access() {
 	Queue<int, 3> q;
 	q.enqueue(5);
 	q.enqueue(6);
@@ -87,14 +82,6 @@ QueueTest::access() {
 	CheckEq(7, q[1]);
 	CheckEq(8, q[2]);
 }
-
-
-
-
-
-
-
-
 
 
 }

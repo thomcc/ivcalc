@@ -4,55 +4,46 @@ namespace calc {
 
 using namespace std;
 
-static inline real
-dmin(real a, real b, real c, real d) {
+static inline real dmin(real a, real b, real c, real d) {
 	return std::min(std::min(a, b), std::min(c, d));
 }
 
-static inline real
-dmax(real a, real b, real c, real d) {
+static inline real dmax(real a, real b, real c, real d) {
 	return std::max(std::max(a, b), std::max(c, d));
 }
 
-static inline real
-mulmax(real al, real ah, real bl, real bh) {
+static inline real mulmax(real al, real ah, real bl, real bh) {
 	using rmath::mul_hi;
 	return dmax(mul_hi(al, bl), mul_hi(al, bh), mul_hi(ah, bl), mul_hi(ah, bh));
 }
 
-static inline real
-mulmin(real al, real ah, real bl, real bh) {
+static inline real mulmin(real al, real ah, real bl, real bh) {
 	using rmath::mul_lo;
 	return dmin(mul_lo(al, bl), mul_lo(al, bh), mul_lo(ah, bl), mul_lo(ah, bh));
 }
 
-static inline real
-divmax(real al, real ah, real bl, real bh) {
+static inline real divmax(real al, real ah, real bl, real bh) {
 	using rmath::div_hi;
 	return dmax(div_hi(al, bl), div_hi(al, bh), div_hi(ah, bl), div_hi(ah, bh));
 }
 
-static inline real
-divmin(real al, real ah, real bl, real bh) {
+static inline real divmin(real al, real ah, real bl, real bh) {
 	using rmath::div_lo;
 	return dmin(div_lo(al, bl), div_lo(al, bh), div_lo(ah, bl), div_lo(ah, bh));
 }
 
-void
-IntervalTest::add() {
+void IntervalTest::add() {
 	CheckEq(interval(4, 6), interval(1, 2)+interval(3, 4));
 	CheckEq(interval(1, 3), interval(0, 1)+interval(1, 2));
 	CheckEq(interval(2, 3), interval(0, 1)+2);
 	CheckEq(interval(2, 3), 2+interval(0, 1));
 }
 
-void
-IntervalTest::neg() {
+void IntervalTest::neg() {
 	CheckEq(interval(-1, -0), -interval(0, 1));
 }
 
-void
-IntervalTest::sub() {
+void IntervalTest::sub() {
 	CheckEq(interval(-3, -1), interval(0, 1) - interval(2, 3));
 	CheckEq(interval(-2, -1), interval(0, 1) - 2);
 	CheckEq(interval(1, 2), 2 - interval(0, 1));
@@ -75,8 +66,7 @@ IntervalTest::sub() {
 } while (0)
 
 
-void
-IntervalTest::mul() {
+void IntervalTest::mul() {
 	CHECK_MUL_II(2, 3, 5, 7);
 	CHECK_MUL_II(2, 3, -5, 7);
 	CHECK_MUL_II(2, 3, -7, -5);
@@ -115,8 +105,7 @@ IntervalTest::mul() {
 	CheckEq(_c, _d); \
 } while (0)
 
-void
-IntervalTest::div() {
+void IntervalTest::div() {
 	CHECK_DIV_II(30, 42, 2, 3);
 	CHECK_DIV_II(30, 42, -3, -2);
 	CHECK_DIV_II(-30, 42, 2, 3);
@@ -146,8 +135,7 @@ IntervalTest::div() {
 } while (0)
 #define ENSURELAST(C, A, B) do { if (!Check(C)) {continue; endloop: return;} } while (0)
 
-template <typename T>
-void IntervalTest::dofloatb() {
+template <typename T> void IntervalTest::dofloatb() {
 //	std::cout << "TEST BINOP: " << T::describe() << std::endl;
 	for (interval a(-10, -9.91); a.lo() <= 10; a += 0.3) {
 		for (interval b(-10, -9.91); b.lo() <= 10; b += 0.3) {
@@ -174,8 +162,7 @@ void IntervalTest::dofloatb() {
 	}
 }
 
-template <typename T>
-void IntervalTest::dofloatu() {
+template <typename T> void IntervalTest::dofloatu() {
 //	std::cout << "TEST FUNC: " << T::describe() << std::endl;
 	for (interval a(-10, -9.91); a.lo() < 10; a += 0.3) {
 		if (!T::is_good(a)) continue;
@@ -213,9 +200,7 @@ FUN(negate, -, true)
 FUN(sqrt, sqrt, iv.lo() >= real_zero)
 FUN(abs, abs, true)
 
-
-void
-IntervalTest::floats() {
+void IntervalTest::floats() {
 	dofloatu<fun_negate>();
 	dofloatu<fun_sqrt>();
 	dofloatu<fun_abs>();

@@ -6,8 +6,7 @@
 namespace calc {
 class SimplifyTest : public Test {
 public:
-	virtual void
-	run_tests() {
+	virtual void run_tests() {
 		add_zero();
 		sub_zero();
 		mul_zero();

@@ -12,8 +12,7 @@
 using namespace calc;
 using namespace std;
 
-static bool
-is_balanced(const char *s) {
+static bool is_balanced(const char *s) {
 	int p, b, bk;
 	for (p = b = bk = 0; *s; s++) {
 		switch (*s) {
@@ -29,8 +28,7 @@ is_balanced(const char *s) {
 }
 
 
-std::string
-get_line(bool continued){
+std::string get_line(bool continued){
 	std::string line;
 	while (!std::cin.eof()) {
 		std::string l;
@@ -44,8 +42,7 @@ get_line(bool continued){
 	return line;
 }
 
-int
-repl(int vrb) {
+int repl(int vrb) {
 
 	std::cout << std::endl;
 	std::cout << "calc" << std::endl;
@@ -121,8 +118,7 @@ repl(int vrb) {
 	}
 }
 
-int
-main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
 	int v = 4;
 	for (int i = 1; (i < argc) && argv[i][0] == '-'; ++i) {
 		switch (argv[i][1]) {

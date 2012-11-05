@@ -6,8 +6,7 @@
 namespace calc {
 class QueueTest : public Test {
 public:
-	virtual void
-	run_tests() {
+	virtual void run_tests() {
 		enqueue_dequeue();
 		enqueue_seq();
 		enqueue_several();

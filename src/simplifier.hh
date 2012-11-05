@@ -19,13 +19,11 @@ class Simplifier
 , public Visitor<CallExpr>
 , public Visitor<EmptyExpr>
 , public Visitor<AssignExpr>
-, public Visitor<FuncExpr>
-{
+, public Visitor<FuncExpr> {
 	ExprSPtr _simplified;
 public:
 
 	Simplifier() {}
-
 	ExprSPtr simplify(Expr &e);
 	void visit(AddExpr &e);
 	void visit(SubExpr &e);
@@ -40,10 +38,7 @@ public:
 	void visit(FuncExpr &e);
 	void visit(EmptyExpr &e);
 
-	static ExprSPtr
-	simplified(ExprSPtr const &e) {
-		return Simplifier().simplify(*e);
-	}
+	static ExprSPtr simplified(ExprSPtr const &e) { return Simplifier().simplify(*e); }
 
 };
 

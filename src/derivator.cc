@@ -2,41 +2,38 @@
 #include <map>
 #include <parser/parser.hh>
 #include "replacer.hh"
-
+#include "expr.hh"
+#include <iostream>
 namespace calc {
-using namespace std;
-Derivator::Derivator(string const &v)
-: _var(v), _derived(Expr::make<LitExpr>(0)) {}
 
-ExprSPtr
-Derivator::derive(Expr &e) {
+using namespace std;
+
+Derivator::Derivator(string const &v): _var(v), _derived(Expr::make<LitExpr>(0)) {}
+
+ExprSPtr Derivator::derive(Expr &e) {
 	_derived = NULL;
 	e.accept(*this);
 	return _derived;
 }
 
-void
-Derivator::visit(AddExpr &e) {
+void Derivator::visit(AddExpr &e) {
 	ExprSPtr left = derive(*e.lhs());
 	ExprSPtr right = derive(*e.rhs());
 	_derived = Expr::make<AddExpr>(left, right);
 }
 
-void
-Derivator::visit(SubExpr &e) {
+void Derivator::visit(SubExpr &e) {
 	ExprSPtr left = derive(*e.lhs());
 	ExprSPtr right = derive(*e.rhs());
 	_derived = Expr::make<SubExpr>(left, right);
 }
 
-void
-Derivator::visit(NegExpr &e) {
+void Derivator::visit(NegExpr &e) {
 	ExprSPtr v = derive(*e.value());
 	_derived = Expr::make<NegExpr>(v);
 }
 
-void
-Derivator::visit(MulExpr &e) {
+void Derivator::visit(MulExpr &e) {
 	ExprSPtr left = derive(*e.lhs());
 	ExprSPtr right = derive(*e.rhs());
 	ExprSPtr rr = Expr::make<MulExpr>(right, e.lhs());
@@ -44,8 +41,7 @@ Derivator::visit(MulExpr &e) {
 	_derived = Expr::make<AddExpr>(rr, ll);
 }
 
-void
-Derivator::visit(DivExpr &e) {
+void Derivator::visit(DivExpr &e) {
 	ExprSPtr dl = derive(*e.lhs());
 	ExprSPtr dr = derive(*e.rhs());
 	ExprSPtr denom = Expr::make<ExptExpr>(e.rhs(), 2);
@@ -55,16 +51,14 @@ Derivator::visit(DivExpr &e) {
 	_derived = Expr::make<DivExpr>(numer, denom);
 }
 
-void
-Derivator::visit(VarExpr &e) {
+void Derivator::visit(VarExpr &e) {
 	if (e.name() == _var)
 		_derived = Expr::make<LitExpr>(1);
 	else
 		_derived = Expr::make<LitExpr>(0);
 }
 
-void
-Derivator::visit(ExptExpr &e) {
+void Derivator::visit(ExptExpr &e) {
 	ExprSPtr left = derive(*e.base());
 	ExprSPtr pc = Expr::make<LitExpr>(e.power());
 	ExprSPtr npow = Expr::make<ExptExpr>(e.base(), e.power()-1);
@@ -72,13 +66,11 @@ Derivator::visit(ExptExpr &e) {
 	_derived = Expr::make<MulExpr>(pc, mul);
 }
 
-void
-Derivator::visit(LitExpr &e) {
+void Derivator::visit(LitExpr &e) {
 	_derived = Expr::make<LitExpr>(0);
 }
 
-void
-Derivator::visit(FuncExpr &e) {
+void Derivator::visit(FuncExpr &e) {
 	ExprSPtr dimpl = derive(*e.impl());
 	_derived = Expr::make<FuncExpr>(e.name(), e.params(), dimpl);
 }
@@ -116,12 +108,9 @@ static map<string, string> dx_rules{
 	{"atanh", "1 / (1 - _1^2)"},
 };
 
-static vector<string> placeholder_vars{
-	"_1", "_2", "_3", "_4", "_5", "_6", "_7", "_8", "_9", "_10"
-};
+static vector<string> placeholder_vars{ "_1", "_2", "_3", "_4", "_5", "_6", "_7", "_8", "_9", "_10"};
 
-static ExprSPtr
-fill(ExprSPtr e, vector<ExprSPtr> const &to) {
+static ExprSPtr fill(ExprSPtr e, vector<ExprSPtr> const &to) {
 	map<string, ExprSPtr> repl;
 	assert(to.size() < placeholder_vars.size());
 	for (size_t i = 0; i < to.size(); ++i)
@@ -129,8 +118,7 @@ fill(ExprSPtr e, vector<ExprSPtr> const &to) {
 	return Replacer(repl).replace(*e);
 }
 
-void
-Derivator::visit(CallExpr &e) {
+void Derivator::visit(CallExpr &e) {
 	string const &name = e.name();
 	auto it = dx_rules.find(name);
 	if (it == dx_rules.end())
@@ -143,8 +131,7 @@ Derivator::visit(CallExpr &e) {
 }
 
 
-void
-Derivator::partials(FuncExpr const &e, std::vector<std::pair<std::string, ExprSPtr>> &dest) {
+void Derivator::partials(FuncExpr const &e, vector<pair<string, ExprSPtr>> &dest) {
 	dest.clear();
 	for (auto const &param : e.params()) {
 		Derivator dparam(param);

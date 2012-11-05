@@ -7,14 +7,12 @@ namespace calc {
 
 class IntervalTest : public Test {
 public:
-	virtual void
-	run_tests() {
+	virtual void run_tests() {
 		add();
 		neg();
 		sub();
 		mul();
 		div();
-//		funcs();
 		floats();
 	}
 private:
@@ -23,7 +21,6 @@ private:
 	void sub();
 	void mul();
 	void div();
-//	void funcs();
 	void floats();
 	template <typename T> void dofloatb();
 	template <typename T> void dofloatu();

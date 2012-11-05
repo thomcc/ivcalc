@@ -2,9 +2,11 @@
 #define __COMMON_HH__
 
 #include <cstdio>
-#include <iostream>
+//#include <iosfwd>
 #include <cstdlib>
 #include <cmath>
+#include <memory>
+#include <iostream>
 
 // assert at runtime that a condition with a message is true.
 // runs even when NDEBUG is defined, unlike the macros in <cassert>.
@@ -45,8 +47,8 @@
 #define MAX4(a, b, c, d) MAX(MAX(a, b), MAX(c, d))
 
 
-// paste two tokens.  needs 2 layers of indirections to get macros to expand 
-// right e.g. if __LINE__ is 10, foo##__LINE__ would expand to foo__LINE__, 
+// paste two tokens.  needs 2 layers of indirections to get macros to expand
+// right e.g. if __LINE__ is 10, foo##__LINE__ would expand to foo__LINE__,
 // but TOKENPASTE(foo, __LINE__) would expand to foo10
 #define TOKENPASTE_I(A, B) A ## B
 #define TOKENPASTE(A, B) TOKENPASTE_I(A, B)
@@ -69,5 +71,29 @@ while (false) { \
 #ifndef __has_attribute
 #  define __has_attribute(X) 0
 #endif
+
+namespace calc {
+typedef double real;
+#define REAL_FMT "%lf"
+class interval;
+class Expr;
+class AddExpr;
+class SubExpr;
+class NegExpr;
+class MulExpr;
+class DivExpr;
+class VarExpr;
+class ExptExpr;
+class LitExpr;
+class AssignExpr;
+class CallExpr;
+class EmptyExpr;
+class FuncExpr;
+
+
+typedef std::shared_ptr<Expr> ExprSPtr;
+
+}
+
 
 #endif

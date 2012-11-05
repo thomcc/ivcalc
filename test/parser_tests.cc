@@ -2,8 +2,8 @@
 #include "parser/parser.hh"
 #include <vector>
 namespace calc {
-void
-ParserTest::add() {
+
+void ParserTest::add() {
 	ErrorHandler eh(true, false);
 	Parser p("1 + 2", eh);
 	ExprSPtr e = p.parse_expression();
@@ -22,8 +22,7 @@ ParserTest::add() {
 	}
 }
 
-void
-ParserTest::sub() {
+void ParserTest::sub() {
 	ErrorHandler eh(true, false);
 	Parser p("1-2", eh);
 	ExprSPtr e = p.parse_expression();
@@ -42,8 +41,7 @@ ParserTest::sub() {
 	}
 }
 
-void
-ParserTest::mul() {
+void ParserTest::mul() {
 	ErrorHandler eh(true, false);
 	Parser p("1 * 2", eh);
 	ExprSPtr e = p.parse_expression();
@@ -62,8 +60,7 @@ ParserTest::mul() {
 	}
 }
 
-void
-ParserTest::div() {
+void ParserTest::div() {
 	ErrorHandler eh(true, false);
 	Parser p("1 / 2", eh);
 	ExprSPtr e = p.parse_expression();
@@ -82,8 +79,7 @@ ParserTest::div() {
 	}
 }
 
-void
-ParserTest::pow() {
+void ParserTest::pow() {
 	ErrorHandler eh(true, false);
 	Parser p("1 / 1 ^ 2", eh);
 	ExprSPtr e = p.parse_expression();
@@ -100,8 +96,7 @@ ParserTest::pow() {
 	}
 }
 
-void
-ParserTest::lit() {
+void ParserTest::lit() {
 	ErrorHandler eh(true, false);
 	Parser p("[1, 3]", eh);
 	ExprSPtr e = p.parse_expression();
@@ -116,8 +111,7 @@ ParserTest::lit() {
 	}
 }
 
-void
-ParserTest::assign() {
+void ParserTest::assign() {
 	ErrorHandler eh(true, false);
 	Parser p("a = 1", eh);
 	ExprSPtr e = p.parse_expression();
@@ -133,8 +127,7 @@ ParserTest::assign() {
 	}
 }
 
-void
-ParserTest::precedence() {
+void ParserTest::precedence() {
 	ErrorHandler eh(true, false);
 	Parser p("1 + 0 * 1 ^ 3 / -do_stuff(a^2, b)", eh);
 	// should parse as 1 + ((0 * (1^3)) / (-do_stuff((a^2), b)))
@@ -196,8 +189,7 @@ ParserTest::precedence() {
 	}
 }
 
-void
-ParserTest::group() {
+void ParserTest::group() {
 	ErrorHandler eh(true, false);
 	Parser p("1 * (1 + 0)", eh);
 	ExprSPtr e = p.parse_expression();
@@ -220,8 +212,7 @@ ParserTest::group() {
 }
 
 
-void
-ParserTest::func() {
+void ParserTest::func() {
 	ErrorHandler eh(true, false);
 	Parser p("f(x) = x", eh);
 	ExprSPtr e = p.parse_expression();

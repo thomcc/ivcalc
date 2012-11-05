@@ -7,6 +7,7 @@
 #include <cfloat>
 #include <cassert>
 #include <limits>
+#include <algorithm> // std::max / std::min
 
 #ifndef X86_ROUND
 # if defined(__GNUC__) && defined(__i386__) && !defined(C99_ROUND)
@@ -24,8 +25,7 @@ namespace calc {
 
 //typedef long double real;
 //#define REAL_FMT "%Lf"
-typedef double real;
-#define REAL_FMT "%lf"
+
 #define real_zero (static_cast<real>(0))
 #define real_one (static_cast<real>(1))
 #define real_neg_one (static_cast<real>(-1))
@@ -157,54 +157,7 @@ REAL_FUNC(atanh)
 REAL_FUNC(sqrt)
 
 #undef REAL_FUNC
-/*
-// only call with -1/4 <= x < 1/4
-static inline real sin2pi_lo(real x) {
-	set_rdown();
-	real n = do_round(pi_times_two_lo() * x);
-	return do_round(std::sin(n));
-}
 
-static inline real sin2pi_hi(real x) {
-	set_rup();
-	real n = do_round(pi_times_two_hi() * x);
-	return do_round(std::sin(n));
-}
-
-static inline real cos2pi_lo(real x) {
-	set_rdown();
-	real n = do_round(pi_times_two_lo() * x);
-	return do_round(std::cos(n));
-}
-
-static inline real cos2pi_hi(real x) {
-	set_rup();
-	real n = do_round(pi_times_two_hi() * x);
-	return do_round(std::cos(n));
-}
-
-
-static inline real tan2pi_lo(real x) {
-	set_rdown();
-	real n = do_round(pi_times_two_lo() * x);
-	return do_round(std::tan(n));
-}
-
-static inline real tan2pi_hi(real x) {
-	set_rup();
-	real n = do_round(pi_times_two_hi() * x);
-	return do_round(std::tan(n));
-}
-
-// assumes 0 <= x <= 1
-// computes asin(x) / 2*pi
-static inline real asin2pi_lo(real x) { return div_lo(std::asin(x), r_up(pi_times_two_hi())); }
-static inline real asin2pi_hi(real x) { return div_hi(std::asin(x), r_down(pi_times_two_lo())); }
-static inline real acos2pi_lo(real x) { return div_lo(std::acos(x), r_up(pi_times_two_hi())); }
-static inline real acos2pi_hi(real x) { return div_hi(std::acos(x), r_down(pi_times_two_lo())); }
-static inline real atan2pi_lo(real x) { return div_lo(std::atan(x), r_up(pi_times_two_hi())); }
-static inline real atan2pi_hi(real x) { return div_hi(std::atan(x), r_down(pi_times_two_lo())); }
-*/
 // assumes x > 0.
 // computes x ** y via e^(y * log(x))
 static inline real pow_hi(real x, real y) {

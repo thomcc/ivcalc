@@ -24,39 +24,31 @@ class Printer
 
 private:
 	std::ostream &_os;
-	bool _color;
-	int _prec;
-
-	template <typename T>
-	void style_out(T const &i, int t);
+	bool _color; // use color
+	int _prec; // current precedence (for parens)
+	int _precis; // initial ostream precision (reset afterwards)
+	template <typename T> void style_out(T const &i, int t);
 
 public:
 
 	void print_interval(interval i);
 
-	static std::string
-	stringify(ExprSPtr e) {
+	static std::string stringify(ExprSPtr e) {
 		std::stringstream ss;
-		Printer p(ss, false);
-		p.print(*e);
-//		e->accept(p);
+		Printer(ss, false).print(*e);
 		return ss.str();
 	}
 
-	static void
-	output(ExprSPtr e) {
-		Printer p(std::cout, true);
-		p.print(*e);
-//		e->accept(p);
-	}
+	static void output(ExprSPtr e) { Printer(std::cout, true).print(*e); }
 
 	Printer(std::ostream &os, bool color=false)
-	: _os(os), _color(color), _prec(0) {
+	: _os(os), _color(color), _prec(0), _precis(_os.precision()) {
 		_os.precision(std::numeric_limits<real>::digits10 + 1);
+		_os << std::fixed;
 	}
+	~Printer() { _os.precision(_precis); }
 
-	void
-	print(Expr &e, int prec=0) {
+	void print(Expr &e, int prec=0) {
 		int op = _prec;
 		_prec = prec;
 		e.accept(*this);
@@ -78,10 +70,8 @@ public:
 
 };
 
-inline std::ostream&
-operator<<(std::ostream &o, Expr &e) {
-	Printer p(o);
-	e.accept(p);
+inline std::ostream &operator<<(std::ostream &o, Expr &e) {
+	Printer(o, false).print(e);
 	return o;
 }
 

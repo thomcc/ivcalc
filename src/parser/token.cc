@@ -1,11 +1,10 @@
 #include "parser/token.hh"
-
+#include <sstream>
 
 
 namespace calc {
 
-int
-punct(TokenType t) {
+int punct(TokenType t) {
 	switch (t) {
 	case T_LPAREN:   return '(';
 	case T_RPAREN:   return ')';
@@ -22,8 +21,7 @@ punct(TokenType t) {
 	}
 }
 
-TokenType
-punct_type(char c) {
+TokenType punct_type(char c) {
 	switch (c) {
 	case '(': return T_LPAREN;
 	case ')': return T_RPAREN;
@@ -40,8 +38,7 @@ punct_type(char c) {
 	}
 }
 
-std::string
-type_name(TokenType tt) {
+std::string type_name(TokenType tt) {
 	switch (tt) {
 	case T_LPAREN:   return "T_LPAREN";
 	case T_RPAREN:   return "T_RPAREN";
@@ -62,6 +59,15 @@ type_name(TokenType tt) {
 	}
 }
 
+std::string Token::describe() const {
+	std::stringstream ss;
+	ss << "<Token [" << type_name(_type) << "] '" << _text << "' (" << _start << " -> " << _end << ")>";
+	return ss.str();
+}
+
+std::ostream& operator<<(std::ostream &o, Token const &token) {
+	return o << token.describe();
+}
 
 
 }

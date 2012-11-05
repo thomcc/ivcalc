@@ -7,8 +7,7 @@
 namespace calc {
 class DeriveTest : public Test {
 public:
-	virtual void
-	run_tests() {
+	virtual void run_tests() {
 		var();
 		expt();
 		lit();
@@ -28,8 +27,6 @@ private:
 	void div();
 	void partials();
 	ExprSPtr get_expr(std::string const &) const;
-
-
 };
 
 

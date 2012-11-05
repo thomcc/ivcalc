@@ -5,6 +5,8 @@
 #include <map>
 
 namespace calc {
+// replaces a var in an expression with an expression.
+// used within derivator, but seemed useful
 class Replacer
 : public BaseVisitor
 , public Visitor<AddExpr>
@@ -18,86 +20,69 @@ class Replacer
 , public Visitor<CallExpr>
 , public Visitor<EmptyExpr>
 , public Visitor<AssignExpr>
-, public Visitor<FuncExpr>
-{
+, public Visitor<FuncExpr> {
 	std::map<std::string, ExprSPtr> _replacements;
 	ExprSPtr _replaced;
 public:
-	Replacer(std::map<std::string, ExprSPtr> const &replacements)
-		: _replacements(replacements) {}
+	Replacer(std::map<std::string, ExprSPtr> const &replacements) : _replacements(replacements) {}
 	ExprSPtr replace(Expr &e) {
 		_replaced = nullptr;
 		e.accept(*this);
 		return _replaced;
 	}
 
-	void
-	visit(AddExpr &e) {
+	void visit(AddExpr &e) {
 		ExprSPtr rhs = replace(*e.rhs());
 		ExprSPtr lhs = replace(*e.lhs());
 		_replaced = Expr::make<AddExpr>(lhs, rhs);
 	}
 
-	void
-	visit(SubExpr &e) {
+	void visit(SubExpr &e) {
 		ExprSPtr rhs = replace(*e.rhs());
 		ExprSPtr lhs = replace(*e.lhs());
 		_replaced = Expr::make<SubExpr>(lhs, rhs);
 	}
 
-	void
-	visit(NegExpr &e) {
+	void visit(NegExpr &e) {
 		ExprSPtr v = replace(*e.value());
 		_replaced = Expr::make<NegExpr>(v);
 	}
 
-	void
-	visit(MulExpr &e) {
+	void visit(MulExpr &e) {
 		ExprSPtr rhs = replace(*e.rhs());
 		ExprSPtr lhs = replace(*e.lhs());
 		_replaced = Expr::make<MulExpr>(lhs, rhs);
 	}
 
-	void
-	visit(DivExpr &e) {
+	void visit(DivExpr &e) {
 		ExprSPtr rhs = replace(*e.rhs());
 		ExprSPtr lhs = replace(*e.lhs());
 		_replaced = Expr::make<DivExpr>(lhs, rhs);
 	}
 
-	void
-	visit(VarExpr &e) {
+	void visit(VarExpr &e) {
 		ExprSPtr s;
 		if (find(e.name(), s)) _replaced = s;
 		else _replaced = Expr::make<VarExpr>(e.name());
 	}
 
-	void
-	visit(ExptExpr &e) {
+	void visit(ExptExpr &e) {
 		ExprSPtr lhs = replace(*e.base());
 		_replaced = Expr::make<ExptExpr>(lhs, e.power());
 	}
 
-	void
-	visit(LitExpr &e) {
+	void visit(LitExpr &e) {
 		_replaced = Expr::make<LitExpr>(e.value());
 	}
 
-	void
-	visit(CallExpr &e) {
+	void visit(CallExpr &e) {
 		std::vector<ExprSPtr> args;
-		for (auto const &e : e.args())
-			args.push_back(replace(*e));
+		for (auto const &e : e.args()) args.push_back(replace(*e));
 		_replaced = Expr::make<CallExpr>(e.name(), args);
 	}
 
-	void
-	visit(EmptyExpr &e) {
-		_replaced = Expr::make<EmptyExpr>();
-	}
-
-	void
-	visit(AssignExpr &e) {
+	void visit(EmptyExpr &e) { _replaced = Expr::make<EmptyExpr>(); }
+	void visit(AssignExpr &e) {
 		std::string name = e.name();
 		ExprSPtr e2;
 		if (find(e.name(), e2)) {
@@ -110,16 +95,14 @@ public:
 		_replaced = Expr::make<AssignExpr>(name, r);
 	}
 
-	void
-	visit(FuncExpr &e) {
+	void visit(FuncExpr &e) {
 		// not going to look for a name replacement.
 		std::vector<std::string> nparams(e.params());
 		for (auto &ee : nparams) {
 			ExprSPtr res;
 			if (find(ee, res)) {
 				if (VarExpr const *ve = res->as_var_expr()) ee = ve->name();
-				else throw iv_arithmetic_error(
-					"Error: replacement variable in function parameter list may only be replaced with a VarExpr.");
+				else throw iv_arithmetic_error("Error: replacement variable in function parameter list may only be replaced with a VarExpr.");
 			}
 		}
 		ExprSPtr rimpl = replace(*e.impl());
@@ -132,7 +115,7 @@ private:
 		e = it->second;
 		return true;
 	}
-
 };
+
 }
 #endif

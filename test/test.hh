@@ -8,7 +8,7 @@
 
 #include "common.hh"
 #include "colors.hh"
-
+#include "expr.hh"
 #define Check(cnd) _check(__FILE__, __LINE__, __func__, #cnd, cnd)
 #define CheckNot(cnd) Check(!(cnd))
 #define CheckMsg(cnd, msg) _msg_check(__FILE__, __LINE__, __func__, msg, cnd)
@@ -30,46 +30,22 @@ public:
 	virtual ~Test() {}
 
 	static void summary();
-
-	static int
-	failures() {
-		return _failures;
-	}
-
-	static int
-	tests() {
-		return _tests;
-	}
-
+	static int failures() { return _failures; }
+	static int tests() { return _tests; }
 	void run();
-
 	virtual void run_tests() = 0;
-
-	static void
-	set_verbosity(enum verbosity v) {
-		_verbosity = v;
-	}
-
-	static void
-	reset() {
-		_tests = 0;
-		_failures = 0;
-	}
+	static void set_verbosity(enum verbosity v) { _verbosity = v; }
+	static void reset() { _tests = _failures = 0; }
 
 private:
-	static int _tests, _failures;
 
+	static int _tests, _failures;
 
 protected:
 
 	static enum verbosity _verbosity;
 
-	static bool
-	_check(char const *file,
-	       int line,
-	       char const *func,
-	       char const *expr,
-	       bool cnd) {
+	static bool _check(char const *file, int line, char const *func, char const *expr, bool cnd) {
 		++_tests;
 		if (!cnd) {
 			++_failures;
@@ -84,12 +60,8 @@ protected:
 		return cnd;
 	}
 
-	static bool
-	_msg_check(char const *file,
-	           int line,
-	           char const *func,
-	           char const *msg,
-	           bool cnd) {
+	static bool _msg_check(char const *file, int line,
+		                   char const *func, char const *msg, bool cnd) {
 		++_tests;
 		if (!cnd) {
 			++_failures;
@@ -105,14 +77,9 @@ protected:
 	}
 
 	template <typename L, typename R>
-	static bool
-	_eql_check(char const *file,
-	           int line,
-	           char const *func,
-	           char const *expect,
-	           char const *actual,
-	           L const &val_lhs,
-	           R const &val_rhs) {
+	static bool _eql_check(char const *file, int line, char const *func,
+		                   char const *expect, char const *actual,
+		                   L const &val_lhs, R const &val_rhs) {
 		++_tests;
 		bool okay = val_lhs == val_rhs;
 		if (!okay) {
@@ -123,19 +90,12 @@ protected:
 				cout << "Expected " << expect << " == " << actual;
 				cout << ", got " << val_lhs << " != " << val_rhs << "." << endl;
 			}
-		} else if (_verbosity == verbose) {
+		} else if (_verbosity == verbose)
 			cout << G_BOLD("Passed") ": " << expect << " == " << actual << endl;
-		}
 		return okay;
 	}
 
-	template <typename T>
-	static T*
-	_null_check(char const *file,
-	            int line,
-	            char const *func,
-	            char const *expr,
-	            T *val) {
+	template <typename T> static T* _null_check(char const *file, int line, char const *func, char const *expr, T *val) {
 		++_tests;
 		if (val == nullptr) {
 			++_failures;
@@ -144,9 +104,8 @@ protected:
 				cout << file << ":" << line << "(testing " << func << ")"<< ": ";
 				cout << "Expected " << expr << " not null." << endl;
 			}
-		} else if (_verbosity == verbose) {
+		} else if (_verbosity == verbose)
 			cout << G_BOLD("Passed") ": " << expr << " is not null." << endl;
-		}
 		return val;
 	}
 

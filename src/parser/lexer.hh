@@ -2,7 +2,7 @@
 #define __LEXER_HH__
 #include "common.hh"
 #include "parser/token.hh"
-#include <memory>
+#include <string>
 
 namespace calc {
 
@@ -15,7 +15,7 @@ public:
 	Token next();
 
 private:
-	
+
 	Token scan_ident();
 	Token scan_number();
 
@@ -30,7 +30,7 @@ private:
 	std::string _text;
 	int _index;
 	int _start;
-	
+
 
 	DISALLOW_COPY_AND_SWAP(Lexer);
 

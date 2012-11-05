@@ -5,8 +5,7 @@ namespace calc {
 
 
 
-void
-LexerTest::number() {
+void LexerTest::number() {
 #define CHECK_NUM(str) do {      \
 	std::string src(str);        \
 	Lexer lexer(src);            \
@@ -59,8 +58,7 @@ LexerTest::number() {
 
 }
 
-void
-LexerTest::tokens() {
+void LexerTest::tokens() {
 	std::string src("()[]foo+3-/*^=,");
 	Lexer lexer(src);
 

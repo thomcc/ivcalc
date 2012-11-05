@@ -14,6 +14,7 @@ TEST_SRC = ${wildcard test/*.cc}
 OBJECTS = ${SOURCES:.cc=.o}
 DEPENDS = ${OBJECTS:.o=.d}
 PROGRAMS = ${PROG_SRC:%.cc=%}
+PROGDEPENDS = ${PROG_SRC:.cc=.d}
 
 TESTS = ${TEST_SRC:.cc=.o}
 TESTDEPENDS = ${TESTS:.o=.d}
@@ -54,7 +55,7 @@ build:
 #  -MM -MF ${patsubst %.o,%.d,$@}
 clean:
 	@echo cleaning
-	@rm -rf build ${OBJECTS} ${DEPENDS} ${TESTDEPENDS} ${TESTS} ${PROGRAMS} ${TESTMAIN} *.o *.d *~
+	@rm -rf build ${OBJECTS} ${DEPENDS} ${PROGDEPENDS} ${TESTDEPENDS} ${TESTS} ${PROGRAMS} ${TESTMAIN} *.o *.d *~
 	@find . -name "*.gc*" -exec rm {} \;
 	@rm -rf `find . -name "*.dSYM" -print`
 
@@ -62,4 +63,4 @@ clean:
 .PHONY: clean all rebuild run build tests run_tests
 
 
-sinclude ${DEPENDS} ${TESTDEPENDS}
+sinclude ${DEPENDS} ${TESTDEPENDS} ${PROGDEPENDS}

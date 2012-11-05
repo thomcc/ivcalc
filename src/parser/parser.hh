@@ -1,13 +1,9 @@
 #ifndef __PARSER_HH__
 #define __PARSER_HH__
 #include <memory>
-#include <unistd.h>
 #include "common.hh"
-#include "parser/token.hh"
-#include "expr.hh"
 #include "parser/lexer.hh"
 #include "parser/queue.hh"
-//#include "colors.hh"
 
 namespace calc {
 
@@ -18,50 +14,20 @@ enum ELevel {
 	E_Bug = 34,
 };
 
+
 class ErrorHandler {
-
-	bool _need_lines;
-	bool _repl;
-	bool _silent;
+	bool _need_lines, _repl, _silent;
 	int _errors;
-
 public:
-
-	ErrorHandler(bool silent=false, bool repl=true)
-	: _need_lines(false)
-	, _repl(repl)
-	, _silent(silent)
-	, _errors(0)
-	{}
+	ErrorHandler(bool silent=false, bool repl=true) : _need_lines(false), _repl(repl), _silent(silent), _errors(0) {}
 
 	void error(std::string const &msg, int lvl=E_Error);
-
-	bool
-	at_repl() const {
-		return _repl;
-	}
-
-	int
-	errors() const {
-		return _errors;
-	}
-
-	bool
-	need_lines() const {
-		return _need_lines;
-	}
-
-	void
-	want_lines() {
-		if (_repl)
-			_need_lines = true;
-	}
-
-	friend std::ostream &operator<<(std::ostream &o, ErrorHandler const &e) {
-		o << "<EH: repl=" << e.at_repl() << " need_lines?=";
-		return o << e.need_lines() << " errors=" << e.errors() << ">";
-	}
+	bool at_repl() const { return _repl; }
+	int errors() const { return _errors; }
+	bool need_lines() const { return _need_lines; }
+	void want_lines() { if (_repl) _need_lines = true; }
 };
+std::ostream &operator<<(std::ostream &o, ErrorHandler const &e);
 
 enum Precedence {
 	P_Assign  = 1,
@@ -75,20 +41,10 @@ enum Precedence {
 
 class Parser {
 public:
-
 	Parser(std::string const &text, ErrorHandler &eh)
-	: _lexer(text)
-	, _lookahead()
-	, _last()
-	, _on_error(eh)
-	{}
+		: _lexer(text), _lookahead(), _last(), _on_error(eh) {}
 
-	ExprSPtr
-	parse_expression() {
-		return parse_expr();
-	}
-
-
+	ExprSPtr parse_expression() { return parse_expr(); }
 private:
 	// parses an infix expression
 	typedef ExprSPtr (Parser::*Led)(ExprSPtr left, Token const &t);
@@ -108,8 +64,7 @@ private:
 	static Prefix _prefixes[NUM_TOKEN_TYPES];
 	static Infix _infixes[NUM_TOKEN_TYPES];
 
-	real
-	parse_real(std::string const &s);
+	real parse_real(std::string const &s);
 
 	ExprSPtr parse_expr(int precedence = 0);
 	int get_precedence();
@@ -130,7 +85,6 @@ private:
 	ExprSPtr call(ExprSPtr lhs, Token const &t);
 
 	bool look_ahead(TokenType t);
-
 	bool match(TokenType t);
 
 	Token consume();
@@ -142,9 +96,6 @@ private:
 	Queue<Token, 1> _lookahead;
 	Token _last;
 	ErrorHandler &_on_error;
-
-//	static Sym _syms[NUM_TOKEN_TYPES];
-
 
 	DISALLOW_COPY_AND_SWAP(Parser);
 };

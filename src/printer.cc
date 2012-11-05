@@ -3,30 +3,12 @@
 namespace calc {
 
 enum Style {
-	Bold = 0,
-	Italic,
-	Underline,
-	Inverse,
-	White,
-	Grey,
-	Black,
-	Blue,
-	Cyan,
-	Green,
-	Magenta,
-	Red,
-	Yellow,
-	NSTYLES
+	Bold = 0, Italic, Underline, Inverse,
+	White, Grey, Black, Blue, Cyan, Green,
+	Magenta, Red, Yellow, NSTYLES
 };
 
-enum Thing {
-	Var,
-	Func,
-	Number,
-	Empty,
-	Operator,
-	NTHINGS
-};
+enum Thing { Var, Func, Number, Empty, Operator, NTHINGS };
 
 static const std::string
 style_lookup[NSTYLES][2] = {
@@ -45,25 +27,16 @@ style_lookup[NSTYLES][2] = {
 	{"33", "39"}, // Yellow
 };
 
-const Style things[NTHINGS] = {
-	Magenta,
-	Blue,
-	Yellow,
-	Grey,
-	White,
-};
+const Style things[NTHINGS] = { Magenta, Blue, Yellow, Grey, White, };
 
-template <typename T>
-void
-Printer::style_out(T const &i, int t) {
+template <typename T> void Printer::style_out(T const &i, int t) {
 	if ((!_color) || (t >= NTHINGS)) { _os << i; return; }
 	_os << "\x1b[" << style_lookup[things[t]][0] << "m";
 	_os << i;
 	_os << "\x1b[" << style_lookup[things[t]][1] << "m";
 }
 
-void
-Printer::print_interval(interval i) {
+void Printer::print_interval(interval i) {
 	if (i.is_empty())
 		style_out("[]", Empty);
 	else if (i.is_singleton()) {
@@ -76,17 +49,11 @@ Printer::print_interval(interval i) {
 		_os << ", ";
 		style_out(i.hi(), Number);
 		_os << "]";
-//		_os << "[";
-//		style_out(i.mid(), Number);
-//		_os << " ± ";
-//		style_out(i.uncertainty(), Number);
-//		_os << "]";
 	}
 }
 
 
-void
-Printer::visit(AddExpr &e) {
+void Printer::visit(AddExpr &e) {
 	if (_prec > P_Term) _os << "(";
 	print(*e.lhs(), P_Term);
 	style_out(" + ", Operator);
@@ -94,8 +61,7 @@ Printer::visit(AddExpr &e) {
 	if (_prec > P_Term) _os << ")";
 }
 
-void
-Printer::visit(SubExpr &e) {
+void Printer::visit(SubExpr &e) {
 	if (_prec > P_Term) _os << "(";
 	print(*e.lhs(), P_Term);
 	style_out(" - ", Operator);
@@ -103,58 +69,45 @@ Printer::visit(SubExpr &e) {
 	if (_prec > P_Term) _os << ")";
 }
 
-void
-Printer::visit(NegExpr &e) {
+void Printer::visit(NegExpr &e) {
 	if (_prec > P_Prefix) _os << "(";
 	style_out("-", Operator);
 	print(*e.value(), P_Prefix);
 	if (_prec > P_Prefix) _os << ")";
 }
 
-void
-Printer::visit(MulExpr &e) {
+void Printer::visit(MulExpr &e) {
 	if (_prec > P_Prod) _os << "(";
 	print(*e.lhs(), P_Prod);
-	style_out(" * ", Operator);
+	style_out("*", Operator);
 	print(*e.rhs(), P_Prod);
 	if (_prec > P_Prod) _os << ")";
 }
 
-void
-Printer::visit(DivExpr &e) {
+void Printer::visit(DivExpr &e) {
 	if (_prec > P_Prod) _os << "(";
 	print(*e.lhs(), P_Prod);
-	style_out(" / ", Operator);
+	style_out("/", Operator);
 	print(*e.rhs(), P_Prod);
 	if (_prec > P_Prod) _os << ")";
 }
 
-void
-Printer::visit(VarExpr &e) {
-	style_out(e.name(), Var);
-}
-
-void
-Printer::visit(ExptExpr &e) {
+void Printer::visit(VarExpr &e) { style_out(e.name(), Var); }
+void Printer::visit(LitExpr &e) { print_interval(e.value()); }
+void Printer::visit(EmptyExpr &e) { style_out("(#empty)", Empty); }
+void Printer::visit(ExptExpr &e) {
 	print(*e.base(), P_Expt);
 	style_out("^", Operator);
 	style_out(e.power(), Number);
 }
 
-void
-Printer::visit(LitExpr &e) {
-	print_interval(e.value());
-}
-
-void
-Printer::visit(AssignExpr &e) {
+void Printer::visit(AssignExpr &e) {
 	style_out(e.name(), Var);
 	style_out(" = ", Operator);
 	print(*e.value());
 }
 
-void
-Printer::visit(CallExpr &e) {
+void Printer::visit(CallExpr &e) {
 	style_out(e.name(), Func);
 	_os << "(";
 	bool fst = true;
@@ -166,8 +119,7 @@ Printer::visit(CallExpr &e) {
 	_os << ")";
 }
 
-void
-Printer::visit(FuncExpr &e) {
+void Printer::visit(FuncExpr &e) {
 	style_out(e.name(), Func);
 	_os << "(";
 	bool fst = true;
@@ -180,10 +132,7 @@ Printer::visit(FuncExpr &e) {
 	print(*e.impl());
 }
 
-void
-Printer::visit(EmptyExpr &e) {
-	style_out("(#empty)", Empty);
-}
+
 
 
 

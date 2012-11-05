@@ -5,8 +5,7 @@
 
 namespace calc {
 
-ExprSPtr
-SimplifyTest::get_expr(std::string const &str, bool simplify) const {
+ExprSPtr SimplifyTest::get_expr(std::string const &str, bool simplify) const {
 	ErrorHandler eh(true, false);
 	Parser p(str, eh);
 	ExprSPtr eptr = p.parse_expression();
@@ -20,8 +19,7 @@ SimplifyTest::get_expr(std::string const &str, bool simplify) const {
 	} else return eptr;
 }
 
-void
-SimplifyTest::add_zero() {
+void SimplifyTest::add_zero() {
 	ExprSPtr opz = get_expr("0+o");
 	Check(opz->as_var_expr());
 	Check(opz->as_var_expr() && (opz->as_var_expr()->name() == "o"));
@@ -30,8 +28,7 @@ SimplifyTest::add_zero() {
 	Check(zpo->as_var_expr() && (zpo->as_var_expr()->name() == "o"));
 }
 
-void
-SimplifyTest::sub_zero() {
+void SimplifyTest::sub_zero() {
 	ExprSPtr opz = get_expr("o-0");
 	Check(opz->as_var_expr());
 	Check(opz->as_var_expr() && (opz->as_var_expr()->name() == "o"));
@@ -43,8 +40,7 @@ SimplifyTest::sub_zero() {
 	Check(ne->value()->as_var_expr() && (ne->value()->as_var_expr()->name() == "o"));
 }
 
-void
-SimplifyTest::mul_zero() {
+void SimplifyTest::mul_zero() {
 	ExprSPtr otz = get_expr("o*0");
 	Check(otz->as_lit_expr());
 	Check(otz->is_lit_zero());
@@ -53,22 +49,19 @@ SimplifyTest::mul_zero() {
 	Check(zto->is_lit_zero());
 }
 
-void
-SimplifyTest::zero_div() {
+void SimplifyTest::zero_div() {
 	ExprSPtr odz = get_expr("0/o");
 	Check(odz->as_lit_expr());
 	Check(odz->is_lit_zero());
 }
 
-void
-SimplifyTest::pow_zero() {
+void SimplifyTest::pow_zero() {
 	ExprSPtr op0 = get_expr("o^0");
 	Check(op0->as_lit_expr());
 	Check(op0->is_lit_one());
 }
 
-void
-SimplifyTest::mul_one() {
+void SimplifyTest::mul_one() {
 	ExprSPtr opz = get_expr("1*o");
 	Check(opz->as_var_expr());
 	Check(opz->as_var_expr() && (opz->as_var_expr()->name() == "o"));
@@ -77,22 +70,19 @@ SimplifyTest::mul_one() {
 	Check(zpo->as_var_expr() && (zpo->as_var_expr()->name() == "o"));
 }
 
-void
-SimplifyTest::div_one() {
+void SimplifyTest::div_one() {
 	ExprSPtr opz = get_expr("o/1");
 	Check(opz->as_var_expr());
 	Check(opz->as_var_expr() && (opz->as_var_expr()->name() == "o"));
 }
 
-void
-SimplifyTest::pow_one() {
+void SimplifyTest::pow_one() {
 	ExprSPtr opz = get_expr("o^1");
 	Check(opz->as_var_expr());
 	Check(opz->as_var_expr() && (opz->as_var_expr()->name() == "o"));
 }
 
-void
-SimplifyTest::constant_fold() {
+void SimplifyTest::constant_fold() {
 	ExprSPtr opz = get_expr("12 + 4 * 3 / 2");
 	Check(opz->as_lit_expr());
 	Check(opz->as_lit_expr() && (opz->as_lit_expr()->value() == interval(18)));

@@ -5,8 +5,7 @@
 #include <printer.hh>
 namespace calc {
 
-ExprSPtr
-DeriveTest::get_expr(std::string const &str) const {
+ExprSPtr DeriveTest::get_expr(std::string const &str) const {
 	ErrorHandler eh(true, false);
 	Parser p(str, eh);
 	ExprSPtr eptr = p.parse_expression();
@@ -16,16 +15,14 @@ DeriveTest::get_expr(std::string const &str) const {
 }
 
 
-void
-DeriveTest::var() {
+void DeriveTest::var() {
 	ExprSPtr x = get_expr("x + 20*y");
 	Derivator xd("x");
 	ExprSPtr dx = xd.derive(*x);
 	Simplifier s;
 	ExprSPtr sdx = s.simplify(*dx);
 	Check(sdx.get());
-	if (Check(sdx->as_lit_expr()))
-		CheckEq(interval(1), sdx->as_lit_expr()->value());
+	if (Check(sdx->as_lit_expr())) CheckEq(interval(1), sdx->as_lit_expr()->value());
 	Derivator yd("y");
 	ExprSPtr dy = yd.derive(*x);
 	ExprSPtr sdy = s.simplify(*dy);
@@ -34,8 +31,7 @@ DeriveTest::var() {
 		CheckEq(interval(20), sdy->as_lit_expr()->value());
 }
 
-void
-DeriveTest::expt() {
+void DeriveTest::expt() {
 	ExprSPtr x2 = get_expr("x^2");
 	Derivator xd("x");
 	ExprSPtr dx = xd.derive(*x2);
@@ -62,8 +58,7 @@ DeriveTest::expt() {
 	Check(seedx->is_lit_zero());
 }
 
-void
-DeriveTest::lit() {
+void DeriveTest::lit() {
 	ExprSPtr n = get_expr("110");
 	Derivator xd("x");
 	Simplifier s;
@@ -72,8 +67,7 @@ DeriveTest::lit() {
 	Check(sndx->is_lit_zero());
 }
 
-void
-DeriveTest::plus() {
+void DeriveTest::plus() {
 	ExprSPtr x = get_expr("x + x^2");
 	Derivator xd("x");
 	ExprSPtr dx = xd.derive(*x);
@@ -94,8 +88,7 @@ DeriveTest::plus() {
 	}
 }
 
-void
-DeriveTest::minus() {
+void DeriveTest::minus() {
 	ExprSPtr x = get_expr("x - x^2");
 	Derivator xd("x");
 	ExprSPtr dx = xd.derive(*x);
@@ -116,8 +109,7 @@ DeriveTest::minus() {
 	}
 }
 
-void
-DeriveTest::mul() {
+void DeriveTest::mul() {
 	ExprSPtr x = get_expr("(3*x + 2) * (2*x + 3)");
 	// d/dx should = 2 * (3*x + 2) + 3 * (2 * x + 3)
 	// this is going to be a pain.
@@ -127,7 +119,6 @@ DeriveTest::mul() {
 	ExprSPtr e = s.simplify(*dx);
 	if (!CheckNull(e.get())) return;
 	if (AddExpr const *ae = CheckNull(e->as_add_expr())) {
-
 		if (MulExpr const *lhs = CheckNull(ae->lhs()->as_mul_expr())) {
 			// 2 * (3 * x + 2)
 			if (LitExpr const *ll = CheckNull(lhs->lhs()->as_lit_expr()))
@@ -172,8 +163,7 @@ DeriveTest::mul() {
 	}
 }
 
-void
-DeriveTest::div() {
+void DeriveTest::div() {
 	ExprSPtr x = get_expr("(3*x + 2) / (2*x + 3)");
 	// d/dx should = ((2*x + 3) * 3 - (3 * x + 2) * 2) / (2*x+3)^2
 	// this is going to be a pain.
@@ -248,8 +238,7 @@ DeriveTest::div() {
 }
 
 
-void
-DeriveTest::partials() {
+void DeriveTest::partials() {
 	ExprSPtr x = get_expr("f(x, y, z) = x^2 + x*y + y*z + 2*z");
 	FuncExpr const *fe = x->as_func_expr();
 	if (!CheckNull(fe)) return;
