@@ -84,16 +84,25 @@ ExprSPtr Parser::var(Token const &t) { return Expr::make<VarExpr>(t.text()); }
 // `num`
 ExprSPtr Parser::number(Token const &t) { return Expr::make<LitExpr>(parse_real(t.text())); }
 
-// `[num, num]`
+// `[(+|-)?num, (+|-)?num]`
 // todo: support negative numbers
 ExprSPtr Parser::ival_lit(Token const &t) {
 	if (match(T_RBRACKET)) return Expr::make<LitExpr>(interval::empty());
+	bool neglo = false, neghi = false;
+
+	if (match(T_MINUS)) neglo = true;
+	else if (match(T_PLUS)) neglo = false;
+
 	Token lo = consume(T_NUMBER, "Expected number in interval literal.");
 	consume(T_COMMA, "Expected comma in interval literal.");
+
+	if (match(T_MINUS)) neghi = true;
+	else if (match(T_PLUS)) neghi = false;
+
 	Token hi = consume(T_NUMBER, "Expected number in interval literal.");
 	consume(T_RBRACKET, "Missing closing ']' in interval literal");
-	real l = Parser::parse_real(lo.text());
-	real h = Parser::parse_real(hi.text());
+	real l = (neglo ? -1 : 1) * Parser::parse_real(lo.text());
+	real h = (neghi ? -1 : 1) * Parser::parse_real(hi.text());
 
 	return Expr::make<LitExpr>(l, h);
 }
@@ -171,17 +180,20 @@ ExprSPtr Parser::divide(ExprSPtr lhs, Token const &t) {
 	return Expr::make<DivExpr>(lhs, parse_expr(P_Prod));
 }
 
-// `lhs_expr ^ an_integer`
+// `lhs_expr ^ (+|-)? an_integer`
 // TODO: support lhs ^ arbitrary expr evaluating to integer
 // and move check to runtime ?
 ExprSPtr Parser::expt(ExprSPtr lhs, Token const &t) {
+	bool neg_pow = false;
+	if (match(T_MINUS)) neg_pow = true;
+	else if (match(T_PLUS)) neg_pow = false;
 	Token tt = consume(T_NUMBER, "Expected number in exponent");
 	real d = parse_real(tt.text());
 	if (d != std::rint(d)) {
 		std::string s = stringize() << "Expected integer in exponent. rounding " << d << " to int.";
 		_on_error.error(s, 0);
 	}
-	return Expr::make<ExptExpr>(lhs, (int)std::rint(d));
+	return Expr::make<ExptExpr>(lhs, (int)((neg_pow ? -1 : 1) * std::rint(d)));
 }
 
 // actually parse an expression
