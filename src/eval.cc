@@ -3,6 +3,7 @@
 #include <iostream>
 #include <derivator.hh>
 #include <simplifier.hh>
+#include <replacer.hh>
 namespace calc {
 
 using namespace std;
@@ -164,7 +165,7 @@ void Evaluator::visit(CallExpr &e) {
 }
 
 
-void Evaluator::call_args(CallExpr const &e, std::vector<interval> &parms) {
+void Evaluator::call_args(CallExpr const &e, vector<interval> &parms) {
 	for (auto const &eptr : e.args()) parms.push_back(eval(*eptr));
 }
 
@@ -186,7 +187,7 @@ PartialCalc::PartialCalc(FuncExpr const &fe, Evaluator &ev)
 	: _ctx(ev), _fname(fe.name()), _pnames(fe.params()) { initialize(fe); }
 
 void PartialCalc::initialize(FuncExpr const &fe) {
-	std::string deriv_prefix = stringize() << "∂" << _fname << "/∂";
+	string deriv_prefix = stringize() << "∂" << _fname << "/∂";
 	_pf_names.push_back(fe.name());
 	ExprSPtr ffe = Expr::make<FuncExpr>(fe.name(), fe.params(), Simplifier::simplified(fe.impl()));
 	_fpartials.push_back(ffe);
@@ -197,6 +198,27 @@ void PartialCalc::initialize(FuncExpr const &fe) {
 		_fpartials.push_back(pfe);
 		_ctx.eval(*pfe);
 	}
+}
+vector<interval>
+PartialCalc::calculate(vector<ExprSPtr> const &args) {
+	vector<interval> res;
+	size_t as = args.size();
+	if (as != _pnames.size()) throw iv_arithmetic_error("Wrong number of arguments");
+//	map<string, ExprSPtr> mapping;
+//	for (size_t i = 0; i < as; ++i)
+//		mapping[_pnames.at(i)] = args.at(i);
+//	Replacer repl(mapping);
+//	Simplifier s;
+//	for (auto const &part : _fpartials) {
+//		ExprSPtr es = s.simplify(*repl.replace(*part->as_func_expr()->impl()));
+//		if (LitExpr const *le = es->as_lit_expr()) {
+//			res.push_back(le->value());
+//		} else throw iv_arithmetic_error("Not gonna work.");
+//	}
+//
+	for (auto const &name : _pf_names)
+		res.push_back(_ctx.eval(*Expr::make<CallExpr>(name, args)));
+	return res;
 }
 PartialCalc::PartialCalc() {}
 

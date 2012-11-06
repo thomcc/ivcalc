@@ -58,10 +58,8 @@ private:
 
 class UserDefinedFn : public BaseFunc {
 public:
-	UserDefinedFn(std::vector<std::string> const &param_names, ExprSPtr expr)
-		: BaseFunc(gensym()) , _params(param_names) , _impl(expr) {}
-	UserDefinedFn(std::string const &name, std::vector<std::string> const &param_names, ExprSPtr expr)
-		: BaseFunc(name) , _params(param_names) , _impl(expr) {}
+	UserDefinedFn(std::vector<std::string> const &param_names, ExprSPtr expr);
+	UserDefinedFn(std::string const &name, std::vector<std::string> const &param_names, ExprSPtr expr);
 	unsigned arity() const { return _params.size(); }
 protected:
 	interval apply(std::vector<interval> const &args, Env const &) const;
@@ -69,5 +67,6 @@ private:
 	std::vector<std::string> _params;
 	ExprSPtr _impl;
 };
+
 }
 #endif

@@ -10,4 +10,13 @@ interval UserDefinedFn::apply(vector<interval> const &args, Env const &e) const 
 	return eval.eval(*_impl);
 }
 
+
+UserDefinedFn::UserDefinedFn(std::vector<std::string> const &param_names, ExprSPtr expr)
+	: BaseFunc(gensym()) , _params(param_names) , _impl(expr) {}
+
+UserDefinedFn::UserDefinedFn(std::string const &name, std::vector<std::string> const &param_names, ExprSPtr expr)
+	: BaseFunc(name) , _params(param_names) , _impl(expr) {}
+
+
+
 }

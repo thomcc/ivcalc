@@ -5,6 +5,7 @@
 #include "interval.hh"
 #include "functions.hh"
 #include <map>
+#include <unordered_map>
 
 
 namespace calc {
@@ -15,8 +16,8 @@ namespace calc {
 
 class Env {
 	Env const *_parent;
-	std::map<std::string, interval> _vars;
-	std::map<std::string, std::shared_ptr<BaseFunc>> _funcs;
+	std::unordered_map<std::string, interval> _vars;
+	std::unordered_map<std::string, std::shared_ptr<BaseFunc>> _funcs;
 	void add_builtin(std::string const &func);
 	void add_builtins(std::initializer_list<std::string> const &funcs);
 public:
@@ -104,12 +105,7 @@ public:
 	size_t partial_count() const { return _fpartials.size() - 1; }
 	size_t expr_count() const { return _fpartials.size(); }
 	std::vector<interval> calculate(std::vector<interval> const &args);
-	std::vector<interval> calculate(std::vector<ExprSPtr> const &args) {
-		std::vector<interval> res;
-		for (auto const &name : _pf_names)
-			res.push_back(_ctx.eval(*Expr::make<CallExpr>(name, args)));
-		return res;
-	}
+	std::vector<interval> calculate(std::vector<ExprSPtr> const &args);
 };
 
 
