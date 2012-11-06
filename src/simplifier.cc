@@ -30,6 +30,7 @@ void Simplifier::visit(SubExpr &e) {
 void Simplifier::visit(NegExpr &e) {
 	ExprSPtr v = simplify(*e.value());
 	if (LitExpr const *lv = v->as_lit_expr()) _simplified = Expr::make<LitExpr>(-lv->value());
+	else if (NegExpr const *ne = v->as_neg_expr()) _simplified = ne->value();
 	else _simplified = Expr::make<NegExpr>(v);
 }
 
@@ -38,21 +39,18 @@ void Simplifier::visit(MulExpr &e) {
 	ExprSPtr r = simplify(*e.rhs());
 	LitExpr const *ll = l->as_lit_expr();
 	LitExpr const *rl = r->as_lit_expr();
-	if (ll && rl) _simplified = Expr::make<LitExpr>(ll->value() * rl->value());
+	if (ll && rl) { _simplified = Expr::make<LitExpr>(ll->value() * rl->value()); return; }
 	else if (ll) {
-		if (ll->value().is_zero()) _simplified = Expr::make<LitExpr>(interval::zero());
-		else if (ll->value().is_one()) _simplified = r;
-		else _simplified = Expr::make<MulExpr>(l, r);
+		if (ll->value().is_zero()) { _simplified = Expr::make<LitExpr>(interval::zero()); return; }
+		else if (ll->value().is_one()) { _simplified = r; return; }
 	} else if (rl) {
-		if (rl->value().is_zero()) _simplified = Expr::make<LitExpr>(interval::zero());
-		else if (rl->value().is_one()) _simplified = l;
-		else _simplified = Expr::make<MulExpr>(l, r);
-	} else _simplified = Expr::make<MulExpr>(l, r);
-//	else if (ll && ll->value().is_zero()) _simplified = l; // 0 * a = 0
-//	else if (ll && ll->value().is_one()) _simplified = r; // 1 * a = a
-//	else if (rl && rl->value().is_zero()) _simplified = r; // a * 0 = 0
-//	else if (rl && rl->value().is_one()) _simplified = l; // a * 1 = a
-//	else _simplified = Expr::make<MulExpr>(l, r);
+		if (rl->value().is_zero()) { _simplified = Expr::make<LitExpr>(interval::zero()); return; }
+		else if (rl->value().is_one()) { _simplified = l; return; }
+	}
+	NegExpr const *ln = l->as_neg_expr();
+	NegExpr const *rn = r->as_neg_expr();
+	if (ln && rn) _simplified = Expr::make<MulExpr>(ln->value(), rn->value());
+	else _simplified = Expr::make<MulExpr>(l, r);
 }
 
 void Simplifier::visit(DivExpr &e) {
@@ -63,7 +61,12 @@ void Simplifier::visit(DivExpr &e) {
 	if (ll && rl) _simplified = Expr::make<LitExpr>(ll->value() / rl->value());
 	else if (ll && ll->value().is_zero()) _simplified = l; // 0 / foo = 0
 	else if (rl && rl->value().is_one()) _simplified = l; // foo / 1 = foo
-	else _simplified = Expr::make<DivExpr>(l, r);
+	else {
+		NegExpr const *ln = l->as_neg_expr();
+		NegExpr const *rn = r->as_neg_expr();
+		if (ln && rn) _simplified = Expr::make<DivExpr>(ln->value(), rn->value());
+		else _simplified = Expr::make<DivExpr>(l, r);
+	}
 }
 
 void Simplifier::visit(VarExpr &e) { _simplified = Expr::make<VarExpr>(e.name()); }
@@ -75,6 +78,7 @@ void Simplifier::visit(ExptExpr &e) {
 		ExprSPtr eb = simplify(*e.base());
 		LitExpr const *l = eb->as_lit_expr();
 		if (l && (l->value().is_one() || l->value().is_zero())) _simplified = eb;
+		else if (l) _simplified = Expr::make<LitExpr>(int_pow(l->value(), e.power()));
 		else _simplified = Expr::make<ExptExpr>(eb, e.power());
 	}
 }

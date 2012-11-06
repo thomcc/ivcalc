@@ -178,7 +178,6 @@ vector<interval> PartialCalc::calculate(vector<interval> const &args) {
 	return calculate(es);
 }
 
-
 PartialCalc::PartialCalc(FuncExpr const &fe) : _ctx(), _fname(fe.name()), _pnames(fe.params()) {
 	initialize(fe);
 }

@@ -54,19 +54,19 @@ void Printer::print_interval(interval i) {
 
 
 void Printer::visit(AddExpr &e) {
-	if (_prec > P_Term) _os << "(";
+	if (_prec >= P_Term) _os << "(";
 	print(*e.lhs(), P_Term);
 	style_out(" + ", Operator);
 	print(*e.rhs(), P_Term);
-	if (_prec > P_Term) _os << ")";
+	if (_prec >= P_Term) _os << ")";
 }
 
 void Printer::visit(SubExpr &e) {
-	if (_prec > P_Term) _os << "(";
+	if (_prec >= P_Term) _os << "(";
 	print(*e.lhs(), P_Term);
 	style_out(" - ", Operator);
 	print(*e.rhs(), P_Term);
-	if (_prec > P_Term) _os << ")";
+	if (_prec >= P_Term) _os << ")";
 }
 
 void Printer::visit(NegExpr &e) {
@@ -77,28 +77,30 @@ void Printer::visit(NegExpr &e) {
 }
 
 void Printer::visit(MulExpr &e) {
-	if (_prec > P_Prod) _os << "(";
+	if (_prec >= P_Prod) _os << "(";
 	print(*e.lhs(), P_Prod);
 	style_out("*", Operator);
 	print(*e.rhs(), P_Prod);
-	if (_prec > P_Prod) _os << ")";
+	if (_prec >= P_Prod) _os << ")";
 }
 
 void Printer::visit(DivExpr &e) {
-	if (_prec > P_Prod) _os << "(";
+	if (_prec >= P_Prod) _os << "(";
 	print(*e.lhs(), P_Prod);
 	style_out("/", Operator);
 	print(*e.rhs(), P_Prod);
-	if (_prec > P_Prod) _os << ")";
+	if (_prec >= P_Prod) _os << ")";
 }
 
 void Printer::visit(VarExpr &e) { style_out(e.name(), Var); }
 void Printer::visit(LitExpr &e) { print_interval(e.value()); }
 void Printer::visit(EmptyExpr &e) { style_out("(#empty)", Empty); }
 void Printer::visit(ExptExpr &e) {
+	if (_prec >= P_Expt) _os << "(";
 	print(*e.base(), P_Expt);
 	style_out("^", Operator);
 	style_out(e.power(), Number);
+	if (_prec >= P_Expt) _os << ")";
 }
 
 void Printer::visit(AssignExpr &e) {

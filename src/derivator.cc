@@ -119,6 +119,8 @@ static ExprSPtr fill(ExprSPtr e, vector<ExprSPtr> const &to) {
 }
 
 void Derivator::visit(CallExpr &e) {
+	if (e.args().size() > 1)
+		throw iv_arithmetic_error("Not implemented: differentiating multivariate functions in expressions");
 	string const &name = e.name();
 	auto it = dx_rules.find(name);
 	if (it == dx_rules.end())
@@ -126,8 +128,11 @@ void Derivator::visit(CallExpr &e) {
 	ErrorHandler eh(true, false);
 	Parser p(it->second, eh);
 	ExprSPtr eptr = p.parse_expression();
-	if ((eh.errors() != 0) || !eptr.get()) throw iv_arithmetic_error("Bug: failed parse.");
-	_derived = fill(eptr, e.args());
+	if ((eh.errors() != 0) || !eptr.get())
+		throw iv_arithmetic_error("Bug: failed parse.");
+	ExprSPtr df = fill(eptr, e.args());
+	ExprSPtr dg = derive(*e.args().at(0));
+	_derived = Expr::make<MulExpr>(df, dg);
 }
 
 
