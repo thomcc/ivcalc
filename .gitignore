@@ -6,5 +6,9 @@ build/
 *.dSym
 *.a
 
-bin/main
-test/test_main
+bin/*
+!bin/*.cc
+!bin/*.hh
+test/*
+!test/*.cc
+!test/*.hh

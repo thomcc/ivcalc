@@ -40,9 +40,9 @@ void Printer::print_interval(interval i) {
 	if (i.is_empty())
 		style_out("[]", Empty);
 	else if (i.is_singleton()) {
-		_os << "[";
+//		_os << "[";
 		style_out(i.lo(), Number);
-		_os << "]";
+//		_os << "]";
 	} else {
 		_os << "[";
 		style_out(i.lo(), Number);
@@ -70,10 +70,10 @@ void Printer::visit(SubExpr &e) {
 }
 
 void Printer::visit(NegExpr &e) {
-	if (_prec > P_Prefix) _os << "(";
+	if (_prec >= P_Prefix) _os << "(";
 	style_out("-", Operator);
 	print(*e.value(), P_Prefix);
-	if (_prec > P_Prefix) _os << ")";
+	if (_prec >= P_Prefix) _os << ")";
 }
 
 void Printer::visit(MulExpr &e) {

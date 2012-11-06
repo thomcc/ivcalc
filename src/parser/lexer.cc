@@ -32,7 +32,7 @@ Token Lexer::next() {
 		case ',': return make_token(T_COMMA);
 		case '+': return make_token(T_PLUS);
 		case '-': return make_token(T_MINUS);
-// todo: why did i get rid of this. interval literals broken now.
+// breaks subtraction e.g. 1-2 becomes {lit(1), lit(-2)}
 //			if (is_number(peek())) return scan_number();
 //			else return make_token(T_MINUS);
 		case '*': return make_token(T_ASTERISK);

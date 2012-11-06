@@ -222,10 +222,6 @@ public:
 	std::string const &name() const { return _name; }
 	std::vector<ExprSPtr> const &args() const { return _args; }
 // don't know how to evaluate the function w/o definition
-//	bool is_constant() const {
-//		for (ExprSPtr arg : _args) if (!arg->is_constant()) return false;
-//		return true;
-//	}
 	bool is_constant() const { return false; }
 	bool operator==(Expr const &other) const {
 		if (CallExpr const*e = other.as_call_expr()) return (_name == e->name()) && (_args == e->args());

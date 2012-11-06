@@ -3,6 +3,9 @@
 
 #include "common.hh"
 #include <sstream>
+#include <functional>
+#include <cctype>
+#include <locale>
 
 namespace calc {
 
@@ -33,6 +36,24 @@ std::string slurp(std::string const &filename);
 // read a file into an existing string in a single shot.
 // returns a bool indicating success or failure.
 void slurp_into(std::string const &filename, std::string &dest);
+
+// remove spaces from start of string
+static inline std::string &ltrim(std::string &s) {
+        s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not1(std::ptr_fun<int, int>(std::isspace))));
+        return s;
+}
+
+// remove spaces from end of string
+static inline std::string &rtrim(std::string &s) {
+        s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+        return s;
+}
+
+// remove spaces from both ends of string
+static inline std::string &trim(std::string &s) {
+	return ltrim(rtrim(s));
+}
+
 
 }
 

@@ -39,11 +39,20 @@ void Simplifier::visit(MulExpr &e) {
 	LitExpr const *ll = l->as_lit_expr();
 	LitExpr const *rl = r->as_lit_expr();
 	if (ll && rl) _simplified = Expr::make<LitExpr>(ll->value() * rl->value());
-	else if (ll && ll->value().is_zero()) _simplified = l; // 0 * a = 0
-	else if (ll && ll->value().is_one()) _simplified = r; // 1 * a = a
-	else if (rl && rl->value().is_zero()) _simplified = r; // a * 0 = 0
-	else if (rl && rl->value().is_one()) _simplified = l; // a * 1 = a
-	else _simplified = Expr::make<MulExpr>(l, r);
+	else if (ll) {
+		if (ll->value().is_zero()) _simplified = Expr::make<LitExpr>(interval::zero());
+		else if (ll->value().is_one()) _simplified = r;
+		else _simplified = Expr::make<MulExpr>(l, r);
+	} else if (rl) {
+		if (rl->value().is_zero()) _simplified = Expr::make<LitExpr>(interval::zero());
+		else if (rl->value().is_one()) _simplified = l;
+		else _simplified = Expr::make<MulExpr>(l, r);
+	} else _simplified = Expr::make<MulExpr>(l, r);
+//	else if (ll && ll->value().is_zero()) _simplified = l; // 0 * a = 0
+//	else if (ll && ll->value().is_one()) _simplified = r; // 1 * a = a
+//	else if (rl && rl->value().is_zero()) _simplified = r; // a * 0 = 0
+//	else if (rl && rl->value().is_one()) _simplified = l; // a * 1 = a
+//	else _simplified = Expr::make<MulExpr>(l, r);
 }
 
 void Simplifier::visit(DivExpr &e) {
