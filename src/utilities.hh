@@ -39,14 +39,14 @@ void slurp_into(std::string const &filename, std::string &dest);
 
 // remove spaces from start of string
 static inline std::string &ltrim(std::string &s) {
-        s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not1(std::ptr_fun<int, int>(std::isspace))));
-        return s;
+	s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not1(std::ptr_fun<int, int>(std::isspace))));
+	return s;
 }
 
 // remove spaces from end of string
 static inline std::string &rtrim(std::string &s) {
-        s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
-        return s;
+	s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+	return s;
 }
 
 // remove spaces from both ends of string
@@ -74,27 +74,6 @@ template <> struct Seq<> {
 template <typename A, typename... Rest> struct Seq<A, Rest...> {
   typedef Typelist<A, typename Seq<Rest...>::Type> Type;
 };
-
-
-//template <typename List, template <typename> class Unit>
-//class ScatterHierarchy;
-//
-//template <typename T1, typename T2, template <typename> class Unit>
-//class ScatterHierarchy<Typelist<T1, T2>, Unit>
-//: public ScatterHierarchy<T1, Unit>, public ScatterHierarchy<T2, Unit> {
-//public:
-//	typedef Typelist<T1, T2> TList;
-//	typedef ScatterHierarchy<T1, Unit> LeftBase;
-//	typedef ScatterHierarchy<T2, Unit> RightBase;
-//};
-//
-//template <typename Atom, template <typename> class Unit>
-//class ScatterHierarchy : public Unit<Atom> {
-//	typedef Unit<Atom> LeftBase;
-//};
-//
-//template <template <typename> class Unit>
-//class ScatterHierarchy<NullType, Unit> {};
 
 }
 
