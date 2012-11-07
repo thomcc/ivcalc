@@ -21,7 +21,7 @@ class Replacer
 , public Visitor<EmptyExpr>
 , public Visitor<AssignExpr>
 , public Visitor<FuncExpr> {
-	std::map<std::string, ExprSPtr> _replacements;
+	std::map<std::string, ExprSPtr> const &_replacements;
 	ExprSPtr _replaced;
 public:
 	Replacer(std::map<std::string, ExprSPtr> const &replacements) : _replacements(replacements) {}

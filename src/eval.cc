@@ -1,9 +1,11 @@
 #include "eval.hh"
-#include <parser/parser.hh>
+#include <future>
 #include <iostream>
+#include <parser/parser.hh>
 #include <derivator.hh>
 #include <simplifier.hh>
 #include <replacer.hh>
+
 namespace calc {
 
 using namespace std;
@@ -199,23 +201,39 @@ void PartialCalc::initialize(FuncExpr const &fe) {
 		_ctx.eval(*pfe);
 	}
 }
+
+
 vector<interval>
 PartialCalc::calculate(vector<ExprSPtr> const &args) {
-	vector<interval> res;
+	vector<interval> res(_fpartials.size(), interval::empty());
 	size_t as = args.size();
 	if (as != _pnames.size()) throw iv_arithmetic_error("Wrong number of arguments");
 //	map<string, ExprSPtr> mapping;
 //	for (size_t i = 0; i < as; ++i)
 //		mapping[_pnames.at(i)] = args.at(i);
-//	Replacer repl(mapping);
-//	Simplifier s;
+//
+//	unsigned int procs = std::thread::hardware_concurrency();
+//	vector<thread> thrds;
+//
+//	for (unsigned int i = 0; i < procs; ++i) {
+//		thrds.push_back(thread([i, procs, &mapping, &res, &args, this]{
+//			Replacer repl(mapping);
+//			for (int j = i; j < res.size(); j += procs) {
+//				ExprSPtr es = Simplifier::simplified(repl.replace(*_fpartials.at(j)->as_func_expr()->impl()));
+//				if (LitExpr const *le = es->as_lit_expr()) res[j] = le->value();
+//				else cout << "Damn. that sucked. i=" << i << ", j=" << j << endl;
+//			}
+//		}));
+//	}
+//	for (auto &t : thrds) t.join();
+
 //	for (auto const &part : _fpartials) {
 //		ExprSPtr es = s.simplify(*repl.replace(*part->as_func_expr()->impl()));
 //		if (LitExpr const *le = es->as_lit_expr()) {
 //			res.push_back(le->value());
 //		} else throw iv_arithmetic_error("Not gonna work.");
 //	}
-//
+
 	for (auto const &name : _pf_names)
 		res.push_back(_ctx.eval(*Expr::make<CallExpr>(name, args)));
 	return res;
