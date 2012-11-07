@@ -16,28 +16,13 @@ void LexerTest::number() {
 } while (0)
 
 	CHECK_NUM("431");
-//	CHECK_NUM("-431");
-
 	CHECK_NUM("44.2");
-//	CHECK_NUM("-44.4");
-
 	CHECK_NUM("24e5");
-//	CHECK_NUM("-24e5");
 	CHECK_NUM("24e+5");
-
 	CHECK_NUM("24e-5");
-//	CHECK_NUM("-24e-5");
-//	CHECK_NUM("-24e+5");
-
 	CHECK_NUM("1.2e4");
 	CHECK_NUM("1.2e+4");
 	CHECK_NUM("1.2e-4");
-
-//	CHECK_NUM("-1.2e4");
-//	CHECK_NUM("-1.2e+4");
-//	CHECK_NUM("-1.2e-4");
-
-//	CHECK_NUM("-0e4");
 	CHECK_NUM("0e+0");
 	CHECK_NUM("0001000");
 
