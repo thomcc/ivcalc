@@ -7,6 +7,7 @@
 #include <cmath>
 #include <memory>
 #include <iostream>
+#include <cassert>
 
 // assert at runtime that a condition with a message is true.
 // runs even when NDEBUG is defined, unlike the macros in <cassert>.

@@ -6,25 +6,12 @@
 #include <map>
 namespace calc {
 
-class Simplifier
-: public BaseVisitor
-, public Visitor<AddExpr>
-, public Visitor<SubExpr>
-, public Visitor<NegExpr>
-, public Visitor<MulExpr>
-, public Visitor<DivExpr>
-, public Visitor<VarExpr>
-, public Visitor<ExptExpr>
-, public Visitor<LitExpr>
-, public Visitor<CallExpr>
-, public Visitor<EmptyExpr>
-, public Visitor<AssignExpr>
-, public Visitor<FuncExpr> {
+class Simplifier : ExprVisitor {
 	ExprSPtr _simplified;
 public:
-
 	Simplifier() {}
 	ExprSPtr simplify(Expr &e);
+	void visit(Expr &e) { assert(0); } // impossible
 	void visit(AddExpr &e);
 	void visit(SubExpr &e);
 	void visit(NegExpr &e);
@@ -37,7 +24,6 @@ public:
 	void visit(CallExpr &e);
 	void visit(FuncExpr &e);
 	void visit(EmptyExpr &e);
-
 	static ExprSPtr simplified(ExprSPtr const &e) { return Simplifier().simplify(*e); }
 
 };

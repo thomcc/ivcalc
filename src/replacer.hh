@@ -7,20 +7,7 @@
 namespace calc {
 // replaces a var in an expression with an expression.
 // used within derivator, but seemed useful
-class Replacer
-: public BaseVisitor
-, public Visitor<AddExpr>
-, public Visitor<SubExpr>
-, public Visitor<NegExpr>
-, public Visitor<MulExpr>
-, public Visitor<DivExpr>
-, public Visitor<VarExpr>
-, public Visitor<ExptExpr>
-, public Visitor<LitExpr>
-, public Visitor<CallExpr>
-, public Visitor<EmptyExpr>
-, public Visitor<AssignExpr>
-, public Visitor<FuncExpr> {
+class Replacer : ExprVisitor {
 	std::map<std::string, ExprSPtr> const &_replacements;
 	ExprSPtr _replaced;
 public:
@@ -31,6 +18,7 @@ public:
 		return _replaced;
 	}
 
+	void visit(Expr &e) { assert(0); } // impossible
 	void visit(AddExpr &e) {
 		ExprSPtr rhs = replace(*e.rhs());
 		ExprSPtr lhs = replace(*e.lhs());

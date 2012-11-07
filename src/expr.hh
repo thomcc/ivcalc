@@ -39,7 +39,7 @@ public:
 		return std::static_pointer_cast<Expr>(eptr);
 	}
 
-	VISITABLE()
+	EXPR_VISITABLE()
 };
 
 class AddExpr : public Expr {
@@ -57,7 +57,7 @@ public:
 		return false;
 	}
 
-	VISITABLE()
+	EXPR_VISITABLE()
 };
 
 class SubExpr : public Expr {
@@ -75,7 +75,7 @@ public:
 		return false;
 	}
 
-	VISITABLE()
+	EXPR_VISITABLE()
 };
 
 class NegExpr : public Expr {
@@ -92,7 +92,7 @@ public:
 		return false;
 	}
 
-	VISITABLE()
+	EXPR_VISITABLE()
 };
 
 class MulExpr : public Expr {
@@ -110,7 +110,7 @@ public:
 		return false;
 	}
 
-	VISITABLE()
+	EXPR_VISITABLE()
 };
 
 class DivExpr : public Expr {
@@ -128,7 +128,7 @@ public:
 		else return false;
 	}
 
-	VISITABLE()
+	EXPR_VISITABLE()
 };
 
 class VarExpr : public Expr {
@@ -145,7 +145,7 @@ public:
 		return false;
 	}
 
-	VISITABLE()
+	EXPR_VISITABLE()
 };
 
 
@@ -167,7 +167,7 @@ public:
 		return false;
 	}
 
-	VISITABLE()
+	EXPR_VISITABLE()
 };
 
 class LitExpr : public Expr {
@@ -188,7 +188,7 @@ public:
 		return false;
 	}
 
-	VISITABLE()
+	EXPR_VISITABLE()
 };
 
 class AssignExpr : public Expr {
@@ -208,7 +208,7 @@ public:
 		return false;
 	}
 
-	VISITABLE()
+	EXPR_VISITABLE()
 };
 
 class CallExpr : public Expr {
@@ -228,7 +228,7 @@ public:
 		return false;
 	}
 
-	VISITABLE()
+	EXPR_VISITABLE()
 };
 
 class FuncExpr : public Expr {
@@ -251,7 +251,7 @@ public:
 		return false;
 	}
 
-	VISITABLE()
+	EXPR_VISITABLE()
 };
 
 
@@ -260,7 +260,7 @@ public:
 	EmptyExpr() {}
 	EmptyExpr const *as_empty_expr() const { return this; }
 	bool operator==(Expr const &other) const { return other.as_empty_expr(); }
-	VISITABLE()
+	EXPR_VISITABLE()
 };
 
 }

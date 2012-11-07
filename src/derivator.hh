@@ -8,22 +8,7 @@
 
 namespace calc {
 
-class Derivator
-: public BaseVisitor
-, public Visitor<AddExpr>
-, public Visitor<SubExpr>
-, public Visitor<NegExpr>
-, public Visitor<MulExpr>
-, public Visitor<DivExpr>
-, public Visitor<VarExpr>
-, public Visitor<ExptExpr>
-, public Visitor<LitExpr>
-, public Visitor<FuncExpr>
-, public Visitor<CallExpr>
-//, public Visitor<EmptyExpr>
-//, public Visitor<AssignExpr>
-{
-
+class Derivator : ExprVisitor {
 	std::string _var;
 	ExprSPtr _derived;
 public:
@@ -32,6 +17,9 @@ public:
 
 
 	ExprSPtr derive(Expr &e);
+	void visit(Expr &e) { assert(0); } // impossible
+	void visit(EmptyExpr &e) {}
+	void visit(AssignExpr &e) {}
 	void visit(AddExpr &e);
 	void visit(SubExpr &e);
 	void visit(NegExpr &e);

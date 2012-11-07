@@ -55,6 +55,47 @@ static inline std::string &trim(std::string &s) {
 }
 
 
+// used for visitor implementation, see visitorbase.hh
+
+class NullType {};
+
+template <typename T, typename S>
+struct Typelist {
+	typedef T Head;
+	typedef S Tail;
+};
+
+template <typename...> struct Seq;
+
+template <> struct Seq<> {
+	typedef NullType Type;
+};
+
+template <typename A, typename... Rest> struct Seq<A, Rest...> {
+  typedef Typelist<A, typename Seq<Rest...>::Type> Type;
+};
+
+
+//template <typename List, template <typename> class Unit>
+//class ScatterHierarchy;
+//
+//template <typename T1, typename T2, template <typename> class Unit>
+//class ScatterHierarchy<Typelist<T1, T2>, Unit>
+//: public ScatterHierarchy<T1, Unit>, public ScatterHierarchy<T2, Unit> {
+//public:
+//	typedef Typelist<T1, T2> TList;
+//	typedef ScatterHierarchy<T1, Unit> LeftBase;
+//	typedef ScatterHierarchy<T2, Unit> RightBase;
+//};
+//
+//template <typename Atom, template <typename> class Unit>
+//class ScatterHierarchy : public Unit<Atom> {
+//	typedef Unit<Atom> LeftBase;
+//};
+//
+//template <template <typename> class Unit>
+//class ScatterHierarchy<NullType, Unit> {};
+
 }
 
 

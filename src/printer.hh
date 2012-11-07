@@ -7,21 +7,7 @@
 #include <limits>
 namespace calc {
 
-class Printer
-: public BaseVisitor
-, public Visitor<AddExpr>
-, public Visitor<SubExpr>
-, public Visitor<NegExpr>
-, public Visitor<MulExpr>
-, public Visitor<DivExpr>
-, public Visitor<VarExpr>
-, public Visitor<ExptExpr>
-, public Visitor<LitExpr>
-, public Visitor<AssignExpr>
-, public Visitor<CallExpr>
-, public Visitor<FuncExpr>
-, public Visitor<EmptyExpr> {
-
+class Printer : ExprVisitor {
 private:
 	std::ostream &_os;
 	bool _color; // use color
@@ -54,7 +40,7 @@ public:
 		e.accept(*this);
 		_prec = op;
 	}
-
+	void visit(Expr &e) { assert(0); } // impossible
 	void visit(AddExpr &e);
 	void visit(SubExpr &e);
 	void visit(NegExpr &e);
@@ -67,7 +53,6 @@ public:
 	void visit(CallExpr &e);
 	void visit(EmptyExpr &e);
 	void visit(FuncExpr &e);
-
 };
 
 inline std::ostream &operator<<(std::ostream &o, Expr &e) {
