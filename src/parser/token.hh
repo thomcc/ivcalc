@@ -24,8 +24,7 @@ enum TokenType {
 	NUM_TOKEN_TYPES
 };
 
-std::string
-type_name(TokenType tt);
+std::string type_name(TokenType tt);
 
 class Token {
 	TokenType _type;
@@ -39,10 +38,7 @@ public:
 	TokenType type() const { return _type; }
 	std::string const& text() const { return _text; }
 	bool is_a(TokenType tt) const { return _type == tt; }
-
 	std::string describe() const;
-
-
 };
 
 std::ostream& operator<<(std::ostream &o, Token const &token);

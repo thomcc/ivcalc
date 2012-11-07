@@ -1,8 +1,8 @@
 #include "derive_tests.hh"
-#include <parser/parser.hh>
-#include <derivator.hh>
-#include <simplifier.hh>
-#include <printer.hh>
+#include "parser/parser.hh"
+#include "visitors/derivator.hh"
+#include "visitors/simplifier.hh"
+#include "visitors/printer.hh"
 namespace calc {
 
 ExprSPtr DeriveTest::get_expr(std::string const &str) const {

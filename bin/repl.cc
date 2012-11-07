@@ -1,10 +1,10 @@
 #include "common.hh"
 #include "interval.hh"
 #include "parser/parser.hh"
-#include "printer.hh"
-#include "simplifier.hh"
-#include "eval.hh"
-#include "derivator.hh"
+#include "visitors/printer.hh"
+#include "visitors/simplifier.hh"
+#include "visitors/eval.hh"
+#include "visitors/derivator.hh"
 #include <cstdio>
 #include <cstdlib>
 #define LINE_LEN 4096

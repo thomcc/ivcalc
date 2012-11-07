@@ -1,4 +1,4 @@
-#include "simplifier.hh"
+#include "visitors/simplifier.hh"
 
 namespace calc {
 // todo: remove constant folding?

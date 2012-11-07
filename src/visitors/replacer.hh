@@ -1,8 +1,8 @@
 #ifndef __REPLACER_HH__
 #define __REPLACER_HH__
-#include <visitorbase.hh>
-#include <expr.hh>
 #include <map>
+#include "visitors/visitorbase.hh"
+#include "expr.hh"
 
 namespace calc {
 // replaces a var in an expression with an expression.

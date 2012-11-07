@@ -1,10 +1,12 @@
 #ifndef __PRINTER_HH__
 #define __PRINTER_HH__
 
-#include "expr.hh"
-#include "visitorbase.hh"
 #include <sstream>
 #include <limits>
+
+#include "expr.hh"
+#include "visitors/visitorbase.hh"
+
 namespace calc {
 
 class Printer : ExprVisitor {

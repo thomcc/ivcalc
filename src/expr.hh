@@ -4,7 +4,7 @@
 #include <memory>
 #include "common.hh"
 #include "interval.hh"
-#include "visitorbase.hh"
+#include <visitors/visitorbase.hh>
 
 namespace calc {
 

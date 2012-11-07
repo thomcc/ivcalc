@@ -2,7 +2,7 @@
 #define __DERIVE_TESTS_HH__
 
 #include "test.hh"
-#include <expr.hh>
+#include "expr.hh"
 
 namespace calc {
 class DeriveTest : public Test {

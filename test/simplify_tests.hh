@@ -1,7 +1,7 @@
 #ifndef __SIMPLIFY_TESTS_HH__
 #define __SIMPLIFY_TESTS_HH__
 #include "test.hh"
-#include <expr.hh>
+#include "expr.hh"
 
 namespace calc {
 class SimplifyTest : public Test {

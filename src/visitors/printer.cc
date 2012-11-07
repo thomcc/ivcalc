@@ -1,5 +1,6 @@
-#include "printer.hh"
-#include <parser/parser.hh>
+#include "visitors/printer.hh"
+#include "parser/parser.hh"
+
 namespace calc {
 
 enum Style {

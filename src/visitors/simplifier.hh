@@ -1,9 +1,9 @@
 #ifndef __SIMPLIFIER_HH__
 #define __SIMPLIFIER_HH__
+//#include <map>
 #include "expr.hh"
-#include "visitorbase.hh"
+#include "visitors/visitorbase.hh"
 #include "interval.hh"
-#include <map>
 namespace calc {
 
 class Simplifier : ExprVisitor {

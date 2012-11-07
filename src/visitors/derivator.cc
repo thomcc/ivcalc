@@ -1,9 +1,7 @@
-#include "derivator.hh"
 #include <map>
-#include <parser/parser.hh>
-#include "replacer.hh"
-#include "expr.hh"
-#include <iostream>
+#include "parser/parser.hh"
+#include "visitors/replacer.hh"
+#include "visitors/derivator.hh"
 namespace calc {
 
 using namespace std;

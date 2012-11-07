@@ -1,43 +1,13 @@
 #ifndef __EVAL_HH__
 #define __EVAL_HH__
-#include "expr.hh"
-#include "visitorbase.hh"
-#include "interval.hh"
-#include "functions.hh"
-#include <map>
-#include <unordered_map>
 
+#include "expr.hh"
+#include "visitors/visitorbase.hh"
+#include "interval.hh"
+#include "visitors/env.hh"
 
 namespace calc {
 
-
-
-
-
-class Env {
-	Env const *_parent;
-	std::unordered_map<std::string, interval> _vars;
-	std::unordered_map<std::string, std::shared_ptr<BaseFunc>> _funcs;
-	void add_builtin(std::string const &func);
-	void add_builtins(std::initializer_list<std::string> const &funcs);
-public:
-	Env();
-	Env(Env const &) = default;
-	Env &operator=(Env const &o) = default;
-	bool has(std::string const &s) const;
-	bool get(std::string const &s, interval &i) const;
-	interval apply(std::string const &s, std::vector<interval> const &args) const;
-	void put(std::string const &s, interval e);
-	void def(std::string const &name, std::vector<std::string> const &prams, ExprSPtr v);
-	// was getting repetitive...
-	template <typename T, typename... Args> void add_func(Args&&... args) {
-		std::shared_ptr<T> eptr = std::make_shared<T>(std::forward<Args>(args)...);
-		std::shared_ptr<BaseFunc> bf = std::static_pointer_cast<BaseFunc>(eptr);
-		_funcs[bf->name()] = bf;
-	}
-	Env extend(std::vector<std::string> const &params, std::vector<interval> const &args) const;
-	static Env global();
-};
 
 class PartialCalc;
 

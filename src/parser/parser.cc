@@ -2,7 +2,7 @@
 #include <sstream>
 #include "expr.hh"
 #include "utilities.hh"
-#include "printer.hh"
+#include "visitors/printer.hh"
 #include <cstdio>
 #include <iostream>
 #include <unistd.h>
