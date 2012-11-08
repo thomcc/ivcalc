@@ -8,7 +8,7 @@
 #include <string>
 #include "common.hh"
 #include "interval.hh"
-
+#include "expr.hh"
 namespace calc {
 
 class Env;
@@ -77,14 +77,26 @@ class Env {
 	Env const *_parent;
 	std::unordered_map<std::string, interval> _vars;
 	std::unordered_map<std::string, std::shared_ptr<BaseFunc>> _funcs;
+	std::vector<interval> _func_args;
 	void add_builtin(std::string const &func);
 	void add_builtins(std::initializer_list<std::string> const &funcs);
 public:
 	Env();
 	Env(Env const &) = default;
 	Env &operator=(Env const &o) = default;
-	bool has(std::string const &s) const;
-	bool get(std::string const &s, interval &i) const;
+	bool has(VarExpr &s) const;
+	bool get(VarExpr &s, interval &i) const {
+		int n = s.param_no();
+		if (0 <= n && n < _func_args.size()) {
+			i = _func_args.at(n);
+			return true;
+		}
+		std::cout << "looking up in hash table: " << s.name() << std::endl;
+		auto it = _vars.find(s.name());
+		if (it != _vars.end()) { i = it->second; return true; }
+		else if (_parent) return _parent->get(s, i);
+		else return false;
+	}
 	interval apply(std::string const &s, std::vector<interval> const &args) const;
 	void put(std::string const &s, interval e);
 	void def(std::string const &name, std::vector<std::string> const &prams, ExprSPtr v);

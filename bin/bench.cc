@@ -34,14 +34,15 @@ static bool is_balanced(const char *s) {
 
 string get_line(bool continued){
 	string line;
-	while (!cin.eof()) {
+	while (cin) {
 		string l;
 		cout << (continued ? "| " : "> ");
-		getline(cin, l);
-		line += l;
-		if ((line.size() > 0) && is_balanced(line.c_str()))
-			break;
-		else continued = true;
+		if (getline(cin, l)) {
+			line += l;
+			if ((line.size() > 0) && is_balanced(line.c_str()))
+				break;
+			else continued = true;
+		} else break;
 	}
 	return line;
 }
@@ -148,7 +149,7 @@ int repl(int vrb) {
 			}
 			if (eh.need_lines()) continue;
 			if (eh.errors() == 0) break;
-			else continue;
+			else { src = ""; continue; }
 			if (cin.eof()) return 0;
 			return 2;
 		}

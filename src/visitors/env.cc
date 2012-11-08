@@ -22,12 +22,9 @@ UserDefinedFn::UserDefinedFn(string const &name, vector<string> const &param_nam
 
 Env::Env() : _parent(nullptr) {}
 
-bool Env::has(string const &s) const { interval dummy; return get(s, dummy); }
-bool Env::get(string const &s, interval &i) const {
-	auto it = _vars.find(s);
-	if (it != _vars.end()) { i = it->second; return true; }
-	else if (_parent) return _parent->get(s, i);
-	else return false;
+bool Env::has(VarExpr &s) const {
+	interval dummy;
+	return get(s, dummy);
 }
 
 interval Env::apply(string const &s, vector<interval> const &args) const {
@@ -50,7 +47,9 @@ Env Env::extend(vector<string> const &params, vector<interval> const &args) cons
 	Env e;
 	e._parent = this;
 	assert(params.size() == args.size()); // should be checked before we get here
-	for (size_t i = 0; i < params.size(); ++i) e._vars[params.at(i)] = args.at(i);
+	e._func_args = args;
+	for (size_t i = 0; i < params.size(); ++i)
+		e._vars[params.at(i)] = args.at(i);
 	return e;
 }
 
@@ -120,8 +119,80 @@ void Env::add_builtins(initializer_list<string> const &funcs) {
 	}
 }
 
+// fake lexical addressing (depth of 1)
+class VarAddresser : public ExprVisitor {
+	vector<string> const &_prams;
+	ExprSPtr _addressed;
+public:
+	VarAddresser(vector<string> const &prams) : _prams(prams) {}
+
+	ExprSPtr address(Expr &e) {
+		_addressed = nullptr;
+		e.accept(*this);
+		return _addressed;
+	}
+
+	void visit(Expr &e) { assert(0); } // impossible
+	void visit(AddExpr &e) {
+		ExprSPtr rhs = address(*e.rhs());
+		ExprSPtr lhs = address(*e.lhs());
+		_addressed = Expr::make<AddExpr>(lhs, rhs);
+	}
+
+	void visit(SubExpr &e) {
+		ExprSPtr rhs = address(*e.rhs());
+		ExprSPtr lhs = address(*e.lhs());
+		_addressed = Expr::make<SubExpr>(lhs, rhs);
+	}
+
+	void visit(NegExpr &e) {
+		ExprSPtr v = address(*e.value());
+		_addressed = Expr::make<NegExpr>(v);
+	}
+
+	void visit(MulExpr &e) {
+		ExprSPtr rhs = address(*e.rhs());
+		ExprSPtr lhs = address(*e.lhs());
+		_addressed = Expr::make<MulExpr>(lhs, rhs);
+	}
+
+	void visit(DivExpr &e) {
+		ExprSPtr rhs = address(*e.rhs());
+		ExprSPtr lhs = address(*e.lhs());
+		_addressed = Expr::make<DivExpr>(lhs, rhs);
+	}
+
+	void visit(VarExpr &e) {
+		for (size_t i = 0; i < _prams.size(); ++i) {
+			if (_prams.at(i) == e.name()) {
+				 _addressed = Expr::make<VarExpr>(e.name(), i);
+				 return;
+			}
+		}
+	}
+
+	void visit(ExptExpr &e) {
+		ExprSPtr lhs = address(*e.base());
+		_addressed = Expr::make<ExptExpr>(lhs, e.power());
+	}
+
+	void visit(LitExpr &e) {
+		_addressed = Expr::make<LitExpr>(e.value());
+	}
+
+	void visit(CallExpr &e) {
+		std::vector<ExprSPtr> args;
+		for (auto const &e : e.args()) args.push_back(address(*e));
+		_addressed = Expr::make<CallExpr>(e.name(), args);
+	}
+	void visit(EmptyExpr &e) { _addressed = Expr::make<EmptyExpr>(); }
+	void visit(FuncExpr &e) {
+		throw iv_arithmetic_error("nested functions not allowed");
+	}
+};
+
 void Env::def(string const &name, vector<string> const &prams, ExprSPtr v) {
-	add_func<UserDefinedFn>(name, prams, v);
+	add_func<UserDefinedFn>(name, prams, VarAddresser(prams).address(*v));
 }
 
 
