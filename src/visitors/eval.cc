@@ -50,11 +50,6 @@ void Evaluator::visit(ExptExpr &e) {
 }
 
 void Evaluator::visit(LitExpr &e) { _res = e.value(); }
-void Evaluator::visit(AssignExpr &e) {
-	interval v = eval(*e.value());
-	_env.put(e.name(), v);
-	_res = v;
-}
 
 void Evaluator::visit(CallExpr &e) {
 	vector<interval> parms;

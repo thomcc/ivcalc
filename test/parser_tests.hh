@@ -14,7 +14,6 @@ public:
 		div();
 		pow();
 		lit();
-		assign();
 		func();
 		group();
 		precedence();
@@ -26,7 +25,6 @@ private:
 	void div();
 	void pow();
 	void lit();
-	void assign();
 	void group();
 	void func();
 	void precedence();

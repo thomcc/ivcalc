@@ -83,13 +83,6 @@ void Simplifier::visit(ExptExpr &e) {
 	}
 }
 
-
-
-void Simplifier::visit(AssignExpr &e) {
-	ExprSPtr rhs = simplify(*e.value());
-	_simplified = Expr::make<AssignExpr>(e.name(), rhs);
-}
-
 void Simplifier::visit(CallExpr &e) {
 	std::vector<ExprSPtr> nargs;
 	for (auto const &oa : e.args()) nargs.push_back(simplify(*oa));

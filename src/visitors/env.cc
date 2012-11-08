@@ -120,7 +120,9 @@ void Env::add_builtins(initializer_list<string> const &funcs) {
 	}
 }
 
-void Env::def(string const &name, vector<string> const &prams, ExprSPtr v) { add_func<UserDefinedFn>(name, prams, v); }
+void Env::def(string const &name, vector<string> const &prams, ExprSPtr v) {
+	add_func<UserDefinedFn>(name, prams, v);
+}
 
 
 

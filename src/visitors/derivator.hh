@@ -19,7 +19,6 @@ public:
 	ExprSPtr derive(Expr &e);
 	void visit(Expr &e) { assert(0); } // impossible
 	void visit(EmptyExpr &e) {}
-	void visit(AssignExpr &e) {}
 	void visit(AddExpr &e);
 	void visit(SubExpr &e);
 	void visit(NegExpr &e);

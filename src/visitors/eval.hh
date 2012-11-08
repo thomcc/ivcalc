@@ -34,7 +34,6 @@ public:
 	void visit(VarExpr &e);
 	void visit(ExptExpr &e);
 	void visit(LitExpr &e);
-	void visit(AssignExpr &e);
 	void visit(CallExpr &e);
 	void visit(EmptyExpr &e);
 	void visit(FuncExpr &e);

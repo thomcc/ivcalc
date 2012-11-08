@@ -70,18 +70,6 @@ public:
 	}
 
 	void visit(EmptyExpr &e) { _replaced = Expr::make<EmptyExpr>(); }
-	void visit(AssignExpr &e) {
-		std::string name = e.name();
-		ExprSPtr e2;
-		if (find(e.name(), e2)) {
-			if (VarExpr const *ve = e2->as_var_expr()) name = ve->name();
-			else throw iv_arithmetic_error("Error: replacement variable on "
-			                               "left-hand side of assignment expression "
-			                               "may only be replaced with a VarExpr.");
-		}
-		ExprSPtr r = replace(*e.value());
-		_replaced = Expr::make<AssignExpr>(name, r);
-	}
 
 	void visit(FuncExpr &e) {
 		// not going to look for a name replacement.

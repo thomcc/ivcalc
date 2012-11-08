@@ -84,7 +84,6 @@ typedef CyclicVisitor<
 		VarExpr,
 		ExptExpr,
 		LitExpr,
-		AssignExpr,
 		CallExpr,
 		FuncExpr,
 		EmptyExpr

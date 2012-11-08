@@ -86,7 +86,6 @@ class DivExpr;
 class VarExpr;
 class ExptExpr;
 class LitExpr;
-class AssignExpr;
 class CallExpr;
 class EmptyExpr;
 class FuncExpr;

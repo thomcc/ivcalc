@@ -128,15 +128,16 @@ ExprSPtr Parser::group(Token const &t) {
 	return e;
 }
 
-// `var = expr`
+
 // `func_name(arg1, arg2, ...) = expr`
 ExprSPtr Parser::assign(ExprSPtr lhs, Token const &t) {
 	ExprSPtr rhs = parse_expr(P_Assign);
-	if (VarExpr const *e = lhs->as_var_expr()) {
-		std::string name("");
-		name = e->name();
-		return Expr::make<AssignExpr>(name, rhs);
-	} else if (CallExpr const *e = lhs->as_call_expr()) {
+//	if (VarExpr const *e = lhs->as_var_expr()) {
+//		std::string name("");
+//		name = e->name();
+//		return Expr::make<AssignExpr>(name, rhs);
+//	} else
+	if (CallExpr const *e = lhs->as_call_expr()) {
 		std::string const &name = e->name();
 		std::vector<std::string> prams;
 		for (auto const &a : e->args())
@@ -144,7 +145,7 @@ ExprSPtr Parser::assign(ExprSPtr lhs, Token const &t) {
 			else _on_error.error("Error: non-identifier in function parameter list: '" + Printer::stringify(a) + "'.");
 		return Expr::make<FuncExpr>(name, prams, rhs);
 	}
-	_on_error.error(strprintf("'%s' is not assignable!", t.text().c_str()));
+	_on_error.error(strprintf("bad syntax: '%s'. expected `<name>(<arg>, ...) = <expr>", t.text().c_str()));
 	return Expr::make<EmptyExpr>();
 }
 

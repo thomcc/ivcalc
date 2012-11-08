@@ -111,22 +111,6 @@ void ParserTest::lit() {
 	}
 }
 
-void ParserTest::assign() {
-	ErrorHandler eh(true, false);
-	Parser p("a = 1", eh);
-	ExprSPtr e = p.parse_expression();
-	Check(!eh.errors());
-	AssignExpr const *e2 = e->as_assign_expr();
-	Check(e2);
-	if (e2) {
-		std::string name = e2->name();
-		Check(name == std::string("a"));
-		LitExpr const *rhs = e2->value()->as_lit_expr();
-		Check(rhs);
-		if (rhs) Check(rhs->value().is_one());
-	}
-}
-
 void ParserTest::precedence() {
 	ErrorHandler eh(true, false);
 	Parser p("1 + 0 * 1 ^ 3 / -do_stuff(a^2, b)", eh);

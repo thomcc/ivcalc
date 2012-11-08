@@ -22,7 +22,7 @@ public:
 	virtual VarExpr const *as_var_expr() const { return NULL; }
 	virtual ExptExpr const *as_expt_expr() const { return NULL; }
 	virtual LitExpr const *as_lit_expr() const { return NULL; }
-	virtual AssignExpr const *as_assign_expr() const { return NULL; }
+//	virtual AssignExpr const *as_assign_expr() const { return NULL; }
 	virtual CallExpr const *as_call_expr() const { return NULL; }
 	virtual FuncExpr const *as_func_expr() const { return NULL; }
 	virtual EmptyExpr const *as_empty_expr() const { return NULL; }
@@ -185,26 +185,6 @@ public:
 	bool is_lit_one() const { return _value.is_one(); }
 	bool operator==(Expr const &other) const {
 		if (LitExpr const *e = other.as_lit_expr()) return _value == e->value();
-		return false;
-	}
-
-	EXPR_VISITABLE()
-};
-
-class AssignExpr : public Expr {
-	std::string const _name;
-	ExprSPtr _value;
-public:
-
-	AssignExpr(std::string const &name, ExprSPtr value) : _name(name), _value(value) {}
-
-	AssignExpr const *as_assign_expr() const { return this; }
-	std::string const &name() const { return _name; }
-	ExprSPtr value() const { return _value; }
-	bool is_constant() const { return false; }
-
-	bool operator==(Expr const &other) const {
-		if (AssignExpr const *e = other.as_assign_expr()) return _name == e->name() && (*_value == *e->value());
 		return false;
 	}
 

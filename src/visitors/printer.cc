@@ -104,11 +104,6 @@ void Printer::visit(ExptExpr &e) {
 	if (_prec >= P_Expt) _os << ")";
 }
 
-void Printer::visit(AssignExpr &e) {
-	style_out(e.name(), Var);
-	style_out(" = ", Operator);
-	print(*e.value());
-}
 
 void Printer::visit(CallExpr &e) {
 	style_out(e.name(), Func);
