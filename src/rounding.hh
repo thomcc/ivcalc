@@ -9,18 +9,6 @@
 #include <limits>
 #include <algorithm> // std::max / std::min
 
-#ifndef X86_ROUND
-# if defined(__GNUC__) && defined(__i386__) && !defined(C99_ROUND)
-// X86_ROUND requires gcc-style inline asm and an x86 machine
-#  define X86_ROUND 1
-# else
-#  define X86_ROUND 0
-# endif
-#else
-# define X86_ROUND 0
-#endif
-
-
 namespace calc {
 
 //typedef long double real;
@@ -35,8 +23,8 @@ namespace rmath {
 // todo, figure out a way to do this without rounding twice
 // (once in compiler, once in code)
 
-static const real pi_l = 3.14159265358979323829596852490908531763125210004425048828125L;
-static const real pi_h = 3.141592653589793238729649393903287091234233203524017333984375L;
+static const real pi_l = (3373259426.0 + 273688.0 / (1<<21)) / (1<<30);
+static const real pi_h = (3373259426.0 + 273689.0 / (1<<21)) / (1<<30);
 
 static inline real pi_lo() { return pi_l; }
 static inline real pi_hi() { return pi_h; }
@@ -55,39 +43,15 @@ static inline real NaN() { return std::numeric_limits<real>::quiet_NaN(); }
 static inline bool is_pos_inf(real r) { return r == pos_inf(); }
 static inline bool is_neg_inf(real r) { return r == neg_inf(); }
 static inline bool is_nan(real r) { return std::isnan(r); }
-#if X86_ROUND
-// use x86 rounding modes.  clang seems to be less
-// eager to optimize around this, which is beneficial
-// in this case.
-#define ROUND_NEAR static_cast<unsigned short>(0x127f)
-#define ROUND_DOWN static_cast<unsigned short>(0x167f)
-#define ROUND_UP   static_cast<unsigned short>(0x1a7f)
-#define ROUND_ZERO static_cast<unsigned short>(0x1e7f)
-static inline void set_round(unsigned short mode) {
-	__asm__ __volatile__("fldcw %0" : : "m"(mode));
-}
-static inline real make_int(real d) {
-	real dd;
-	__asm__ ("frndint" : "=&t"(dd) : "0"(d));
-	return dd;
-}
-static inline real do_round(real r) { return r; }
-#else
-// using c99 rounding modes, which should be supported on any
-//
-#define ROUND_NEAR FE_TONEAREST
-#define ROUND_DOWN FE_DOWNWARD
-#define ROUND_UP FE_UPWARD
-#define ROUND_ZERO FE_TOWARDZERO
-static inline void set_round(int mode) { std::fesetround(mode); }
+
 static inline real make_int(real x) { return std::rint(x); }
 static inline real do_round(real d) { volatile real dd = d; return dd; }
-#endif
+
 // manipulating the rounding mode
-static inline void set_rup()   { set_round(ROUND_UP);   }
-static inline void set_rdown() { set_round(ROUND_DOWN); }
-static inline void set_rnear() { set_round(ROUND_NEAR); }
-static inline void set_rzero() { set_round(ROUND_ZERO); }
+static inline void set_rup()   { std::fesetround(FE_UPWARD);   }
+static inline void set_rdown() { std::fesetround(FE_DOWNWARD); }
+static inline void set_rnear() { std::fesetround(FE_TONEAREST); }
+static inline void set_rzero() { std::fesetround(FE_TOWARDZERO); }
 
 
 // force rounding despite the compiler's objections
