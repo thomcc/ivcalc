@@ -6,6 +6,9 @@
 #include <functional>
 #include <cctype>
 #include <locale>
+#include <vector>
+#include <new>
+#include <cassert>
 
 namespace calc {
 

@@ -43,8 +43,8 @@ run_tests:
 ${PROGRAMS}: CXXFLAGS += ${TARGET}
 ${PROGRAMS}: ${addsuffix .cc, $@}
 	@echo CC ${addsuffix .cc, $@}
-	@${CXX} ${CXXFLAGS} -o $@ ${addsuffix .cc, $@} -MD
-# -MD ${addsuffix .d, $@}
+	@${CXX} ${CXXFLAGS} -g -o $@ ${addsuffix .cc, $@} -MD
+
 ${TARGET}: CXXFLAGS += -fPIC
 ${TARGET}: build ${OBJECTS}
 	@echo AR $@
@@ -57,7 +57,7 @@ build:
 .cc.o: %.cc
 	@echo CC $<
 	@${CXX} -c ${CXXFLAGS} -o $@ $< -MD
-#  -MM -MF ${patsubst %.o,%.d,$@}
+
 clean:
 	@echo cleaning
 	@rm -rf build ${OBJECTS} ${DEPENDS} ${PROGDEPENDS} ${TESTDEPENDS} ${TESTS} ${PROGRAMS} ${TESTMAIN} *.o *.d *~

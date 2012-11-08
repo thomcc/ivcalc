@@ -133,12 +133,16 @@ public:
 
 class VarExpr : public Expr {
 	std::string const _name;
+	int _param_no;
 public:
 
-	VarExpr(std::string const &name) : _name(name) {}
-
+	VarExpr(std::string const &name) : _name(name), _param_no(-1) {}
+	VarExpr(std::string const &name, int param_no) : _name(name), _param_no(param_no) {}
 	VarExpr const *as_var_expr() const { return this; }
 	std::string const &name() const { return _name; }
+	bool has_param_no() const { return _param_no >= 0; }
+	int param_no() const { return _param_no; }
+	void set_param_no(unsigned param_no) { _param_no = param_no; }
 	bool is_constant() const { return false; }
 	bool operator==(Expr const &other) const {
 		if (VarExpr const *e = other.as_var_expr()) return _name == e->name();
