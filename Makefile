@@ -27,6 +27,7 @@ TARGET = build/libcalc.a
 all: ${TARGET} tests ${PROGRAMS} run_tests
 
 prod: CXXFLAGS += ${PRODFLAGS}
+prod: clean
 prod: all
 
 rebuild: clean

@@ -91,8 +91,8 @@ public:
 
 	EXPR_VISITABLE()
 
-	static void *operator new(size_t size);
-	static void operator delete(void *p);
+	static void *operator new(size_t size) { return _pool.allocate(size); }
+	static void operator delete(void *p) { _pool.deallocate(p); }
 	static void stats() { _pool.stats(); }
 private:
 	static MemPool _pool;
@@ -120,8 +120,8 @@ public:
 	}
 
 	EXPR_VISITABLE()
-	static void *operator new(size_t size);
-	static void operator delete(void *p);
+	static void *operator new(size_t size) { return _pool.allocate(size); }
+	static void operator delete(void *p) { _pool.deallocate(p); }
 	static void stats() { _pool.stats(); }
 private:
 	static MemPool _pool;
@@ -148,8 +148,8 @@ public:
 
 
 	EXPR_VISITABLE()
-	static void *operator new(size_t size);
-	static void operator delete(void *p);
+	static void *operator new(size_t size) { return _pool.allocate(size); }
+	static void operator delete(void *p) { _pool.deallocate(p); }
 	static void stats() { _pool.stats(); }
 private:
 	static MemPool _pool;
@@ -179,8 +179,8 @@ public:
 
 
 	EXPR_VISITABLE()
-	static void *operator new(size_t size);
-	static void operator delete(void *p);
+	static void *operator new(size_t size) { return _pool.allocate(size); }
+	static void operator delete(void *p) { _pool.deallocate(p); }
 	static void stats() { _pool.stats(); }
 private:
 	static MemPool _pool;
@@ -208,8 +208,8 @@ public:
 	}
 
 	EXPR_VISITABLE()
-	static void *operator new(size_t size);
-	static void operator delete(void *p);
+	static void *operator new(size_t size) { return _pool.allocate(size); }
+	static void operator delete(void *p) { _pool.deallocate(p); }
 	static void stats() { _pool.stats(); }
 private:
 	static MemPool _pool;
@@ -236,8 +236,8 @@ public:
 
 	EXPR_VISITABLE()
 
-	static void *operator new(size_t size);
-	static void operator delete(void *p);
+	static void *operator new(size_t size) { return _pool.allocate(size); }
+	static void operator delete(void *p) { _pool.deallocate(p); }
 	static void stats() { _pool.stats(); }
 private:
 	static MemPool _pool;
@@ -266,8 +266,8 @@ public:
 	}
 
 	EXPR_VISITABLE()
-	static void *operator new(size_t size);
-	static void operator delete(void *p);
+	static void *operator new(size_t size) { return _pool.allocate(size); }
+	static void operator delete(void *p) { _pool.deallocate(p); }
 	static void stats() { _pool.stats(); }
 private:
 	static MemPool _pool;
@@ -292,8 +292,8 @@ public:
 	}
 
 	EXPR_VISITABLE()
-	static void *operator new(size_t size);
-	static void operator delete(void *p);
+	static void *operator new(size_t size) { return _pool.allocate(size); }
+	static void operator delete(void *p) { _pool.deallocate(p); }
 	static void stats() { _pool.stats(); }
 private:
 	static MemPool _pool;
@@ -327,8 +327,8 @@ public:
 	}
 
 	EXPR_VISITABLE()
-	static void *operator new(size_t size);
-	static void operator delete(void *p);
+	static void *operator new(size_t size) { return _pool.allocate(size); }
+	static void operator delete(void *p) { _pool.deallocate(p); }
 	static void stats() { _pool.stats(); }
 private:
 	static MemPool _pool;
@@ -360,8 +360,8 @@ public:
 
 	EXPR_VISITABLE()
 
-	static void *operator new(size_t size);
-	static void operator delete(void *p);
+	static void *operator new(size_t size) { return _pool.allocate(size); }
+	static void operator delete(void *p) { _pool.deallocate(p); }
 	static void stats() { _pool.stats(); }
 private:
 	static MemPool _pool;
@@ -377,8 +377,8 @@ public:
 	ExprPtr clone() const { return Expr::make_empty(); }
 	EXPR_VISITABLE()
 
-	static void *operator new(size_t size);
-	static void operator delete(void *p);
+	static void *operator new(size_t size) { return _pool.allocate(size); }
+	static void operator delete(void *p) { _pool.deallocate(p); }
 	static void stats() { _pool.stats(); }
 private:
 	static MemPool _pool;
