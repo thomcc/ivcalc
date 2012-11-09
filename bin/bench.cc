@@ -11,7 +11,7 @@
 #include <chrono>
 #include <functional>
 #include <csignal>
-
+#include <fstream>
 using namespace std;
 using namespace calc;
 
@@ -184,9 +184,109 @@ int repl(int vrb) {
 		}
 	}
 }
+int do_bench(string expr_src) {
+	ErrorHandler eh(false, false);
+	Parser parser(expr_src, eh);
+	Printer print(cout, true);
+	Evaluator e;
+	PartialCalc pcalc;
+	ExprPtr expr;
+	try {
+		expr = parser.parse_expression();
+	} catch (string s) {
+		cerr << "Caught Error: " << s << endl;
+		return 1;
+	} catch (exception e) {
+		cerr << "Caught Error: " << e.what() << endl;
+		return 1;
+	}
+	if (eh.errors() != 0) return eh.errors();
+	if (FuncExpr const *fe = expr->as_func_expr()) {
+		Timer t;
+		t.start();
+		PartialCalc pc(*fe, e);
+		t.stop();
+		cout << "Derived " << pc.partial_count() << " partials in " << t.get_time<chrono::milliseconds>() <<"ms." << endl;
+		for (auto const &fexpr : pc.partials()) {
+			cout << "\t";
+			print.print(*fexpr);
+			cout << endl;
+		}
+		e.eval(*expr);
+		pcalc = pc;
+	} else {
+		cerr << "error, expected function expression: `<func_name>(<arg0>, <arg1>, ...) = <expr>`" << endl;
+		return 1;
+	}
+	cout << endl << "Benchmarking " << partial_iterations << " iterations of computing points on " << pcalc.expr_count() << " expressions..." << endl;
+	benchmark(pcalc);
+	return 0;
+}
+
+void usage() {
+	cerr << "usage: -r: enter interactive prompt (default). if used explicitly, incompatible with -[ef]" << endl;
+	cerr << "usage: -i <unsigned integer>: set partial iteration count" << endl;
+	cerr << "usage: -f <filename>: benchmark the expression in <filename>. incompatible with -[re]" << endl;
+	cerr << "usage: -e \'func(arg, ...) = <expr>\': benchmark partial evaluation of func. incompatible with -[rf]" << endl;
+	exit(1);
+}
+
+int bench_file(string fn) {
+	ifstream file(fn);
+	if (!file.is_open()) {
+		cerr << "Couldn't open file: " << fn << endl;
+		return 1;
+	}
+	string dest;
+	try {
+		dest = (static_cast<stringstream const&>(stringstream() << file.rdbuf()).str());
+	} catch (std::exception e) {
+		cerr << "Error reading file '" << fn << "': " << e.what() << endl;
+		return 1;
+	}
+	return do_bench(dest);
+}
+
 int main(int argc, char *argv[]) {
-	int i = repl(4);
-	return i;
+	string bench_str;
+	string file_str;
+	bool should_bench = false;
+	bool should_repl = false;
+	bool should_read_file = false;
+	for (int i = 1; (i < argc) && argv[i][0] == '-'; ++i) {
+		switch (argv[i][1]) {
+		case 'e':
+			bench_str = argv[++i];
+			should_bench = true;
+			break;
+		case 'i': {
+			istringstream is{string(argv[++i])};
+			if (!(is >> partial_iterations)) {
+				cerr << "Invalid number (must be unsigned integer): " << argv[i-1];
+				return 1;
+			}
+			break;
+		}
+		case 'r':
+			should_repl = true;
+			break;
+		case 'f':
+			file_str = argv[++i];
+			should_read_file = true;
+			break;
+		default:
+			cerr << "bench: illegal option -- " << argv[i] << endl;
+			usage();
+			break;
+		}
+	}
+	if ((should_bench && should_repl) || (should_bench && should_read_file) || (should_repl && should_read_file)) {
+		cerr << "bench: conflicting options. got more than one of -[ref]" << endl;
+		usage();
+	} else if (should_bench) return do_bench(bench_str);
+	else if (should_repl) return repl(4);
+	else if (should_read_file) return bench_file(file_str);
+	return 2;
 }
 
 
