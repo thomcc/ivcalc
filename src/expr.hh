@@ -59,6 +59,7 @@ public:
 	static ExprPtr make_call(std::string const &name, std::vector<ExprPtr> args);
 	static ExprPtr make_func(std::string const &name, std::vector<std::string> const &params, ExprPtr impl);
 	static ExprPtr make_empty();
+	static void stats();
 
 //	EXPR_VISITABLE()
 };
@@ -87,7 +88,14 @@ public:
 		return false;
 	}
 
+
 	EXPR_VISITABLE()
+
+	static void *operator new(size_t size);
+	static void operator delete(void *p);
+	static void stats() { _pool.stats(); }
+private:
+	static MemPool _pool;
 };
 
 class SubExpr : public Expr {
@@ -112,6 +120,11 @@ public:
 	}
 
 	EXPR_VISITABLE()
+	static void *operator new(size_t size);
+	static void operator delete(void *p);
+	static void stats() { _pool.stats(); }
+private:
+	static MemPool _pool;
 };
 
 class NegExpr : public Expr {
@@ -132,7 +145,14 @@ public:
 		return false;
 	}
 
+
+
 	EXPR_VISITABLE()
+	static void *operator new(size_t size);
+	static void operator delete(void *p);
+	static void stats() { _pool.stats(); }
+private:
+	static MemPool _pool;
 };
 
 class MulExpr : public Expr {
@@ -156,7 +176,14 @@ public:
 		return false;
 	}
 
+
+
 	EXPR_VISITABLE()
+	static void *operator new(size_t size);
+	static void operator delete(void *p);
+	static void stats() { _pool.stats(); }
+private:
+	static MemPool _pool;
 };
 
 class DivExpr : public Expr {
@@ -181,6 +208,11 @@ public:
 	}
 
 	EXPR_VISITABLE()
+	static void *operator new(size_t size);
+	static void operator delete(void *p);
+	static void stats() { _pool.stats(); }
+private:
+	static MemPool _pool;
 };
 
 class VarExpr : public Expr {
@@ -203,6 +235,12 @@ public:
 	}
 
 	EXPR_VISITABLE()
+
+	static void *operator new(size_t size);
+	static void operator delete(void *p);
+	static void stats() { _pool.stats(); }
+private:
+	static MemPool _pool;
 };
 
 
@@ -228,6 +266,11 @@ public:
 	}
 
 	EXPR_VISITABLE()
+	static void *operator new(size_t size);
+	static void operator delete(void *p);
+	static void stats() { _pool.stats(); }
+private:
+	static MemPool _pool;
 };
 
 class LitExpr : public Expr {
@@ -249,6 +292,11 @@ public:
 	}
 
 	EXPR_VISITABLE()
+	static void *operator new(size_t size);
+	static void operator delete(void *p);
+	static void stats() { _pool.stats(); }
+private:
+	static MemPool _pool;
 };
 
 class CallExpr : public Expr {
@@ -279,6 +327,11 @@ public:
 	}
 
 	EXPR_VISITABLE()
+	static void *operator new(size_t size);
+	static void operator delete(void *p);
+	static void stats() { _pool.stats(); }
+private:
+	static MemPool _pool;
 };
 
 class FuncExpr : public Expr {
@@ -306,6 +359,12 @@ public:
 	}
 
 	EXPR_VISITABLE()
+
+	static void *operator new(size_t size);
+	static void operator delete(void *p);
+	static void stats() { _pool.stats(); }
+private:
+	static MemPool _pool;
 };
 
 
@@ -317,6 +376,12 @@ public:
 	bool operator==(Expr const &other) const { return other.as_empty_expr(); }
 	ExprPtr clone() const { return Expr::make_empty(); }
 	EXPR_VISITABLE()
+
+	static void *operator new(size_t size);
+	static void operator delete(void *p);
+	static void stats() { _pool.stats(); }
+private:
+	static MemPool _pool;
 };
 
 

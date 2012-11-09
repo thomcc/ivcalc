@@ -10,6 +10,7 @@
 #include <random>
 #include <chrono>
 #include <functional>
+#include <csignal>
 
 using namespace std;
 using namespace calc;
@@ -129,6 +130,9 @@ int repl(int vrb) {
 					} else cout << "Error: failed reading iteration number" << endl;
 					break;
 				}
+				case 's':
+					Expr::stats();
+					break;
 				default:
 					cout << src[1] << ": Unknown command" << endl;
 					break;
@@ -180,9 +184,9 @@ int repl(int vrb) {
 		}
 	}
 }
-
 int main(int argc, char *argv[]) {
-	return repl(4);
+	int i = repl(4);
+	return i;
 }
 
 

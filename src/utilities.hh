@@ -78,6 +78,82 @@ template <typename A, typename... Rest> struct Seq<A, Rest...> {
   typedef Typelist<A, typename Seq<Rest...>::Type> Type;
 };
 
+//#define DEBUG_POOL
+
+class MemPool {
+	const size_t max_alloc;
+	size_t cnt, n, max;
+	void **buff;
+	std::string name;
+#ifdef DEBUG_POOL
+	unsigned allocs, deallocs;
+	size_t peak_cnt;
+#endif
+public:
+	MemPool(size_t ma, std::string label)
+		: max_alloc(ma), cnt(0), n(0), max(0), buff(nullptr), name(label)
+#ifdef DEBUG_POOL
+		, allocs(0), deallocs(0), peak_cnt(0)
+#endif
+		 {}
+	~MemPool() {
+		for (size_t k = 0; k < n; ++k) free(buff[k]);
+		free(buff);
+#ifdef DEBUG_POOL
+		stats();
+#endif
+	}
+
+	void stats() {
+		std::cout << "~MemPool(" << max_alloc << " ," << name << ")";
+#ifdef DEBUG_POOL
+		std::cout << " allocs=" << allocs << ", deallocs=" << deallocs;
+		std::cout << ", peak_cnt=" << peak_cnt << ", cnt=" << cnt << ",";
+#endif
+		std::cout << " n=" << n << ", cnt=" << cnt << ", max=" << max << std::endl;
+
+	}
+
+	void *allocate(size_t size) {
+		assert(size <= max_alloc);
+		++cnt;
+#ifdef DEBUG_POOL
+		++allocs;
+		if (cnt > peak_cnt) peak_cnt = cnt;
+#endif
+		if (!n) return calloc(1, max_alloc);
+		return buff[--n];
+	}
+	void deallocate(void *p) {
+#ifdef DEBUG_POOL
+		++deallocs;
+#endif
+		--cnt;
+		if (n == max) {
+			max = max ? max<<1 : 16;
+			buff = (void**)realloc(buff, sizeof(void*) * max);
+		}
+		memset(p, '\0', sizeof *p);
+		buff[n++] = p;
+	}
+};
+
+/*
+template <typename T>
+class Pooled {
+private:
+	static MemPool _pool;
+public:
+	static void *operator new(size_t size) {
+		return _pool.allocate(size);
+	}
+	static void operator delete(void *p) {
+		_pool.deallocate(p);
+	}
+};
+*/
+
+
 }
 
 
