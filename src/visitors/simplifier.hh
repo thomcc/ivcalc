@@ -6,12 +6,11 @@
 #include "interval.hh"
 namespace calc {
 
-class Simplifier : ExprVisitor {
-	ExprSPtr _simplified;
+class Simplifier : public ExprVisitor {
+	ExprPtr _simplified;
 public:
-	Simplifier() {}
-	ExprSPtr simplify(Expr &e);
-	void visit(Expr &e) { assert(0); } // impossible
+	Simplifier() : _simplified(nullptr) {}
+	ExprPtr simplify(Expr &e);
 	void visit(AddExpr &e);
 	void visit(SubExpr &e);
 	void visit(NegExpr &e);
@@ -23,7 +22,7 @@ public:
 	void visit(CallExpr &e);
 	void visit(FuncExpr &e);
 	void visit(EmptyExpr &e);
-	static ExprSPtr simplified(ExprSPtr const &e) { return Simplifier().simplify(*e); }
+	static ExprPtr simplified(ExprPtr const &e) { return Simplifier().simplify(*e); }
 
 };
 

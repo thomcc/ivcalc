@@ -32,7 +32,7 @@ private:
 	void pow_one();
 	void constant_fold();
 
-	ExprSPtr get_expr(std::string const &, bool simplify=true) const;
+	ExprPtr get_expr(std::string const &, bool simplify=true) const;
 };
 
 

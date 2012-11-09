@@ -46,22 +46,23 @@ class PartialCalc {
 	Evaluator _ctx; // env with partial functions defined
 	std::string _fname; // original func name
 	std::vector<std::string> _pnames, _pf_names; // param names and partial func names
-	std::vector<ExprSPtr> _fpartials; // funcexprs representing the partials
+	std::vector<ExprPtr> _fpartials; // funcexprs representing the partials
 	void initialize(FuncExpr const &fe);
 public:
 	PartialCalc();
 	PartialCalc(FuncExpr const &fe, Evaluator &ev);
 	PartialCalc(FuncExpr const &fe);
 	PartialCalc(PartialCalc const &) = default;
-	PartialCalc&operator=(PartialCalc const &) = default;
+	PartialCalc&operator=(PartialCalc const &);
+	PartialCalc&operator=(PartialCalc&&) = default;
 	std::string const &func_name() const { return _fname; }
 	void call_args(CallExpr const &ce, std::vector<interval> &parms) { _ctx.call_args(ce, parms); }
 	std::vector<std::string> const &params() const { return _pnames; }
-	std::vector<ExprSPtr> const &partials() const { return _fpartials; }
+	std::vector<ExprPtr> const &partials() const { return _fpartials; }
 	size_t partial_count() const { return _fpartials.size() - 1; }
 	size_t expr_count() const { return _fpartials.size(); }
 	std::vector<interval> calculate(std::vector<interval> const &args);
-	std::vector<interval> calculate(std::vector<ExprSPtr> const &args);
+	std::vector<interval> calculate(std::vector<ExprPtr> const &args);
 };
 
 

@@ -4,7 +4,7 @@
 #include "common.hh"
 #include "parser/lexer.hh"
 #include "parser/queue.hh"
-
+#include "expr.hh"
 namespace calc {
 
 enum ELevel {
@@ -44,12 +44,12 @@ public:
 	Parser(std::string const &text, ErrorHandler &eh)
 		: _lexer(text), _lookahead(), _last(), _on_error(eh) {}
 
-	ExprSPtr parse_expression() { return parse_expr(); }
+	ExprPtr parse_expression() { return parse_expr(); }
 private:
 	// parses an infix expression
-	typedef ExprSPtr (Parser::*Led)(ExprSPtr left, Token const &t);
+	typedef ExprPtr (Parser::*Led)(ExprPtr left, Token const &t);
 	// parses a prefix expression
-	typedef ExprSPtr (Parser::*Nud)(Token const &t);
+	typedef ExprPtr (Parser::*Nud)(Token const &t);
 
 	struct Prefix {
 		Nud prefix;
@@ -66,23 +66,23 @@ private:
 
 	real parse_real(std::string const &s);
 
-	ExprSPtr parse_expr(int precedence = 0);
+	ExprPtr parse_expr(int precedence = 0);
 	int get_precedence();
 
-	ExprSPtr var(Token const &t);
-	ExprSPtr number(Token const &t);
-	ExprSPtr group(Token const &t);
-	ExprSPtr p_plus(Token const &t);
-	ExprSPtr p_minus(Token const &t);
-	ExprSPtr ival_lit(Token const &t);
+	ExprPtr var(Token const &t);
+	ExprPtr number(Token const &t);
+	ExprPtr group(Token const &t);
+	ExprPtr p_plus(Token const &t);
+	ExprPtr p_minus(Token const &t);
+	ExprPtr ival_lit(Token const &t);
 
-	ExprSPtr assign(ExprSPtr lhs, Token const &t);
-	ExprSPtr plus(ExprSPtr lhs, Token const &t);
-	ExprSPtr minus(ExprSPtr lhs, Token const &t);
-	ExprSPtr times(ExprSPtr lhs, Token const &t);
-	ExprSPtr divide(ExprSPtr lhs, Token const &t);
-	ExprSPtr expt(ExprSPtr lhs, Token const &t);
-	ExprSPtr call(ExprSPtr lhs, Token const &t);
+	ExprPtr assign(ExprPtr lhs, Token const &t);
+	ExprPtr plus(ExprPtr lhs, Token const &t);
+	ExprPtr minus(ExprPtr lhs, Token const &t);
+	ExprPtr times(ExprPtr lhs, Token const &t);
+	ExprPtr divide(ExprPtr lhs, Token const &t);
+	ExprPtr expt(ExprPtr lhs, Token const &t);
+	ExprPtr call(ExprPtr lhs, Token const &t);
 
 	bool look_ahead(TokenType t);
 	bool match(TokenType t);

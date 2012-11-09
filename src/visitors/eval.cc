@@ -64,16 +64,25 @@ void Evaluator::call_args(CallExpr const &e, vector<interval> &parms) {
 
 void Evaluator::visit(EmptyExpr &e) {}
 
-void Evaluator::visit(FuncExpr &e) { _env.def(e.name(), e.params(), e.impl()); _res = interval::empty(); }
+void Evaluator::visit(FuncExpr &e) { _env.def(e.name(), e.params(), e.impl()->clone()); _res = interval::empty(); }
 
 vector<interval> PartialCalc::calculate(vector<interval> const &args) {
-	vector<ExprSPtr> es;
-	for (auto const &iv : args) es.push_back(Expr::make<LitExpr>(iv));
+	vector<ExprPtr> es;
+	for (auto const &iv : args) es.push_back(Expr::make_lit(iv));
 	return calculate(es);
 }
 
 PartialCalc::PartialCalc(FuncExpr const &fe) : _ctx(), _fname(fe.name()), _pnames(fe.params()) {
 	initialize(fe);
+}
+
+PartialCalc &PartialCalc::operator=(PartialCalc const &o) {
+	_ctx = o._ctx;
+	_fname = o._fname;
+	_pnames = o._pnames;
+	_pf_names = o._pf_names;
+	_fpartials = copy_eptrs(o._fpartials);
+	return *this;
 }
 
 PartialCalc::PartialCalc(FuncExpr const &fe, Evaluator &ev)
@@ -82,26 +91,25 @@ PartialCalc::PartialCalc(FuncExpr const &fe, Evaluator &ev)
 void PartialCalc::initialize(FuncExpr const &fe) {
 	string deriv_prefix = stringize() << "∂" << _fname << "/∂";
 	_pf_names.push_back(fe.name());
-	ExprSPtr ffe = Expr::make<FuncExpr>(fe.name(), fe.params(), Simplifier::simplified(fe.impl()));
-	_fpartials.push_back(ffe);
-	_ctx.eval(*ffe);
+	ExprPtr ffe = Expr::make_func(fe.name(), fe.params(), Simplifier::simplified(fe.impl()));
+	_fpartials.push_back(move(ffe));
+	_ctx.eval(*_fpartials.back());
 	for (auto const &i : Derivator::partials(fe)) {
 		_pf_names.push_back(deriv_prefix+i.first);
-		ExprSPtr pfe = Expr::make<FuncExpr>(_pf_names.back(), _pnames, Simplifier::simplified(i.second));
-		_fpartials.push_back(pfe);
-		_ctx.eval(*pfe);
+		ExprPtr pfe = Expr::make_func(_pf_names.back(), _pnames, Simplifier::simplified(i.second));
+		_fpartials.push_back(move(pfe));
+		_ctx.eval(*_fpartials.back());
 	}
 }
 
 
-vector<interval>
-PartialCalc::calculate(vector<ExprSPtr> const &args) {
+vector<interval> PartialCalc::calculate(vector<ExprPtr> const &args) {
 	vector<interval> res(_fpartials.size(), interval::empty());
 	size_t as = args.size();
 	if (as != _pnames.size()) throw iv_arithmetic_error("Wrong number of arguments");
 
 	for (auto const &name : _pf_names)
-		res.push_back(_ctx.eval(*Expr::make<CallExpr>(name, args)));
+		res.push_back(_ctx.eval(*Expr::make_call(name, copy_eptrs(args))));
 	return res;
 }
 PartialCalc::PartialCalc() {}

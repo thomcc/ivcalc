@@ -55,7 +55,7 @@ int repl(int vrb) {
 	map<string, PartialCalc> known_partials;
 	for (;;) {
 		string src;
-		ExprSPtr expr;
+		ExprPtr expr(nullptr);
 		for (;;) {
 			bool cont = src.size() != 0;
 			string line = get_line(cont);
@@ -111,8 +111,8 @@ int repl(int vrb) {
 					auto it = known_partials.find(ce->name());
 					if (it != known_partials.end()) {
 						PartialCalc &pcalc = it->second;
-						vector<ExprSPtr> const &part = pcalc.partials();
-						vector<ExprSPtr> const &args = ce->args();
+						vector<ExprPtr> const &part = pcalc.partials();
+						vector<ExprPtr> const &args = ce->args();
 						cout << "Calculating partials..." << endl;
 						vector<interval> ivs = pcalc.calculate(args);
 						cout << "\t";
@@ -123,7 +123,7 @@ int repl(int vrb) {
 						for (size_t i = 0; i < ivs.size(); ++i) {
 							cout << "\t";
 							FuncExpr const *fexpr = part.at(i)->as_func_expr();
-							print.print(*Expr::make<CallExpr>(fexpr->name(), args));
+							print.print(*Expr::make_call(fexpr->name(), copy_eptrs(args)));
 							cout << " => ";
 							print.print_interval(ivs.at(i));
 							cout << endl;

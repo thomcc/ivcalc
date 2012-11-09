@@ -14,11 +14,11 @@ interval UserDefinedFn::apply(vector<interval> const &args, Env const &e) const 
 }
 
 
-UserDefinedFn::UserDefinedFn(vector<string> const &param_names, ExprSPtr expr)
-	: BaseFunc(gensym()) , _params(param_names) , _impl(expr) {}
+UserDefinedFn::UserDefinedFn(vector<string> const &param_names, ExprPtr expr)
+	: BaseFunc(gensym()) , _params(param_names) , _impl(move(expr)) {}
 
-UserDefinedFn::UserDefinedFn(string const &name, vector<string> const &param_names, ExprSPtr expr)
-	: BaseFunc(name) , _params(param_names) , _impl(expr) {}
+UserDefinedFn::UserDefinedFn(string const &name, vector<string> const &param_names, ExprPtr expr)
+	: BaseFunc(name) , _params(param_names) , _impl(move(expr)) {}
 
 Env::Env() : _parent(nullptr) {}
 
@@ -100,13 +100,13 @@ Env Env::global() {
 void Env::add_builtin(string const &text) {
 	ErrorHandler eh(true, false);
 	Parser p(text, eh);
-	ExprSPtr eptr = p.parse_expression();
+	ExprPtr eptr = p.parse_expression();
 	if ((eh.errors() != 0) || !eptr.get())
 		throw iv_arithmetic_error("Bug: error adding builtin: parser error");
 	FuncExpr const *fe = eptr->as_func_expr();
 	if (!fe)
 		throw iv_arithmetic_error("Bug: error adding builtin: incorrectly parsed.");
-	def(fe->name(), fe->params(), fe->impl());
+	def(fe->name(), fe->params(), fe->impl()->clone());
 }
 
 void Env::add_builtins(initializer_list<string> const &funcs) {
@@ -122,76 +122,72 @@ void Env::add_builtins(initializer_list<string> const &funcs) {
 // fake lexical addressing (depth of 1)
 class VarAddresser : public ExprVisitor {
 	vector<string> const &_prams;
-	ExprSPtr _addressed;
+	ExprPtr _addressed;
 public:
-	VarAddresser(vector<string> const &prams) : _prams(prams) {}
+	VarAddresser(vector<string> const &prams) : _prams(prams), _addressed(nullptr) {}
 
-	ExprSPtr address(Expr &e) {
+	ExprPtr address(Expr &e) {
 		_addressed = nullptr;
 		e.accept(*this);
-		return _addressed;
+		return move(_addressed);
 	}
 
-	void visit(Expr &e) { assert(0); } // impossible
 	void visit(AddExpr &e) {
-		ExprSPtr rhs = address(*e.rhs());
-		ExprSPtr lhs = address(*e.lhs());
-		_addressed = Expr::make<AddExpr>(lhs, rhs);
+		ExprPtr rhs = address(*e.rhs());
+		ExprPtr lhs = address(*e.lhs());
+		_addressed = Expr::make_add(move(lhs), move(rhs));
 	}
 
 	void visit(SubExpr &e) {
-		ExprSPtr rhs = address(*e.rhs());
-		ExprSPtr lhs = address(*e.lhs());
-		_addressed = Expr::make<SubExpr>(lhs, rhs);
+		ExprPtr rhs = address(*e.rhs());
+		ExprPtr lhs = address(*e.lhs());
+		_addressed = Expr::make_sub(move(lhs), move(rhs));
 	}
 
 	void visit(NegExpr &e) {
-		ExprSPtr v = address(*e.value());
-		_addressed = Expr::make<NegExpr>(v);
+		ExprPtr v = address(*e.value());
+		_addressed = Expr::make_neg(move(v));
 	}
 
 	void visit(MulExpr &e) {
-		ExprSPtr rhs = address(*e.rhs());
-		ExprSPtr lhs = address(*e.lhs());
-		_addressed = Expr::make<MulExpr>(lhs, rhs);
+		ExprPtr rhs = address(*e.rhs());
+		ExprPtr lhs = address(*e.lhs());
+		_addressed = Expr::make_mul(move(lhs), move(rhs));
 	}
 
 	void visit(DivExpr &e) {
-		ExprSPtr rhs = address(*e.rhs());
-		ExprSPtr lhs = address(*e.lhs());
-		_addressed = Expr::make<DivExpr>(lhs, rhs);
+		ExprPtr rhs = address(*e.rhs());
+		ExprPtr lhs = address(*e.lhs());
+		_addressed = Expr::make_div(move(lhs), move(rhs));
 	}
 
 	void visit(VarExpr &e) {
 		for (size_t i = 0; i < _prams.size(); ++i) {
 			if (_prams.at(i) == e.name()) {
-				 _addressed = Expr::make<VarExpr>(e.name(), i);
+				 _addressed = Expr::make_var(e.name(), i);
 				 return;
 			}
 		}
 	}
 
 	void visit(ExptExpr &e) {
-		ExprSPtr lhs = address(*e.base());
-		_addressed = Expr::make<ExptExpr>(lhs, e.power());
+		_addressed = Expr::make_expt(address(*e.base()), e.power());
 	}
 
-	void visit(LitExpr &e) {
-		_addressed = Expr::make<LitExpr>(e.value());
-	}
+	void visit(LitExpr &e) { _addressed = e.clone(); }
 
 	void visit(CallExpr &e) {
-		std::vector<ExprSPtr> args;
+		std::vector<ExprPtr> args;
 		for (auto const &e : e.args()) args.push_back(address(*e));
-		_addressed = Expr::make<CallExpr>(e.name(), args);
+		_addressed = Expr::make_call(e.name(), move(args));
 	}
-	void visit(EmptyExpr &e) { _addressed = Expr::make<EmptyExpr>(); }
+	void visit(EmptyExpr &e) { _addressed = e.clone(); }
 	void visit(FuncExpr &e) {
 		throw iv_arithmetic_error("nested functions not allowed");
 	}
 };
 
-void Env::def(string const &name, vector<string> const &prams, ExprSPtr v) {
+void Env::def(string const &name, vector<string> const &prams, ExprPtr v) {
 	add_func<UserDefinedFn>(name, prams, VarAddresser(prams).address(*v));
 }
 

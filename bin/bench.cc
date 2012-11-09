@@ -52,9 +52,9 @@ random_device rd;
 mt19937 e(rd());
 function<real()> next_real = bind(unif_real, e);
 
-void fill_randomly(vector<ExprSPtr> &v, size_t n) {
+void fill_randomly(vector<ExprPtr> &v, size_t n) {
 	for (size_t i = 0; i < n; ++i)
-		v[i] = Expr::make<LitExpr>(interval(next_real()));
+		v[i] = Expr::make_lit(interval(next_real()));
 }
 
 class Timer {
@@ -83,7 +83,7 @@ unsigned partial_iterations = 1000;
 void benchmark(PartialCalc &pc) {
 	using namespace chrono;
 	size_t nargs = pc.params().size();
-	vector<ExprSPtr> args(nargs);
+	vector<ExprPtr> args(nargs);
 	Timer timer;
 	for (size_t i = 0; i < partial_iterations; ++i) {
 		fill_randomly(args, nargs);
@@ -108,7 +108,7 @@ int repl(int vrb) {
 	Printer print(cout, true);
 	for (;;) {
 		string src;
-		ExprSPtr expr;
+		ExprPtr expr(nullptr);
 		PartialCalc pcalc;
 		for (;;) {
 			bool cont = src.size() != 0;

@@ -61,14 +61,14 @@ private:
 
 class UserDefinedFn : public BaseFunc {
 public:
-	UserDefinedFn(std::vector<std::string> const &param_names, ExprSPtr expr);
-	UserDefinedFn(std::string const &name, std::vector<std::string> const &param_names, ExprSPtr expr);
+	UserDefinedFn(std::vector<std::string> const &param_names, ExprPtr expr);
+	UserDefinedFn(std::string const &name, std::vector<std::string> const &param_names, ExprPtr expr);
 	unsigned arity() const { return _params.size(); }
 protected:
 	interval apply(std::vector<interval> const &args, Env const &) const;
 private:
 	std::vector<std::string> _params;
-	ExprSPtr _impl;
+	ExprPtr _impl;
 };
 
 
@@ -99,7 +99,7 @@ public:
 	}
 	interval apply(std::string const &s, std::vector<interval> const &args) const;
 	void put(std::string const &s, interval e);
-	void def(std::string const &name, std::vector<std::string> const &prams, ExprSPtr v);
+	void def(std::string const &name, std::vector<std::string> const &prams, ExprPtr v);
 	// was getting repetitive...
 	template <typename T, typename... Args> void add_func(Args&&... args) {
 		std::shared_ptr<T> eptr = std::make_shared<T>(std::forward<Args>(args)...);

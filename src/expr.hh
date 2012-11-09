@@ -22,145 +22,177 @@ public:
 	virtual VarExpr const *as_var_expr() const { return nullptr; }
 	virtual ExptExpr const *as_expt_expr() const { return nullptr; }
 	virtual LitExpr const *as_lit_expr() const { return nullptr; }
-//	virtual AssignExpr const *as_assign_expr() const { return nullptr; }
 	virtual CallExpr const *as_call_expr() const { return nullptr; }
 	virtual FuncExpr const *as_func_expr() const { return nullptr; }
 	virtual EmptyExpr const *as_empty_expr() const { return nullptr; }
-	virtual ExprSPtr clone() const { assert(0); return nullptr; }
-	virtual ExprSPtr get_shared() { assert(0); return nullptr; }
+	virtual AddExpr *as_add_expr() { return nullptr; }
+	virtual SubExpr *as_sub_expr() { return nullptr; }
+	virtual NegExpr *as_neg_expr() { return nullptr; }
+	virtual MulExpr *as_mul_expr() { return nullptr; }
+	virtual DivExpr *as_div_expr() { return nullptr; }
+	virtual VarExpr *as_var_expr() { return nullptr; }
+	virtual ExptExpr *as_expt_expr() { return nullptr; }
+	virtual LitExpr *as_lit_expr() { return nullptr; }
+	virtual CallExpr *as_call_expr() { return nullptr; }
+	virtual FuncExpr *as_func_expr() { return nullptr; }
+	virtual EmptyExpr *as_empty_expr() { return nullptr; }
+
 	virtual bool is_constant() const { return false; }
 	virtual bool is_lit_zero() const { return false; }
 	virtual bool is_lit_one() const { return false; }
-	virtual bool operator==(Expr const &other) const { return false; }
-	// utility factory method which avoids unnecessary allocation
-	// used like ExprSPtr s = Expr::make<AddExpr>(lhs, rhs); or similar
-	template <typename T, typename... Args>
-	static ExprSPtr make(Args&&... args) {
-		std::shared_ptr<T> eptr = std::make_shared<T>(std::forward<Args>(args)...);
-		return std::static_pointer_cast<Expr>(eptr);
-	}
 
-	EXPR_VISITABLE()
+	virtual bool operator==(Expr const &other) const = 0;
+	virtual ExprPtr clone() const = 0;
+	virtual ExprVisitor::ReturnType accept(ExprVisitor &g) = 0;
+
+	// factory methods to create subclasses
+	static ExprPtr make_add(ExprPtr l, ExprPtr r);
+	static ExprPtr make_sub(ExprPtr l, ExprPtr r);
+	static ExprPtr make_neg(ExprPtr v);
+	static ExprPtr make_mul(ExprPtr l, ExprPtr r);
+	static ExprPtr make_div(ExprPtr l, ExprPtr r);
+	static ExprPtr make_var(std::string const &name, int i=-1);
+	static ExprPtr make_expt(ExprPtr b, int e);
+	static ExprPtr make_lit(real v);
+	static ExprPtr make_lit(interval v);
+	static ExprPtr make_lit(real min, real max);
+	static ExprPtr make_call(std::string const &name, std::vector<ExprPtr> args);
+	static ExprPtr make_func(std::string const &name, std::vector<std::string> const &params, ExprPtr impl);
+	static ExprPtr make_empty();
+
+//	EXPR_VISITABLE()
 };
 
-template <>
-inline ExprSPtr Expr::make<EmptyExpr>() {
-	static ExprSPtr canonical_empty = nullptr;
-	if (canonical_empty.get()) return canonical_empty;
-	std::shared_ptr<EmptyExpr> e = std::make_shared<EmptyExpr>();
-	canonical_empty = std::static_pointer_cast<Expr>(e);
-	return canonical_empty;
-}
+//#define GET_SHARED() ExprSPtr get_shared() { return std::static_pointer_cast<Expr>(shared_from_this()); }
 
-#define GET_SHARED() ExprSPtr get_shared() { return std::static_pointer_cast<Expr>(shared_from_this()); }
-
-class AddExpr : public Expr, public std::enable_shared_from_this<AddExpr> {
-	ExprSPtr _lhs, _rhs;
+class AddExpr : public Expr {
+	ExprPtr _lhs, _rhs;
 public:
-	AddExpr(ExprSPtr lhs, ExprSPtr rhs) : _lhs(lhs), _rhs(rhs) {}
+	AddExpr(ExprPtr lhs, ExprPtr rhs) : _lhs(std::move(lhs)), _rhs(std::move(rhs)) {
+		assert(_lhs.get());
+		assert(_rhs.get());
+	}
 
 	AddExpr const *as_add_expr() const { return this; }
-	ExprSPtr rhs() const { return _rhs; }
-	ExprSPtr lhs() const { return _lhs; }
-	ExprSPtr clone() const { return Expr::make<AddExpr>(_lhs->clone(), _rhs->clone()); }
+	AddExpr *as_add_expr() { return this; }
+	ExprPtr const &rhs() const { return _rhs; }
+	ExprPtr const &lhs() const { return _lhs; }
+	ExprPtr &rhs() { return _rhs; }
+	ExprPtr &lhs() { return _lhs; }
+	ExprPtr clone() const { return Expr::make_add(_lhs->clone(), _rhs->clone()); }
 	bool is_constant() const { return _lhs->is_constant() && _rhs->is_constant(); }
 
 	bool operator==(Expr const &other) const {
 		if (AddExpr const *e = other.as_add_expr()) return (*_lhs == *e->lhs()) && (*_rhs == *e->rhs());
 		return false;
 	}
-	GET_SHARED()
 
 	EXPR_VISITABLE()
 };
 
-class SubExpr : public Expr, public std::enable_shared_from_this<SubExpr> {
-	ExprSPtr _lhs, _rhs;
+class SubExpr : public Expr {
+	ExprPtr _lhs, _rhs;
 public:
-	SubExpr(ExprSPtr lhs, ExprSPtr rhs) : _lhs(lhs), _rhs(rhs) {}
+	SubExpr(ExprPtr lhs, ExprPtr rhs) : _lhs(std::move(lhs)), _rhs(std::move(rhs)) {
+		assert(_lhs.get());
+		assert(_rhs.get());
+	}
 
 	SubExpr const *as_sub_expr() const { return this; }
-	ExprSPtr rhs() const { return _rhs; }
-	ExprSPtr lhs() const { return _lhs; }
-	ExprSPtr clone() const { return Expr::make<SubExpr>(_lhs->clone(), _rhs->clone()); }
+	SubExpr *as_sub_expr() { return this; }
+	ExprPtr const &rhs() const { return _rhs; }
+	ExprPtr const &lhs() const { return _lhs; }
+	ExprPtr &rhs() { return _rhs; }
+	ExprPtr &lhs() { return _lhs; }
+	ExprPtr clone() const { return Expr::make_sub(_lhs->clone(), _rhs->clone()); }
 	bool is_constant() const { return _lhs->is_constant() && _rhs->is_constant(); }
 	bool operator==(Expr const &other) const {
 		if (SubExpr const *e = other.as_sub_expr()) return (*_lhs == *e->lhs()) && (*_rhs == *e->rhs());
 		return false;
 	}
-	GET_SHARED()
 
 	EXPR_VISITABLE()
 };
 
-class NegExpr : public Expr, public std::enable_shared_from_this<NegExpr> {
-	ExprSPtr _value;
+class NegExpr : public Expr {
+	ExprPtr _value;
 public:
-	NegExpr(ExprSPtr e) : _value(e) {}
+	NegExpr(ExprPtr e) : _value(std::move(e)) {
+		assert(_value.get());
+	}
 
-	ExprSPtr value() const { return _value; }
-	NegExpr const* as_neg_expr() const { return this; }
+	ExprPtr const &value() const { return _value; }
+	ExprPtr &value() { return _value; }
+	NegExpr const *as_neg_expr() const { return this; }
+	NegExpr *as_neg_expr() { return this; }
 	bool is_constant() const { return _value->is_constant(); }
-	ExprSPtr clone() const { return Expr::make<NegExpr>(_value->clone()); }
+	ExprPtr clone() const { return Expr::make_neg(_value->clone()); }
 	bool operator==(Expr const &other) const {
 		if (NegExpr const *e = other.as_neg_expr()) return *_value == *e->value();
 		return false;
 	}
-	GET_SHARED()
 
 	EXPR_VISITABLE()
 };
 
-class MulExpr : public Expr, public std::enable_shared_from_this<MulExpr> {
-	ExprSPtr _lhs, _rhs;
+class MulExpr : public Expr {
+	ExprPtr _lhs, _rhs;
 public:
-	MulExpr(ExprSPtr lhs, ExprSPtr rhs) : _lhs(lhs), _rhs(rhs) {}
+	MulExpr(ExprPtr lhs, ExprPtr rhs) : _lhs(std::move(lhs)), _rhs(std::move(rhs)) {
+		assert(_lhs.get());
+		assert(_rhs.get());
+	}
 
 	MulExpr const *as_mul_expr() const { return this; }
-	ExprSPtr rhs() const { return _rhs; }
-	ExprSPtr lhs() const { return _lhs; }
+	MulExpr *as_mul_expr() { return this; }
+	ExprPtr const &rhs() const { return _rhs; }
+	ExprPtr const &lhs() const { return _lhs; }
+	ExprPtr &rhs() { return _rhs; }
+	ExprPtr &lhs() { return _lhs; }
 	bool is_constant() const { return _lhs->is_constant() && _rhs->is_constant(); }
-	ExprSPtr clone() const { return Expr::make<MulExpr>(_lhs->clone(), _rhs->clone()); }
+	ExprPtr clone() const { return Expr::make_mul(_lhs->clone(), _rhs->clone()); }
 	bool operator==(Expr const &other) const {
 		if (MulExpr const *e = other.as_mul_expr()) return (*_lhs == *e->lhs()) && (*_rhs == *e->rhs());
 		return false;
 	}
 
-	GET_SHARED()
-
 	EXPR_VISITABLE()
 };
 
-class DivExpr : public Expr, public std::enable_shared_from_this<DivExpr> {
-	ExprSPtr _lhs, _rhs;
+class DivExpr : public Expr {
+	ExprPtr _lhs, _rhs;
 public:
-	DivExpr(ExprSPtr lhs, ExprSPtr rhs) : _lhs(lhs), _rhs(rhs) {}
+	DivExpr(ExprPtr lhs, ExprPtr rhs) : _lhs(std::move(lhs)), _rhs(std::move(rhs)) {
+		assert(_lhs.get());
+		assert(_rhs.get());
+	}
 
 	DivExpr const *as_div_expr() const { return this; }
-	ExprSPtr rhs() const { return _rhs; }
-	ExprSPtr lhs() const { return _lhs; }
+	DivExpr *as_div_expr() { return this; }
+	ExprPtr const &rhs() const { return _rhs; }
+	ExprPtr const &lhs() const { return _lhs; }
+	ExprPtr &rhs() { return _rhs; }
+	ExprPtr &lhs() { return _lhs; }
 	bool is_constant() const { return _lhs->is_constant() && _rhs->is_constant() && !_rhs->is_lit_zero(); }
-	ExprSPtr clone() const { return Expr::make<DivExpr>(_lhs->clone(), _rhs->clone()); }
+	ExprPtr clone() const { return Expr::make_div(_lhs->clone(), _rhs->clone()); }
 	bool operator==(Expr const &other) const {
 		if (DivExpr const *e = other.as_div_expr()) return (*_lhs == *e->lhs()) && (*_rhs == *e->rhs());
 		else return false;
 	}
 
-	GET_SHARED()
-
 	EXPR_VISITABLE()
 };
 
-class VarExpr : public Expr, public std::enable_shared_from_this<VarExpr> {
+class VarExpr : public Expr {
 	std::string const _name;
 	int _param_no;
 public:
-
 	VarExpr(std::string const &name) : _name(name), _param_no(-1) {}
 	VarExpr(std::string const &name, int param_no) : _name(name), _param_no(param_no) {}
 	VarExpr const *as_var_expr() const { return this; }
+	VarExpr *as_var_expr() { return this; }
 	std::string const &name() const { return _name; }
-	ExprSPtr clone() const { return Expr::make<VarExpr>(_name, _param_no); }
+	ExprPtr clone() const { return Expr::make_var(_name, _param_no); }
 	bool has_param_no() const { return _param_no >= 0; }
 	int param_no() const { return _param_no; }
 	void set_param_no(unsigned param_no) { _param_no = param_no; }
@@ -169,44 +201,45 @@ public:
 		if (VarExpr const *e = other.as_var_expr()) return _name == e->name();
 		return false;
 	}
-	GET_SHARED()
 
 	EXPR_VISITABLE()
 };
 
 
 // only supports constant exponents
-class ExptExpr : public Expr, public std::enable_shared_from_this<ExptExpr> {
+class ExptExpr : public Expr {
 	int _power;
-	ExprSPtr _base;
+	ExprPtr _base;
 public:
-	ExptExpr(ExprSPtr base, int power) : _power(power), _base(base) {}
+	ExptExpr(ExprPtr base, int power) : _power(power), _base(std::move(base)) {
+		assert(_base.get());
+	}
 
 	int power() const { return _power; }
-	ExprSPtr clone() const { return Expr::make<ExptExpr>(_base->clone(), _power); }
+	ExprPtr clone() const { return Expr::make_expt(_base->clone(), _power); }
 	ExptExpr const *as_expt_expr() const { return this; }
-	ExprSPtr base() const { return _base; }
+	ExptExpr *as_expt_expr() { return this; }
+	ExprPtr const &base() const { return _base; }
+	ExprPtr &base() { return _base; }
 	bool is_constant() const { return _base->is_constant(); }
-
 	bool operator==(Expr const &other) const {
 		if (ExptExpr const *e = other.as_expt_expr()) return (_power == e->power()) && (*_base == *e->base());
 		return false;
 	}
-	GET_SHARED()
 
 	EXPR_VISITABLE()
 };
 
-class LitExpr : public Expr, public std::enable_shared_from_this<LitExpr> {
+class LitExpr : public Expr {
 	interval _value;
 public:
 	LitExpr(real v) : _value(v) {}
 	LitExpr(interval value) : _value(value) {}
 	LitExpr(real min, real max) : _value(min, max) {}
-	ExprSPtr clone() const { return Expr::make<LitExpr>(_value); }
+	ExprPtr clone() const { return Expr::make_lit(_value); }
 	LitExpr const *as_lit_expr() const { return this; }
+	LitExpr *as_lit_expr() { return this; }
 	interval const &value() const { return _value; }
-
 	bool is_constant() const { return true; }
 	bool is_lit_zero() const { return _value.is_zero(); }
 	bool is_lit_one() const { return _value.is_one(); }
@@ -214,25 +247,30 @@ public:
 		if (LitExpr const *e = other.as_lit_expr()) return _value == e->value();
 		return false;
 	}
-	GET_SHARED()
 
 	EXPR_VISITABLE()
 };
 
-class CallExpr : public Expr, public std::enable_shared_from_this<CallExpr> {
+class CallExpr : public Expr {
 	std::string const _name;
-	std::vector<ExprSPtr> _args;
+	std::vector<ExprPtr> _args;
 public:
-	CallExpr(std::string const &name, std::vector<ExprSPtr> const &args)
-		: _name(name), _args(args) {}
-	ExprSPtr clone() const {
-		std::vector<ExprSPtr> a2;
+	CallExpr(std::string const &name, std::vector<ExprPtr> args)
+		: _name(name), _args(std::move(args)) {
+#ifndef NDEBUG
+			for (auto const &a : _args) assert(a.get());
+#endif
+		}
+	ExprPtr clone() const {
+		std::vector<ExprPtr> a2;
 		for (auto const &arg : _args) a2.push_back(arg->clone());
-		return Expr::make<CallExpr>(_name, a2);
+		return Expr::make_call(_name, std::move(a2));
 	}
 	CallExpr const *as_call_expr() const { return this; }
+	CallExpr *as_call_expr() { return this; }
 	std::string const &name() const { return _name; }
-	std::vector<ExprSPtr> const &args() const { return _args; }
+	std::vector<ExprPtr> const &args() const { return _args; }
+	std::vector<ExprPtr> &args() { return _args; }
 // don't know how to evaluate the function w/o definition
 	bool is_constant() const { return false; }
 	bool operator==(Expr const &other) const {
@@ -240,46 +278,73 @@ public:
 		return false;
 	}
 
-	GET_SHARED()
-
 	EXPR_VISITABLE()
 };
 
-class FuncExpr : public Expr, public std::enable_shared_from_this<FuncExpr> {
+class FuncExpr : public Expr {
 	std::string const _name;
 	std::vector<std::string> _params;
-	ExprSPtr _impl;
+	ExprPtr _impl;
 public:
 
-	FuncExpr(std::string const &name, std::vector<std::string> const &params, ExprSPtr impl)
-		: _name(name), _params(params), _impl(impl) {}
-	ExprSPtr clone() const { return Expr::make<FuncExpr>(_name, _params, _impl); }
+	FuncExpr(std::string const &name, std::vector<std::string> const &params, ExprPtr impl)
+		: _name(name), _params(params), _impl(std::move(impl)) {
+			assert(_impl.get());
+		}
+	ExprPtr clone() const { return Expr::make_func(_name, _params, _impl->clone()); }
 	std::string const &name() const { return _name; }
 	std::vector<std::string> const &params() const { return _params; }
-	ExprSPtr impl() const { return _impl; }
+	ExprPtr const &impl() const { return _impl; }
+	ExprPtr &impl() { return _impl; }
 	FuncExpr const *as_func_expr() const { return this; }
+	FuncExpr *as_func_expr() { return this; }
 	bool is_constant() const { return _impl->is_constant(); }
 	bool operator==(Expr const &other) const {
 		if (FuncExpr const *e = other.as_func_expr())
 			return (_name == e->name()) && (_params == e->params()) && (*_impl == *e->impl());
 		return false;
 	}
-	GET_SHARED()
-
 
 	EXPR_VISITABLE()
 };
 
 
-class EmptyExpr : public Expr, public std::enable_shared_from_this<EmptyExpr> {
+class EmptyExpr : public Expr {
 public:
 	EmptyExpr() {}
 	EmptyExpr const *as_empty_expr() const { return this; }
+	EmptyExpr *as_empty_expr() { return this; }
 	bool operator==(Expr const &other) const { return other.as_empty_expr(); }
-	ExprSPtr clone() const { return Expr::make<EmptyExpr>(); }
-	GET_SHARED()
+	ExprPtr clone() const { return Expr::make_empty(); }
 	EXPR_VISITABLE()
 };
+
+
+inline ExprPtr Expr::make_add(ExprPtr l, ExprPtr r) { return ExprPtr(new AddExpr(std::move(l), std::move(r))); }
+inline ExprPtr Expr::make_sub(ExprPtr l, ExprPtr r) { return ExprPtr(new SubExpr(std::move(l), std::move(r))); }
+inline ExprPtr Expr::make_div(ExprPtr l, ExprPtr r) { return ExprPtr(new DivExpr(std::move(l), std::move(r))); }
+inline ExprPtr Expr::make_mul(ExprPtr l, ExprPtr r) { return ExprPtr(new MulExpr(std::move(l), std::move(r))); }
+inline ExprPtr Expr::make_neg(ExprPtr v) { return ExprPtr(new NegExpr(std::move(v))); }
+inline ExprPtr Expr::make_var(std::string const &name, int i) { return ExprPtr(new VarExpr(name, i)); }
+inline ExprPtr Expr::make_expt(ExprPtr b, int e) { return ExprPtr(new ExptExpr(std::move(b), e)); }
+inline ExprPtr Expr::make_lit(real v) { return ExprPtr(new LitExpr(v)); }
+inline ExprPtr Expr::make_lit(interval v) { return ExprPtr(new LitExpr(v)); }
+inline ExprPtr Expr::make_lit(real min, real max) { return ExprPtr(new LitExpr(min, max)); }
+inline ExprPtr Expr::make_call(std::string const &name, std::vector<ExprPtr> args) { return ExprPtr(new CallExpr(name, std::move(args))); }
+inline ExprPtr Expr::make_func(std::string const &name, std::vector<std::string> const &params, ExprPtr impl) { return ExprPtr(new FuncExpr(name, params, std::move(impl))); }
+inline ExprPtr Expr::make_empty() { return ExprPtr(new EmptyExpr()); }
+
+inline void copy_eptrs(std::vector<ExprPtr> const &e, std::vector<ExprPtr> &dst) {
+	for (auto const &p : e) dst.push_back(p->clone());
+}
+
+
+inline std::vector<ExprPtr> copy_eptrs(std::vector<ExprPtr> const &e) {
+	std::vector<ExprPtr> v;
+	copy_eptrs(e, v);
+	return v;
+}
+
 
 }
 

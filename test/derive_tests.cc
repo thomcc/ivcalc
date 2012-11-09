@@ -5,38 +5,38 @@
 #include "visitors/printer.hh"
 namespace calc {
 
-ExprSPtr DeriveTest::get_expr(std::string const &str) const {
+ExprPtr DeriveTest::get_expr(std::string const &str) const {
 	ErrorHandler eh(true, false);
 	Parser p(str, eh);
-	ExprSPtr eptr = p.parse_expression();
+	ExprPtr eptr = p.parse_expression();
 	Check(eptr.get());
 	Check(eh.errors() == 0);
-	return eptr;
+	return std::move(eptr);
 }
 
 
 void DeriveTest::var() {
-	ExprSPtr x = get_expr("x + 20*y");
+	ExprPtr x = get_expr("x + 20*y");
 	Derivator xd("x");
-	ExprSPtr dx = xd.derive(*x);
+	ExprPtr dx = xd.derive(*x);
 	Simplifier s;
-	ExprSPtr sdx = s.simplify(*dx);
+	ExprPtr sdx = s.simplify(*dx);
 	Check(sdx.get());
 	if (Check(sdx->as_lit_expr())) CheckEq(interval(1), sdx->as_lit_expr()->value());
 	Derivator yd("y");
-	ExprSPtr dy = yd.derive(*x);
-	ExprSPtr sdy = s.simplify(*dy);
+	ExprPtr dy = yd.derive(*x);
+	ExprPtr sdy = s.simplify(*dy);
 	Check(sdy.get());
 	if (Check(sdy->as_lit_expr()))
 		CheckEq(interval(20), sdy->as_lit_expr()->value());
 }
 
 void DeriveTest::expt() {
-	ExprSPtr x2 = get_expr("x^2");
+	ExprPtr x2 = get_expr("x^2");
 	Derivator xd("x");
-	ExprSPtr dx = xd.derive(*x2);
+	ExprPtr dx = xd.derive(*x2);
 	Simplifier s;
-	ExprSPtr sdx = s.simplify(*dx);
+	ExprPtr sdx = s.simplify(*dx);
 	Check(sdx.get());
 	if (Check(sdx->as_mul_expr())) {
 		MulExpr const *m = sdx->as_mul_expr();
@@ -52,27 +52,27 @@ void DeriveTest::expt() {
 			CheckEq("x", rhs->name());
 	}
 
-	ExprSPtr ee = get_expr("40^2");
-	ExprSPtr eedx = xd.derive(*ee);
-	ExprSPtr seedx = s.simplify(*eedx);
+	ExprPtr ee = get_expr("40^2");
+	ExprPtr eedx = xd.derive(*ee);
+	ExprPtr seedx = s.simplify(*eedx);
 	Check(seedx->is_lit_zero());
 }
 
 void DeriveTest::lit() {
-	ExprSPtr n = get_expr("110");
+	ExprPtr n = get_expr("110");
 	Derivator xd("x");
 	Simplifier s;
-	ExprSPtr ndx = xd.derive(*n);
-	ExprSPtr sndx = s.simplify(*ndx);
+	ExprPtr ndx = xd.derive(*n);
+	ExprPtr sndx = s.simplify(*ndx);
 	Check(sndx->is_lit_zero());
 }
 
 void DeriveTest::plus() {
-	ExprSPtr x = get_expr("x + x^2");
+	ExprPtr x = get_expr("x + x^2");
 	Derivator xd("x");
-	ExprSPtr dx = xd.derive(*x);
+	ExprPtr dx = xd.derive(*x);
 	Simplifier s;
-	ExprSPtr sdx = s.simplify(*dx);
+	ExprPtr sdx = s.simplify(*dx);
 	Check(sdx.get());
 	if (Check(sdx->as_add_expr())) {
 		AddExpr const *ae = sdx->as_add_expr();
@@ -89,11 +89,11 @@ void DeriveTest::plus() {
 }
 
 void DeriveTest::minus() {
-	ExprSPtr x = get_expr("x - x^2");
+	ExprPtr x = get_expr("x - x^2");
 	Derivator xd("x");
-	ExprSPtr dx = xd.derive(*x);
+	ExprPtr dx = xd.derive(*x);
 	Simplifier s;
-	ExprSPtr sdx = s.simplify(*dx);
+	ExprPtr sdx = s.simplify(*dx);
 	Check(sdx.get());
 	if (Check(sdx->as_sub_expr())) {
 		SubExpr const *se = sdx->as_sub_expr();
@@ -110,13 +110,13 @@ void DeriveTest::minus() {
 }
 
 void DeriveTest::mul() {
-	ExprSPtr x = get_expr("(3*x + 2) * (2*x + 3)");
+	ExprPtr x = get_expr("(3*x + 2) * (2*x + 3)");
 	// d/dx should = 2 * (3*x + 2) + 3 * (2 * x + 3)
 	// this is going to be a pain.
 	Derivator d("x");
-	ExprSPtr dx = d.derive(*x);
+	ExprPtr dx = d.derive(*x);
 	Simplifier s;
-	ExprSPtr e = s.simplify(*dx);
+	ExprPtr e = s.simplify(*dx);
 	if (!CheckNull(e.get())) return;
 	if (AddExpr const *ae = CheckNull(e->as_add_expr())) {
 		if (MulExpr const *lhs = CheckNull(ae->lhs()->as_mul_expr())) {
@@ -164,13 +164,13 @@ void DeriveTest::mul() {
 }
 
 void DeriveTest::div() {
-	ExprSPtr x = get_expr("(3*x + 2) / (2*x + 3)");
+	ExprPtr x = get_expr("(3*x + 2) / (2*x + 3)");
 	// d/dx should = ((2*x + 3) * 3 - (3 * x + 2) * 2) / (2*x+3)^2
 	// this is going to be a pain.
 	Derivator d("x");
-	ExprSPtr dx = d.derive(*x);
+	ExprPtr dx = d.derive(*x);
 	Simplifier s;
-	ExprSPtr e = s.simplify(*dx);
+	ExprPtr e = s.simplify(*dx);
 	if (!CheckNull(e.get())) return;
 	if (DivExpr const *de = CheckNull(e->as_div_expr())) {
 		if (SubExpr const *ae = CheckNull(de->lhs()->as_sub_expr())) {
@@ -239,30 +239,32 @@ void DeriveTest::div() {
 
 
 void DeriveTest::partials() {
-	ExprSPtr x = get_expr("f(x, y, z) = x^2 + x*y + y*z + 2*z");
+	ExprPtr x = get_expr("f(x, y, z) = x^2 + x*y + y*z + 2*z");
 	FuncExpr const *fe = x->as_func_expr();
 	if (!CheckNull(fe)) return;
 	// ∂f/∂x = 2*x + y
 	// ∂f/∂y = x + z
 	// ∂f/∂z = y + 2
 	using namespace std;
-	vector<pair<string, ExprSPtr>> ps;
+	vector<pair<string, ExprPtr>> ps;
 	Derivator::partials(*fe, ps);
 
 	Check(ps.size() == 3);
 	for (auto &p : ps)
 		p.second = Simplifier::simplified(p.second);
 
-	ExprSPtr const &dx = ps[0].second;
-	ExprSPtr const &dy = ps[1].second;
-	ExprSPtr const &dz = ps[2].second;
+	ExprPtr const &dx = ps[0].second;
+	ExprPtr const &dy = ps[1].second;
+	ExprPtr const &dz = ps[2].second;
 
-	if (AddExpr const *ax = CheckNull(dx->as_add_expr())) {
+	if (AddExpr *ax = CheckNull(dx->as_add_expr())) {
 		// ∂f/∂x = 2*x + y
-		ExprSPtr l = ax->lhs(), r = ax->rhs();
+		ExprPtr &l = ax->lhs();
+		ExprPtr &r = ax->rhs();
 		if (!l->as_mul_expr() && r->as_mul_expr()) std::swap(l, r);
-		if (MulExpr const *me = CheckNull(l->as_mul_expr())) {
-			ExprSPtr ll = me->lhs(), lr = me->rhs();
+		if (MulExpr *me = CheckNull(l->as_mul_expr())) {
+			ExprPtr &ll = me->lhs();
+			ExprPtr &lr = me->rhs();
 			if (!ll->as_lit_expr() && lr->as_lit_expr()) std::swap(ll, lr);
 			if (LitExpr const *le = CheckNull(ll->as_lit_expr()))
 				CheckEq(interval(2), le->value());
@@ -275,7 +277,8 @@ void DeriveTest::partials() {
 
 	if (AddExpr const *ay = CheckNull(dy->as_add_expr())) {
 		// ∂f/∂y = x + z
-		ExprSPtr l = ay->lhs(), r = ay->rhs();
+		ExprPtr const &l = ay->lhs();
+		ExprPtr const &r = ay->rhs();
 		if (CheckNull(l->as_var_expr()) && CheckNull(r->as_var_expr())) {
 			VarExpr const *ve0 = l->as_var_expr();
 			VarExpr const *ve1 = r->as_var_expr();
@@ -290,9 +293,10 @@ void DeriveTest::partials() {
 		}
 	}
 
-	if (AddExpr const *az = CheckNull(dz->as_add_expr())) {
+	if (AddExpr *az = CheckNull(dz->as_add_expr())) {
 		// ∂f/∂z = y + 2
-		ExprSPtr l = az->lhs(), r = az->rhs();
+		ExprPtr &l = az->lhs();
+		ExprPtr &r = az->rhs();
 		if (!l->as_var_expr() && r->as_var_expr()) std::swap(l, r);
 		if (VarExpr const *ve = CheckNull(l->as_var_expr()))
 			CheckEq("y", ve->name());

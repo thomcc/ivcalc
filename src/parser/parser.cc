@@ -79,15 +79,15 @@ real Parser::parse_real(std::string const &s) {
 }
 
 // `var`
-ExprSPtr Parser::var(Token const &t) { return Expr::make<VarExpr>(t.text()); }
+ExprPtr Parser::var(Token const &t) { return Expr::make_var(t.text()); }
 
 // `num`
-ExprSPtr Parser::number(Token const &t) { return Expr::make<LitExpr>(parse_real(t.text())); }
+ExprPtr Parser::number(Token const &t) { return Expr::make_lit(parse_real(t.text())); }
 
 // `[(+|-)?num, (+|-)?num]`
 // todo: support negative numbers
-ExprSPtr Parser::ival_lit(Token const &t) {
-	if (match(T_RBRACKET)) return Expr::make<LitExpr>(interval::empty());
+ExprPtr Parser::ival_lit(Token const &t) {
+	if (match(T_RBRACKET)) return Expr::make_lit(interval::empty());
 	bool neglo = false, neghi = false;
 
 	if (match(T_MINUS)) neglo = true;
@@ -104,12 +104,12 @@ ExprSPtr Parser::ival_lit(Token const &t) {
 	real l = (neglo ? -1 : 1) * Parser::parse_real(lo.text());
 	real h = (neghi ? -1 : 1) * Parser::parse_real(hi.text());
 
-	return Expr::make<LitExpr>(l, h);
+	return Expr::make_lit(l, h);
 }
 
 // `name(expr, ...)`
-ExprSPtr Parser::call(ExprSPtr lhs, Token const &t) {
-	std::vector<ExprSPtr> args;
+ExprPtr Parser::call(ExprPtr lhs, Token const &t) {
+	std::vector<ExprPtr> args;
 	std::string name;
 	if (VarExpr const *e = lhs->as_var_expr()) name = e->name();
 	else _on_error.error("invalid function!");
@@ -118,73 +118,64 @@ ExprSPtr Parser::call(ExprSPtr lhs, Token const &t) {
 		while (match(T_COMMA));
 		consume(T_RPAREN, "Expected ')' after call");
 	}
-	return Expr::make<CallExpr>(name, args);
+	return Expr::make_call(name, std::move(args));
 }
 
 // `(expr)`
-ExprSPtr Parser::group(Token const &t) {
-	ExprSPtr e = parse_expression();
+ExprPtr Parser::group(Token const &t) {
+	ExprPtr e = parse_expression();
 	consume(T_RPAREN, "Expected ')' in grouping");
-	return e;
+	return std::move(e);
 }
 
 
 // `func_name(arg1, arg2, ...) = expr`
-ExprSPtr Parser::assign(ExprSPtr lhs, Token const &t) {
-	ExprSPtr rhs = parse_expr(P_Assign);
-//	if (VarExpr const *e = lhs->as_var_expr()) {
-//		std::string name("");
-//		name = e->name();
-//		return Expr::make<AssignExpr>(name, rhs);
-//	} else
+ExprPtr Parser::assign(ExprPtr lhs, Token const &t) {
+	ExprPtr rhs = parse_expr(P_Assign);
 	if (CallExpr const *e = lhs->as_call_expr()) {
 		std::string const &name = e->name();
 		std::vector<std::string> prams;
 		for (auto const &a : e->args())
 			if (VarExpr const *ve = a->as_var_expr()) prams.push_back(ve->name());
-			else _on_error.error("Error: non-identifier in function parameter list: '" + Printer::stringify(a) + "'.");
-		return Expr::make<FuncExpr>(name, prams, rhs);
+			else _on_error.error("Error: non-identifier in function parameter list: '" + Printer::stringify(*a) + "'.");
+		return Expr::make_func(name, prams, std::move(rhs));
 	}
 	_on_error.error(strprintf("bad syntax: '%s'. expected `<name>(<arg>, ...) = <expr>", t.text().c_str()));
-	return Expr::make<EmptyExpr>();
+	return Expr::make_empty();
 }
 
 // `+expr`
-ExprSPtr Parser::p_plus(Token const &t) {
-	return parse_expr(P_Prefix);
-}
+ExprPtr Parser::p_plus(Token const &t) { return parse_expr(P_Prefix); }
 
 // `-expr`
-ExprSPtr Parser::p_minus(Token const &t) {
-	return Expr::make<NegExpr>(parse_expr(P_Prefix));
-}
+ExprPtr Parser::p_minus(Token const &t) { return Expr::make_neg(parse_expr(P_Prefix)); }
 
-// todo: combine +, -, *, /
+// todo: combine `+`, `-`, `*`, `/`?
 
 // `lhs_expr + rhs_expr`
-ExprSPtr Parser::plus(ExprSPtr lhs, Token const &t) {
-	return Expr::make<AddExpr>(lhs, parse_expr(P_Term));
+ExprPtr Parser::plus(ExprPtr lhs, Token const &t) {
+	return Expr::make_add(std::move(lhs), parse_expr(P_Term));
 }
 
 // `lhs_expr - rhs_expr`
-ExprSPtr Parser::minus(ExprSPtr lhs, Token const &t) {
-	return Expr::make<SubExpr>(lhs, parse_expr(P_Term));
+ExprPtr Parser::minus(ExprPtr lhs, Token const &t) {
+	return Expr::make_sub(std::move(lhs), parse_expr(P_Term));
 }
 
 // `lhs_expr * rhs_expr`
-ExprSPtr Parser::times(ExprSPtr lhs, Token const &t) {
-	return Expr::make<MulExpr>(lhs, parse_expr(P_Prod));
+ExprPtr Parser::times(ExprPtr lhs, Token const &t) {
+	return Expr::make_mul(std::move(lhs), parse_expr(P_Prod));
 }
 
 // `lhs_expr / rhs_expr`
-ExprSPtr Parser::divide(ExprSPtr lhs, Token const &t) {
-	return Expr::make<DivExpr>(lhs, parse_expr(P_Prod));
+ExprPtr Parser::divide(ExprPtr lhs, Token const &t) {
+	return Expr::make_div(std::move(lhs), parse_expr(P_Prod));
 }
 
 // `lhs_expr ^ (+|-)? an_integer`
 // TODO: support lhs ^ arbitrary expr evaluating to integer
 // and move check to runtime ?
-ExprSPtr Parser::expt(ExprSPtr lhs, Token const &t) {
+ExprPtr Parser::expt(ExprPtr lhs, Token const &t) {
 	bool neg_pow = false;
 	if (match(T_MINUS)) neg_pow = true;
 	else if (match(T_PLUS)) neg_pow = false;
@@ -194,31 +185,29 @@ ExprSPtr Parser::expt(ExprSPtr lhs, Token const &t) {
 		std::string s = stringize() << "Expected integer in exponent. rounding " << d << " to int.";
 		_on_error.error(s, 0);
 	}
-	return Expr::make<ExptExpr>(lhs, (int)((neg_pow ? -1 : 1) * std::rint(d)));
+	return Expr::make_expt(std::move(lhs), (int)((neg_pow ? -1 : 1) * std::rint(d)));
 }
 
 // actually parse an expression
-ExprSPtr Parser::parse_expr(int precedence) {
+ExprPtr Parser::parse_expr(int precedence) {
 	// parse a prefix expression (includes vars, numbers)
 	Token t = consume();
 	Prefix p = _prefixes[t.type()];
 	if (!p.prefix) {
 		_on_error.error(strprintf("Couldn't parse (prefix) '%s'.", t.describe().c_str()));
-		return Expr::make<EmptyExpr>();
+		return Expr::make_empty();
 	}
-	ExprSPtr left = (this->*p.prefix)(t);
+	ExprPtr left = (this->*p.prefix)(t);
 	// if the next token's precedence is high enough,
 	// we're parsing an infix expression, and what we
 	// just parsed is the left hand side
 	while (precedence < get_precedence()) {
 		t = consume();
 		Infix s2 = _infixes[t.type()];
-		if (s2.infix) left = (this->*s2.infix)(left, t);
-		else {
-			_on_error.error(strprintf("Couldn't parse (infix) '%s'.", t.describe().c_str()));
-		}
+		if (s2.infix) left = (this->*s2.infix)(std::move(left), t);
+		else _on_error.error(strprintf("Couldn't parse (infix) '%s'.", t.describe().c_str()));
 	}
-	return left;
+	return std::move(left);
 }
 
 // check if the next token has the given type

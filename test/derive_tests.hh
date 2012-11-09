@@ -26,7 +26,7 @@ private:
 	void mul();
 	void div();
 	void partials();
-	ExprSPtr get_expr(std::string const &) const;
+	ExprPtr get_expr(std::string const &) const;
 };
 
 

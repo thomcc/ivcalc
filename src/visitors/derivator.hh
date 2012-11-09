@@ -5,20 +5,19 @@
 #include "common.hh"
 #include <string>
 #include <vector>
-
+#include "expr.hh"
 namespace calc {
 
-class Derivator : ExprVisitor {
+class Derivator : public ExprVisitor {
 	std::string _var;
-	ExprSPtr _derived;
+	ExprPtr _derived;
 public:
 
 	Derivator(std::string const &v);
 
 
-	ExprSPtr derive(Expr &e);
-	void visit(Expr &e) { assert(0); } // impossible
-	void visit(EmptyExpr &e) {}
+	ExprPtr derive(Expr &e);
+	void visit(EmptyExpr&) {}
 	void visit(AddExpr &e);
 	void visit(SubExpr &e);
 	void visit(NegExpr &e);
@@ -29,10 +28,10 @@ public:
 	void visit(LitExpr &e);
 	void visit(FuncExpr &e);
 	void visit(CallExpr &e);
-	static void partials(FuncExpr const &e, std::vector<std::pair<std::string, ExprSPtr>> &dest);
+	static void partials(FuncExpr const &e, std::vector<std::pair<std::string, ExprPtr>> &dest);
 
-	static std::vector<std::pair<std::string, ExprSPtr>> partials(FuncExpr const &e) {
-		std::vector<std::pair<std::string, ExprSPtr>> res;
+	static std::vector<std::pair<std::string, ExprPtr>> partials(FuncExpr const &e) {
+		std::vector<std::pair<std::string, ExprPtr>> res;
 		partials(e, res);
 		return res;
 	}

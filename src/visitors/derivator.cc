@@ -6,72 +6,61 @@ namespace calc {
 
 using namespace std;
 
-Derivator::Derivator(string const &v): _var(v), _derived(Expr::make<LitExpr>(0)) {}
+Derivator::Derivator(string const &v): _var(v), _derived(nullptr) {}
 
-ExprSPtr Derivator::derive(Expr &e) {
-	_derived = NULL;
+ExprPtr Derivator::derive(Expr &e) {
+	_derived = nullptr;
 	e.accept(*this);
-	return _derived;
+	return move(_derived);
 }
 
 void Derivator::visit(AddExpr &e) {
-	ExprSPtr left = derive(*e.lhs());
-	ExprSPtr right = derive(*e.rhs());
-	_derived = Expr::make<AddExpr>(left, right);
+	ExprPtr left = derive(*e.lhs());
+	ExprPtr right = derive(*e.rhs());
+	_derived = Expr::make_add(move(left), move(right));
 }
 
 void Derivator::visit(SubExpr &e) {
-	ExprSPtr left = derive(*e.lhs());
-	ExprSPtr right = derive(*e.rhs());
-	_derived = Expr::make<SubExpr>(left, right);
+	ExprPtr left = derive(*e.lhs());
+	ExprPtr right = derive(*e.rhs());
+	_derived = Expr::make_sub(move(left), move(right));
 }
 
 void Derivator::visit(NegExpr &e) {
-	ExprSPtr v = derive(*e.value());
-	_derived = Expr::make<NegExpr>(v);
+	ExprPtr v = derive(*e.value());
+	_derived = Expr::make_neg(move(v));
 }
 
 void Derivator::visit(MulExpr &e) {
-	ExprSPtr left = derive(*e.lhs());
-	ExprSPtr right = derive(*e.rhs());
-	ExprSPtr rr = Expr::make<MulExpr>(right, e.lhs());
-	ExprSPtr ll = Expr::make<MulExpr>(e.rhs(), left);
-	_derived = Expr::make<AddExpr>(rr, ll);
+	ExprPtr left = derive(*e.lhs());
+	ExprPtr right = derive(*e.rhs());
+	ExprPtr rr = Expr::make_mul(move(right), e.lhs()->clone());
+	ExprPtr ll = Expr::make_mul(e.rhs()->clone(), move(left));
+	_derived = Expr::make_add(move(rr), move(ll));
 }
 
 void Derivator::visit(DivExpr &e) {
-	ExprSPtr dl = derive(*e.lhs());
-	ExprSPtr dr = derive(*e.rhs());
-	ExprSPtr denom = Expr::make<ExptExpr>(e.rhs(), 2);
-	ExprSPtr nl = Expr::make<MulExpr>(e.rhs(), dl);
-	ExprSPtr nr = Expr::make<MulExpr>(dr, e.lhs());
-	ExprSPtr numer = Expr::make<SubExpr>(nl, nr);
-	_derived = Expr::make<DivExpr>(numer, denom);
+	ExprPtr dl = derive(*e.lhs());
+	ExprPtr dr = derive(*e.rhs());
+	ExprPtr denom = Expr::make_expt(e.rhs()->clone(), 2);
+	ExprPtr nl = Expr::make_mul(e.rhs()->clone(), move(dl));
+	ExprPtr nr = Expr::make_mul(move(dr), e.lhs()->clone());
+	ExprPtr numer = Expr::make_sub(move(nl), move(nr));
+	_derived = Expr::make_div(move(numer), move(denom));
 }
 
-void Derivator::visit(VarExpr &e) {
-	if (e.name() == _var)
-		_derived = Expr::make<LitExpr>(1);
-	else
-		_derived = Expr::make<LitExpr>(0);
-}
+void Derivator::visit(VarExpr &e) { _derived = Expr::make_lit(e.name() == _var ? 1 : 0); }
+void Derivator::visit(LitExpr &e) { _derived = Expr::make_lit(0); }
+void Derivator::visit(FuncExpr &e) { _derived = Expr::make_func(e.name(), e.params(), derive(*e.impl())); }
 
 void Derivator::visit(ExptExpr &e) {
-	ExprSPtr left = derive(*e.base());
-	ExprSPtr pc = Expr::make<LitExpr>(e.power());
-	ExprSPtr npow = Expr::make<ExptExpr>(e.base(), e.power()-1);
-	ExprSPtr mul = Expr::make<MulExpr>(left, npow);
-	_derived = Expr::make<MulExpr>(pc, mul);
+	ExprPtr left = derive(*e.base());
+	ExprPtr pc = Expr::make_lit(e.power());
+	ExprPtr npow = Expr::make_expt(e.base()->clone(), e.power()-1);
+	ExprPtr mul = Expr::make_mul(move(left), move(npow));
+	_derived = Expr::make_mul(move(pc), move(mul));
 }
 
-void Derivator::visit(LitExpr &e) {
-	_derived = Expr::make<LitExpr>(0);
-}
-
-void Derivator::visit(FuncExpr &e) {
-	ExprSPtr dimpl = derive(*e.impl());
-	_derived = Expr::make<FuncExpr>(e.name(), e.params(), dimpl);
-}
 
 static map<string, string> dx_rules{
 	{"log", "1 / _1"},
@@ -108,12 +97,12 @@ static map<string, string> dx_rules{
 
 static vector<string> placeholder_vars{ "_1", "_2", "_3", "_4", "_5", "_6", "_7", "_8", "_9", "_10"};
 
-static ExprSPtr fill(ExprSPtr e, vector<ExprSPtr> const &to) {
-	map<string, ExprSPtr> repl;
+static ExprPtr fill(ExprPtr e, vector<ExprPtr> const &to) {
+	map<string, ExprPtr> repl;
 	assert(to.size() < placeholder_vars.size());
 	for (size_t i = 0; i < to.size(); ++i)
-		repl[placeholder_vars.at(i)] = to.at(i);
-	return Replacer(repl).replace(*e);
+		repl[placeholder_vars.at(i)] = to.at(i)->clone();
+	return Replacer(move(repl)).replace(*e);
 }
 
 void Derivator::visit(CallExpr &e) {
@@ -125,16 +114,16 @@ void Derivator::visit(CallExpr &e) {
 		throw iv_arithmetic_error("Can't derive '"+name+"'.");
 	ErrorHandler eh(true, false);
 	Parser p(it->second, eh);
-	ExprSPtr eptr = p.parse_expression();
+	ExprPtr eptr = p.parse_expression();
 	if ((eh.errors() != 0) || !eptr.get())
 		throw iv_arithmetic_error("Bug: failed parse.");
-	ExprSPtr df = fill(eptr, e.args());
-	ExprSPtr dg = derive(*e.args().at(0));
-	_derived = Expr::make<MulExpr>(df, dg);
+	ExprPtr df = fill(move(eptr), e.args());
+	ExprPtr dg = derive(*e.args().at(0));
+	_derived = Expr::make_mul(move(df), move(dg));
 }
 
 
-void Derivator::partials(FuncExpr const &e, vector<pair<string, ExprSPtr>> &dest) {
+void Derivator::partials(FuncExpr const &e, vector<pair<string, ExprPtr>> &dest) {
 	dest.clear();
 	for (auto const &param : e.params()) {
 		Derivator dparam(param);

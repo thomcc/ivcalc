@@ -75,7 +75,6 @@ virtual VisitorType::ReturnType accept(VisitorType &guest) {\
 typedef CyclicVisitor<
 	void,
 	Seq<
-		Expr,
 		AddExpr,
 		SubExpr,
 		NegExpr,
