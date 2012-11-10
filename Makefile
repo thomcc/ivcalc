@@ -6,7 +6,7 @@ CXX = clang++
 WARNINGS = -Wall -Wswitch -Wno-virtual-dtor -Woverloaded-virtual
 USE_CXX_11 = -std=c++11 -stdlib=libc++ -isystem /usr/lib/c++/v1 -isystem /usr/include/c++/4.2.1 -isystem /usr/include/c++/4.2.1/ext
 CXXFLAGS = -Isrc -g ${USE_CXX_11} ${WARNINGS} ${OPTFLAGS}
-
+LIBS = `llvm-config --cppflags --ldflags --libs core`
 PRODFLAGS = -O3 -DNDEBUG
 
 SOURCES = ${wildcard src/*.cc src/**/*.cc}
@@ -35,7 +35,7 @@ rebuild: all
 
 tests: ${TESTS}
 	@echo LINK ${TESTMAIN}
-	@${CXX} ${CXXFLAGS} ${TARGET} ${TESTS} -o ${TESTMAIN}
+	@${CXX} ${CXXFLAGS} ${LIBS} ${TARGET} ${TESTS} -o ${TESTMAIN}
 
 run_tests:
 	@echo running tests...
@@ -44,7 +44,7 @@ run_tests:
 ${PROGRAMS}: CXXFLAGS += ${TARGET}
 ${PROGRAMS}: ${addsuffix .cc, $@}
 	@echo CC ${addsuffix .cc, $@}
-	@${CXX} ${CXXFLAGS} -g -o $@ ${addsuffix .cc, $@} -MD
+	@${CXX} ${LIBS} ${CXXFLAGS} -g -o $@ ${addsuffix .cc, $@} -MD
 
 ${TARGET}: CXXFLAGS += -fPIC
 ${TARGET}: build ${OBJECTS}
@@ -57,7 +57,7 @@ build:
 
 .cc.o: %.cc
 	@echo CC $<
-	@${CXX} -c ${CXXFLAGS} -o $@ $< -MD
+	@${CXX} -c ${LIBS} ${CXXFLAGS} -o $@ $< -MD
 
 clean:
 	@echo cleaning
