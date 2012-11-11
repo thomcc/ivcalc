@@ -344,6 +344,10 @@ public:
 		: _name(name), _params(params), _impl(std::move(impl)) {
 			assert(_impl.get());
 		}
+	FuncExpr(ExprPtr impl) : _name(""), _params(), _impl(std::move(impl)) {
+		assert(_impl.get());
+		assert(!_impl->as_func_expr());
+	}
 	ExprPtr clone() const { return Expr::make_func(_name, _params, _impl->clone()); }
 	std::string const &name() const { return _name; }
 	std::vector<std::string> const &params() const { return _params; }

@@ -5,6 +5,8 @@
 #include "llvm/Support/IRBuilder.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
+#include "llvm/PassManager.h"
+
 #include <map>
 namespace calc {
 
@@ -42,6 +44,7 @@ public:
 
 	std::unique_ptr<llvm::Module> const &module() const { return _module; }
 	llvm::Function *compile_func(FuncExpr const &f);
+	llvm::Function *compile_expr(ExprPtr const &e);
 private:
 	// visitor return value.
 	VInterval _iv;
@@ -71,11 +74,11 @@ private:
 	// in the interpreter, though, due to the argument type differences, this isn't
 	// really true.
 	llvm::StructType *_iv_type;
-	// utility method for the visit methods.
+
 	VInterval compile(Expr&);
-	// initialize the module, and, to a large extent, this class.
-	//
+
 	void init_module();
+
 	// utility functions for compiling these operations.  some of
 	// them, e.g. {mul,div}_{hi,lo} aren't used.
 	llvm::Value *cadd_lo(llvm::Value *a, llvm::Value *b, char const *name="add_lo");

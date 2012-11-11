@@ -131,6 +131,7 @@ void Compiler::init_module() {
 	}
 }
 
+
 void Compiler::round_up(bool force) {
 	if (force || (_round_mode != RoundMode::Up)) {
 		_builder.CreateCall(_round_up);
@@ -428,7 +429,12 @@ void Compiler::visit(LitExpr &e) {
 
 void Compiler::visit(FuncExpr &e) {
 	compile_func(e);
+}
 
+Function *Compiler::compile_expr(ExprPtr const &e) {
+	if (!e.get()) throw iv_arithmetic_error("Cannot compile null expr!");
+	if (FuncExpr const *fe = e->as_func_expr()) return compile_func(*fe);
+	return compile_func(FuncExpr(e));
 }
 
 Function *Compiler::compile_func(FuncExpr const &e) {
