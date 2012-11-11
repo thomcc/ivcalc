@@ -29,9 +29,9 @@
 // needs to be in a `private` section, and will expand to the copy constructor
 // and the assignment operator, disallowing, as its name suggests,
 // copy and swap
-#define DISALLOW_COPY_AND_SWAP(CLASSNAME) \
-	CLASSNAME(CLASSNAME const&); \
-	CLASSNAME &operator=(CLASSNAME const&)
+#define DISALLOW_COPY_AND_ASSIGN(CLASSNAME) \
+	CLASSNAME(CLASSNAME const&) = delete; \
+	CLASSNAME &operator=(CLASSNAME const&) = delete
 
 // just in case.
 #undef min

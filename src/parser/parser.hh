@@ -97,7 +97,7 @@ private:
 	Token _last;
 	ErrorHandler &_on_error;
 
-	DISALLOW_COPY_AND_SWAP(Parser);
+	DISALLOW_COPY_AND_ASSIGN(Parser);
 };
 
 }

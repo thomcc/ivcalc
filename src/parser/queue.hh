@@ -43,7 +43,7 @@ private:
 
 	inline int _wrap(int idx) const { return (idx + Size) % Size; }
 
-	DISALLOW_COPY_AND_SWAP(Queue);
+	DISALLOW_COPY_AND_ASSIGN(Queue);
 };
 
 }

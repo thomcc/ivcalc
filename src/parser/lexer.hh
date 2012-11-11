@@ -32,7 +32,7 @@ private:
 	int _start;
 
 
-	DISALLOW_COPY_AND_SWAP(Lexer);
+	DISALLOW_COPY_AND_ASSIGN(Lexer);
 
 };
 
