@@ -12,8 +12,6 @@ PRODFLAGS = -O3 -DNDEBUG
 SOURCES = ${wildcard src/*.cc src/**/*.cc}
 PROG_SRC = ${wildcard bin/*.cc}
 TEST_SRC = ${wildcard test/*.cc}
-LIB_SRC = ${wildcard lib/*.c}
-
 
 OBJECTS = ${SOURCES:.cc=.o}
 DEPENDS = ${OBJECTS:.o=.d}
@@ -27,11 +25,10 @@ TESTS = ${TEST_SRC:.cc=.o}
 TESTDEPENDS = ${TESTS:.o=.d}
 TESTMAIN = test/test_main
 
-LIBOBJ = ${LIB:.c=.o}
 
 TARGET = build/libcalc.a
 
-all: ${LIBOBJ} ${TARGET} tests ${PROGRAMS} run_tests
+all: ${TARGET} tests ${PROGRAMS} run_tests
 
 prod: CXXFLAGS += ${PRODFLAGS}
 prod: clean
@@ -50,7 +47,7 @@ run_tests:
 
 ${PROGRAMS}: ${PROGOBJS} ${addsuffix .cc, $@}
 	@echo LINK $@
-	@${CXX} ${addsuffix .o, $@} ${LIBS} ${LIBOBJ} ${CXXFLAGS} ${TARGET} -g -o $@ -MD
+	@${CXX} ${addsuffix .o, $@} ${LIBS} ${CXXFLAGS} ${TARGET} -g -o $@ -MD
 
 ${TARGET}: CXXFLAGS += -fPIC
 ${TARGET}: build ${OBJECTS}
@@ -67,7 +64,7 @@ build:
 
 .c.o: %.c
 	@echo CC $@
-	@clang -Wall -W -Os -g -o $@ $<
+	@clang -Wall -c -Os -g -o $@ $<
 
 clean:
 	@echo cleaning
