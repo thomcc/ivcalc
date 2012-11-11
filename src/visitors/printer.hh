@@ -9,7 +9,7 @@
 
 namespace calc {
 
-class Printer : ExprVisitor {
+class Printer : public ExprVisitor {
 private:
 	std::ostream &_os;
 	bool _color; // use color
@@ -27,7 +27,9 @@ public:
 		return ss.str();
 	}
 
-	static void output(ExprPtr &e) { Printer(std::cout, true).print(*e); }
+	static void output(ExprPtr &e) {
+		Printer(std::cout, true).print(*e);
+	}
 
 	Printer(std::ostream &os, bool color=false)
 	: _os(os), _color(color), _prec(0), _precis(_os.precision()) {
@@ -68,6 +70,9 @@ inline void dumpln(Expr &e, std::ostream &o=std::cout) {
 	Printer(o, false).print(e);
 	o << std::endl;
 }
+
+
+
 
 
 

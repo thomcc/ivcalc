@@ -24,6 +24,7 @@ public:
 	void visit(EmptyExpr &e);
 	static ExprPtr simplified(ExprPtr const &e) { return Simplifier().simplify(*e); }
 
+
 };
 
 

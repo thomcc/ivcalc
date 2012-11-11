@@ -1,20 +1,23 @@
 
-.SUFFIXES: .cc
+.SUFFIXES: .cc .c
 
 CXX = clang++
 
 WARNINGS = -Wall -Wswitch -Wno-virtual-dtor -Woverloaded-virtual
 USE_CXX_11 = -std=c++11 -stdlib=libc++ -isystem /usr/lib/c++/v1 -isystem /usr/include/c++/4.2.1 -isystem /usr/include/c++/4.2.1/ext
-CXXFLAGS = -Isrc -g ${USE_CXX_11} ${WARNINGS} ${OPTFLAGS} `llvm-config --cxxflags`  -fexceptions
+CXXFLAGS = -Isrc -Ilib -g ${USE_CXX_11} ${WARNINGS} ${OPTFLAGS} `llvm-config --cxxflags`  -fexceptions
 LIBS = `llvm-config --ldflags --libs all` -lc++
 PRODFLAGS = -O3 -DNDEBUG
 
 SOURCES = ${wildcard src/*.cc src/**/*.cc}
 PROG_SRC = ${wildcard bin/*.cc}
 TEST_SRC = ${wildcard test/*.cc}
+LIB_SRC = ${wildcard lib/*.c}
+
 
 OBJECTS = ${SOURCES:.cc=.o}
 DEPENDS = ${OBJECTS:.o=.d}
+
 
 PROGRAMS = ${PROG_SRC:%.cc=%}
 PROGOBJS = ${PROG_SRC:%.cc=%.o}
@@ -24,9 +27,11 @@ TESTS = ${TEST_SRC:.cc=.o}
 TESTDEPENDS = ${TESTS:.o=.d}
 TESTMAIN = test/test_main
 
+LIBOBJ = ${LIB:.c=.o}
+
 TARGET = build/libcalc.a
 
-all: ${TARGET} tests ${PROGRAMS} run_tests
+all: ${LIBOBJ} ${TARGET} tests ${PROGRAMS} run_tests
 
 prod: CXXFLAGS += ${PRODFLAGS}
 prod: clean
@@ -45,7 +50,7 @@ run_tests:
 
 ${PROGRAMS}: ${PROGOBJS} ${addsuffix .cc, $@}
 	@echo LINK $@
-	@${CXX} ${addsuffix .o, $@} ${LIBS} ${CXXFLAGS} ${TARGET} -g -o $@  -MD
+	@${CXX} ${addsuffix .o, $@} ${LIBS} ${LIBOBJ} ${CXXFLAGS} ${TARGET} -g -o $@ -MD
 
 ${TARGET}: CXXFLAGS += -fPIC
 ${TARGET}: build ${OBJECTS}
@@ -59,6 +64,10 @@ build:
 .cc.o: %.cc
 	@echo CC $<
 	@${CXX} -c ${CXXFLAGS} -o $@ $< -MD
+
+.c.o: %.c
+	@echo CC $@
+	@clang -Wall -W -Os -g -o $@ $<
 
 clean:
 	@echo cleaning

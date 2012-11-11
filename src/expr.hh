@@ -8,11 +8,12 @@
 
 namespace calc {
 
-
 class Expr : public BaseVisitable<> {
 public:
 
 	virtual ~Expr() {}
+
+
 
 	virtual AddExpr const *as_add_expr() const { return nullptr; }
 	virtual SubExpr const *as_sub_expr() const { return nullptr; }
