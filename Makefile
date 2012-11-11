@@ -5,8 +5,8 @@ CXX = clang++
 
 WARNINGS = -Wall -Wswitch -Wno-virtual-dtor -Woverloaded-virtual
 USE_CXX_11 = -std=c++11 -stdlib=libc++ -isystem /usr/lib/c++/v1 -isystem /usr/include/c++/4.2.1 -isystem /usr/include/c++/4.2.1/ext
-CXXFLAGS = -Isrc -g ${USE_CXX_11} ${WARNINGS} ${OPTFLAGS}
-LIBS = `llvm-config --cppflags --ldflags --libs core`
+CXXFLAGS = -Isrc -g ${USE_CXX_11} ${WARNINGS} ${OPTFLAGS} `llvm-config --cxxflags`  -fexceptions
+LIBS = `llvm-config --ldflags --libs all` -lc++
 PRODFLAGS = -O3 -DNDEBUG
 
 SOURCES = ${wildcard src/*.cc src/**/*.cc}
@@ -15,7 +15,9 @@ TEST_SRC = ${wildcard test/*.cc}
 
 OBJECTS = ${SOURCES:.cc=.o}
 DEPENDS = ${OBJECTS:.o=.d}
+
 PROGRAMS = ${PROG_SRC:%.cc=%}
+PROGOBJS = ${PROG_SRC:%.cc=%.o}
 PROGDEPENDS = ${PROG_SRC:.cc=.d}
 
 TESTS = ${TEST_SRC:.cc=.o}
@@ -41,10 +43,9 @@ run_tests:
 	@echo running tests...
 	@./${TESTMAIN}
 
-${PROGRAMS}: CXXFLAGS += ${TARGET}
-${PROGRAMS}: ${addsuffix .cc, $@}
-	@echo CC ${addsuffix .cc, $@}
-	@${CXX} ${LIBS} ${CXXFLAGS} -g -o $@ ${addsuffix .cc, $@} -MD
+${PROGRAMS}: ${PROGOBJS} ${addsuffix .cc, $@}
+	@echo LINK $@
+	@${CXX} ${addsuffix .o, $@} ${LIBS} ${CXXFLAGS} ${TARGET} -g -o $@  -MD
 
 ${TARGET}: CXXFLAGS += -fPIC
 ${TARGET}: build ${OBJECTS}
@@ -57,11 +58,11 @@ build:
 
 .cc.o: %.cc
 	@echo CC $<
-	@${CXX} -c ${LIBS} ${CXXFLAGS} -o $@ $< -MD
+	@${CXX} -c ${CXXFLAGS} -o $@ $< -MD
 
 clean:
 	@echo cleaning
-	@rm -rf build ${OBJECTS} ${DEPENDS} ${PROGDEPENDS} ${TESTDEPENDS} ${TESTS} ${PROGRAMS} ${TESTMAIN} *.o *.d *~
+	@rm -rf build ${OBJECTS} ${DEPENDS} ${PROGDEPENDS} ${PROGOBJS} ${TESTDEPENDS} ${TESTS} ${PROGRAMS} ${TESTMAIN} *.o *.d *~
 	@find . -name "*.gc*" -exec rm {} \;
 	@rm -rf `find . -name "*.dSYM" -print`
 

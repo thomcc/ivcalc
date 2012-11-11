@@ -16,9 +16,9 @@ Compiler::Compiler()
 	init_module();
 }
 
-Compiler::Compiler(std::unique_ptr<llvm::Module> module)
+Compiler::Compiler(unique_ptr<llvm::Module> module)
 : _iv{nullptr, nullptr}
-, _module(std::move(module))
+, _module(move(module))
 , _builder(_module->getContext())
 , _round_mode(RoundMode::Unknown) {
 	_round_up = _module->getFunction("set_rup");
@@ -30,7 +30,7 @@ Compiler::Compiler(std::unique_ptr<llvm::Module> module)
 	} else {
 		// these aren't named because we want llvm to unique them...
 		// which... seems like the right thing to do.
-		std::vector<Type*> dbls;
+		vector<Type*> dbls;
 		dbls.push_back(Type::getDoubleTy(_module->getContext()));
 		dbls.push_back(Type::getDoubleTy(_module->getContext()));
 		_iv_type = StructType::get(_module->getContext(), dbls, false);
@@ -91,38 +91,40 @@ void Compiler::init_module() {
 		// add set_rup()
 		FunctionType *set_rup_t = FunctionType::get(Type::getVoidTy(_module->getContext()), false);
 		Constant *c = _module->getOrInsertFunction("set_rup", set_rup_t);
-		Function *r_up = cast<Function>(c);
-		IRBuilder<> rupbuilder(&r_up->getEntryBlock(), r_up->getEntryBlock().begin());
-		Value *mxcsr = rupbuilder.CreateAlloca(Type::getIntNTy(_module->getContext(), 32), 0, "the_mxcsr");
-		rupbuilder.CreateCall(stmxcsr, mxcsr);
-		Value *l = rupbuilder.CreateLoad(mxcsr);
-		Value *l2 = rupbuilder.CreateAnd(l, ~0x6000);
-		Value *l3 = rupbuilder.CreateOr(l2, FE_UPWARD << 3);
-		rupbuilder.CreateStore(l3, mxcsr);
-		rupbuilder.CreateCall(ldmxcsr, mxcsr);
-		rupbuilder.CreateRetVoid();
-		_round_up = r_up;
+		Function *r_upf = cast<Function>(c);
+		BasicBlock *bb = BasicBlock::Create(_module->getContext(), "entry", r_upf);
+		_builder.SetInsertPoint(bb);
+		Value *mxcsr = _builder.CreateAlloca(Type::getIntNTy(_module->getContext(), 32), 0, "the_mxcsr");
+		_builder.CreateCall(stmxcsr, mxcsr);
+		Value *l = _builder.CreateLoad(mxcsr);
+		Value *l2 = _builder.CreateAnd(l, ~0x6000);
+		Value *l3 = _builder.CreateOr(l2, FE_UPWARD << 3);
+		_builder.CreateStore(l3, mxcsr);
+		_builder.CreateCall(ldmxcsr, mxcsr);
+		_builder.CreateRetVoid();
+		_round_up = r_upf;
 	}
 	{
 		// add set_rdown()
 		FunctionType *set_rdown_t = FunctionType::get(Type::getVoidTy(_module->getContext()), false);
 		Constant *c = _module->getOrInsertFunction("set_rdown", set_rdown_t);
-		Function *r_down = cast<Function>(c);
-		IRBuilder<> rdownbuilder(&r_down->getEntryBlock(), r_down->getEntryBlock().begin());
-		Value *mxcsr = rdownbuilder.CreateAlloca(Type::getIntNTy(_module->getContext(), 32), 0, "the_mxcsr");
-		rdownbuilder.CreateCall(stmxcsr, mxcsr);
-		Value *l = rdownbuilder.CreateLoad(mxcsr);
-		Value *l2 = rdownbuilder.CreateAnd(l, ~0x6000);
-		Value *l3 = rdownbuilder.CreateOr(l2, FE_DOWNWARD << 3);
-		rdownbuilder.CreateStore(l3, mxcsr);
-		rdownbuilder.CreateCall(ldmxcsr, mxcsr);
-		rdownbuilder.CreateRetVoid();
-		_round_down = r_down;
+		Function *r_downf = cast<Function>(c);
+		BasicBlock *bb = BasicBlock::Create(_module->getContext(), "entry", r_downf);
+		_builder.SetInsertPoint(bb);
+		Value *mxcsr = _builder.CreateAlloca(Type::getIntNTy(_module->getContext(), 32), 0, "the_mxcsr");
+		_builder.CreateCall(stmxcsr, mxcsr);
+		Value *l = _builder.CreateLoad(mxcsr);
+		Value *l2 = _builder.CreateAnd(l, ~0x6000);
+		Value *l3 = _builder.CreateOr(l2, FE_DOWNWARD << 3);
+		_builder.CreateStore(l3, mxcsr);
+		_builder.CreateCall(ldmxcsr, mxcsr);
+		_builder.CreateRetVoid();
+		_round_down = r_downf;
 	}
 
 	{
 		// initialize _iv_type to be a struct of two doubles.
-		std::vector<Type*> dbls;
+		vector<Type*> dbls;
 		dbls.push_back(Type::getDoubleTy(_module->getContext()));
 		dbls.push_back(Type::getDoubleTy(_module->getContext()));
 		_iv_type = StructType::get(_module->getContext(), dbls, false);
@@ -261,8 +263,8 @@ void Compiler::visit(SubExpr &e) {
 
 void Compiler::visit(NegExpr &e) {
 	VInterval val = compile(*e.value());
-	_iv.lo = _builder.CreateNeg(val.hi, "neg_lo");
-	_iv.hi = _builder.CreateNeg(val.lo, "neg_hi");
+	_iv.lo = _builder.CreateFNeg(val.hi, "neg_lo");
+	_iv.hi = _builder.CreateFNeg(val.lo, "neg_hi");
 }
 
 void Compiler::visit(MulExpr &e) {
@@ -331,7 +333,7 @@ void Compiler::visit(ExptExpr &e) {
 		_iv.lo = _builder.CreateSelect(has_zero, zero, one);
 		_iv.hi = ConstantFP::get(_module->getContext(), APFloat(1.0));
 		return;
-	} else if (!(expt&1)) {
+	} else if (expt&1) {
 
 		round_down();
 		_iv.lo = cpow(base.lo, expt, "expt_odd_pow_lo");
@@ -408,6 +410,7 @@ void Compiler::visit(ExptExpr &e) {
 
 		_iv.lo = phi_lo;
 		_iv.hi = phi_hi;
+		fn->getBasicBlockList().push_back(merge_block);
 	}
 
 	if (negative) {
@@ -415,6 +418,7 @@ void Compiler::visit(ExptExpr &e) {
 		_iv.lo = iv.lo;
 		_iv.hi = iv.hi;
 	}
+
 }
 
 void Compiler::visit(LitExpr &e) {
@@ -466,19 +470,19 @@ void Compiler::visit(CallExpr &e) {
 	if (!callee) throw iv_arithmetic_error("Unknown function: '"+e.name()+"'");
 	if ((e.name() == "set_rup") || (e.name() == "set_rdown"))
 		throw iv_arithmetic_error("Calls to '"+e.name()+"' are prohibited");
-	if (!(callee->arg_size() & 1))
+	if (callee->arg_size() & 1)
 		throw iv_arithmetic_error("Bug: odd number of arguments (internal) to function: '"+e.name()+"'");
 	if (callee->arg_size() != 2 * e.args().size())
 		throw iv_arithmetic_error(stringize() << "Invalid argument count for call to '" << e.name() << "'. expected: " << (callee->arg_size()/2) << ", got: " << e.args().size());
 
-	std::vector<Value*> args;
+	vector<Value*> args;
 	for (auto const &expr : e.args()) {
 		VInterval res = compile(*expr);
 		args.push_back(res.lo);
 		args.push_back(res.hi);
 	}
 	Value *res = _builder.CreateCall(callee, args, "call_"+e.name()+"_res");
-	std::vector<unsigned> idxs;
+	vector<unsigned> idxs;
 	idxs.push_back(0);
 	_iv.lo = _builder.CreateExtractValue(res, idxs);
 	idxs.clear();
