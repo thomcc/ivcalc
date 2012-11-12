@@ -6,8 +6,10 @@
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
 
 #include <map>
+
 namespace calc {
 
 // utility struct to simulate multiple return values in c++.
@@ -18,7 +20,9 @@ struct VInterval {
 };
 
 // enum to represent the rounding mode.
-enum class RoundMode { ToNear, ToZero, Up, Down, Unknown };
+enum class RoundMode { /* ToNear, ToZero, */ Up, Down, Unknown };
+
+typedef interval (*jitted_function)(void);
 
 class Compiler : public ExprVisitor {
 public:
@@ -41,10 +45,54 @@ public:
 	void visit(LitExpr &e);
 	void visit(FuncExpr &e);
 	void visit(CallExpr &e);
-
+	// getter for the module
 	std::unique_ptr<llvm::Module> const &module() const { return _module; }
+	// compile a function into llvm ir. if _optimizing is true,
+	// then it optimizes this function as well. otherwise, the function
+	// can be optimized using the optimize method.
 	llvm::Function *compile_func(FuncExpr const &f);
+	// compile an expression into llvm ir. if it's a FuncExpr
+	// it returns compile_func.  otherwise it compiles it into
+	// a function which has no name and takes no arguments but
+	// returns the value computed by the expression.
 	llvm::Function *compile_expr(ExprPtr const &e);
+	// JIT compiles the function an returns a pointer to void
+	// which may be reinterpret_cast into a function with the
+	// appropriate arguments.
+	void *jit_to_void(llvm::Function *f);
+	// JIT compiles the function into a function which takes
+	// no arguments and returns an interval. if `f` takes arguments,
+	// an exception is thrown.
+	jitted_function jit(llvm::Function *f);
+	// same as above, but runs compile_expr first, and throws
+	// if e is a FuncExpr. (note: if _optimizing is true, this
+	// function will be optimized).
+	jitted_function jit_expr(ExprPtr const &e);
+	// convert a function call to a jitted function.
+	// this is somewhat slow, as it needs to compile a small function to do this.
+	// when possible, prefer the execute method
+	jitted_function jit_call(llvm::Function *f, std::vector<interval> const &args);
+	// ame as above, but looks the function up in the symbol table first.
+	jitted_function jit_call(std::string const &name, std::vector<interval> const &args);
+	// convert a vector of intervals to a vector of ConstantFPs.
+	std::vector<llvm::Value*> ivec2vvec(std::vector<interval> const &v);
+	// convert a vector of intervals to a vector of llvm generic values (representing doubles).
+	// execute the given function with the given arguments
+	interval execute(llvm::Function *f, std::vector<interval> const &args);
+	// same as above, but look up the expression in the symbol table first
+	interval execute(std::string const &s, std::vector<interval> const &args);
+	// compile and execute ep.  returns an empty interval if ep is a funcexpr.
+	interval execute(ExprPtr const &ep);
+
+	// get and set the value of _optimizing, which effects if
+	// a compiled function is optimized by default.
+	// the value of _optimizing defaults to true.
+	bool is_optimizing() const { return _optimizing; }
+	void set_optimizing(bool val=true) { _optimizing = val; }
+	// perform optimization using this compilers _fpm on `e`
+	void optimize(llvm::Function &e);
+
+	void do_jit(llvm::Function *f);
 private:
 	// visitor return value.
 	VInterval _iv;
@@ -74,6 +122,17 @@ private:
 	// in the interpreter, though, due to the argument type differences, this isn't
 	// really true.
 	llvm::StructType *_iv_type;
+
+	// funciton pass manager for optimization
+	llvm::FunctionPassManager _fpm;
+	// pointer to the fpm (for polymorphism)
+	llvm::FunctionPassManager  *_fpm_ref;
+	// execution engine for jit
+	llvm::ExecutionEngine *_exec_engine;
+	// whether or not expressions given to compile_expr and compile_func
+	// should be optimized.
+	// (note: Expressions given to optimize are always optimized)
+	bool _optimizing;
 
 	VInterval compile(Expr&);
 
@@ -113,7 +172,58 @@ private:
 	Compiler &operator=(Compiler const &) = delete;
 };
 
+/*
+class PartialCalc {
+	Evaluator _ctx; // env with partial functions defined
+	std::string _fname; // original func name
+	std::vector<std::string> _pnames, _pf_names; // param names and partial func names
+	std::vector<ExprPtr> _fpartials; // funcexprs representing the partials
+	void initialize(FuncExpr const &fe);
+public:
+	PartialCalc();
+	PartialCalc(FuncExpr const &fe, Evaluator &ev);
+	PartialCalc(FuncExpr const &fe);
+	PartialCalc(PartialCalc const &) = default;
+	PartialCalc&operator=(PartialCalc const &);
+	PartialCalc&operator=(PartialCalc&&) = default;
+	std::string const &func_name() const { return _fname; }
+	void call_args(CallExpr const &ce, std::vector<interval> &parms) { _ctx.call_args(ce, parms); }
+	std::vector<std::string> const &params() const { return _pnames; }
+	std::vector<ExprPtr> const &partials() const { return _fpartials; }
+	size_t partial_count() const { return _fpartials.size() - 1; }
+	size_t expr_count() const { return _fpartials.size(); }
+	std::vector<interval> calculate(std::vector<interval> const &args);
+	std::vector<interval> calculate(std::vector<ExprPtr> const &args);
+};
 
+*/
+
+class PartialComp {
+	Compiler *_ctx;
+	std::string _fname;
+	std::vector<std::string> _pnames, _pf_names;
+	std::vector<ExprPtr> _fpartials;
+	std::vector<llvm::Function*> _funcs;
+	void initialize(FuncExpr const &e);
+public:
+	PartialComp();
+	PartialComp(Compiler *c);
+	PartialComp(Compiler *c, FuncExpr &fe);
+	PartialComp &operator=(PartialComp const &);
+
+	std::vector<interval> calculate(std::vector<interval> const &args);
+
+	PartialComp(PartialComp const &) = default;
+	PartialComp &operator=(PartialComp&&) = default;
+
+
+	std::vector<std::string> const &params() const { return _pnames; }
+	std::vector<ExprPtr> const &partials() const { return _fpartials; }
+	std::vector<llvm::Function*> const &funcs() const { return _funcs; }
+	size_t partial_count() const { return _fpartials.size() - 1; }
+	size_t expr_count() const { return _fpartials.size(); }
+
+};
 
 
 

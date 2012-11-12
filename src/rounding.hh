@@ -9,6 +9,38 @@
 #include <limits>
 #include <algorithm> // std::max / std::min
 
+#if defined USE_CXX11_ROUNDING || defined USE_C99_ROUNDING
+
+#define ROUND_UP FE_UPWARD
+#define ROUND_DOWN FE_DOWNWARD
+#define ROUND_NEAR FE_TONEAREST
+#define ROUND_ZERO FE_TOWARDZERO
+
+#define SET_ROUND(X) std::fesetround(X)
+
+#else
+
+// use sse, which is what llvm uses for the jit
+
+#include <xmmintrin.h>
+
+#define ROUND_UP _MM_ROUND_UP
+#define ROUND_DOWN _MM_ROUND_DOWN
+#define ROUND_NEAR _MM_ROUND_NEAREST
+#define ROUND_ZERO _MM_ROUND_TOWARD_ZERO
+#define SET_ROUND(X) _MM_SET_ROUNDING_MODE(X)
+
+#endif
+
+
+// called from jitted code, implementations are in
+// interval.cc.  They are implemented as calls to their rmath equivalents.
+extern "C" {
+	void set_rounding_mode_up(void);
+	void set_rounding_mode_down(void);
+}
+
+
 namespace calc {
 
 //typedef long double real;
@@ -48,10 +80,10 @@ static inline real make_int(real x) { return std::rint(x); }
 static inline real do_round(real d) { volatile real dd = d; return dd; }
 
 // manipulating the rounding mode
-static inline void set_rup()   { std::fesetround(FE_UPWARD);   }
-static inline void set_rdown() { std::fesetround(FE_DOWNWARD); }
-static inline void set_rnear() { std::fesetround(FE_TONEAREST); }
-static inline void set_rzero() { std::fesetround(FE_TOWARDZERO); }
+static inline void set_rup()   { SET_ROUND(ROUND_UP); }
+static inline void set_rdown() { SET_ROUND(ROUND_DOWN); }
+static inline void set_rnear() { SET_ROUND(ROUND_NEAR); }
+static inline void set_rzero() { SET_ROUND(ROUND_ZERO); }
 
 
 // force rounding despite the compiler's objections

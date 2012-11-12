@@ -1,7 +1,18 @@
-#include "compiler.hh"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Analysis/Verifier.h"
-#include "llvm/Intrinsics.h"
+#include "visitors/compiler.hh"
+#include "visitors/simplifier.hh"
+#include "visitors/derivator.hh"
+
+#include <llvm/DerivedTypes.h>
+#include <llvm/Analysis/Verifier.h>
+#include <llvm/Intrinsics.h>
+#include <llvm/ExecutionEngine/JIT.h>
+#include <llvm/Analysis/Verifier.h>
+#include <llvm/Analysis/Passes.h>
+#include <llvm/Target/TargetData.h>
+#include <llvm/Transforms/Scalar.h>
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/ExecutionEngine/GenericValue.h>
+
 namespace calc {
 
 using namespace llvm;
@@ -10,125 +21,51 @@ using namespace std;
 
 Compiler::Compiler()
 : _iv{nullptr, nullptr}
-, _module{new llvm::Module("interval jit", llvm::getGlobalContext())}
+, _module{new Module("interval jit", getGlobalContext())}
 , _builder(_module->getContext())
-, _round_mode(RoundMode::Unknown) {
+, _round_mode(RoundMode::Unknown)
+, _fpm(_module.get())
+, _optimizing(true) {
 	init_module();
 }
 
-Compiler::Compiler(unique_ptr<llvm::Module> module)
+Compiler::Compiler(unique_ptr<Module> module)
 : _iv{nullptr, nullptr}
 , _module(move(module))
 , _builder(_module->getContext())
-, _round_mode(RoundMode::Unknown) {
-	_round_up = _module->getFunction("set_rup");
-	_round_down = _module->getFunction("set_rdown");
-	if (!_round_up || !_round_down) {
-		// either both or neither of these should exist...
-		assert(!_round_up && !_round_down);
-		init_module();
-	} else {
-		// these aren't named because we want llvm to unique them...
-		// which... seems like the right thing to do.
-		vector<Type*> dbls;
-		dbls.push_back(Type::getDoubleTy(_module->getContext()));
-		dbls.push_back(Type::getDoubleTy(_module->getContext()));
-		_iv_type = StructType::get(_module->getContext(), dbls, false);
-	}
+, _round_mode(RoundMode::Unknown)
+, _fpm(_module.get())
+, _optimizing(true) {
+	init_module();
 }
 
-// llvm intrinsics for mxcsr register  (controls sse rounding mode):
-// declare void @llvm.x86.sse.stmxcsr(i32*) nounwind
-// declare void @llvm.x86.sse.ldmxcsr(i32*) nounwind
-//
-// mxcsr 32 bit format:
-//
-// | Location   | Mnemonic | Description                       |
-// | :--------  | :------  | :-------------------------------- |
-// | bits 31-16 |          | Unused as of SSE3                 |
-// | bit 15     | FZ       | Flush to zero (underflow -> zero) |
-// | bit 14     | R+       | Round positive                    |
-// | bit 13     | R-       | Round negative                    |
-// | bits 13-14 | RZ       | Round to zero (if both set)       |
-// | bits 13-14 | RN       | Round to nearest (if neither set) |
-// | bit 12     | PM       | Precision mask                    |
-// | bit 11     | UM       | Underflow mask                    |
-// | bit 10     | OM       | Overflow mask                     |
-// | bit 9      | ZM       | Divide by zero mask               |
-// | bit 8      | DM       | Denormal mask                     |
-// | bit 7      | IM       | Invalid operation mask            |
-// | bit 6      | DAZ      | Denormals are zero                |
-// | bit 5      | PE       | Precision flag                    |
-// | bit 4      | UE       | Underflow flag                    |
-// | bit 3      | OE       | Overflow flag                     |
-// | bit 2      | ZE       | Divide by zero flag               |
-// | bit 1      | DE       | Denormal flag                     |
-// | bit 0      | IE       | Invalid operation flag            |
-//
-// for more info see http://softpixel.com/~cwright/programming/simd/sse.php
-//
-
-
-// add the `setfpr` function to the module, which controls the rounding mode.
 void Compiler::init_module() {
-	// declare the function
-	Function *ldmxcsr = Intrinsic::getDeclaration(_module.get(), Intrinsic::x86_sse_ldmxcsr);
-	Function *stmxcsr = Intrinsic::getDeclaration(_module.get(), Intrinsic::x86_sse_stmxcsr);
-	// this is roughly equivalent to the following c code
-	//
-	//     unsigned int mxcsr;
-	//     __asm__ volatile ("stmxcsr %0" : "=m" (mxcsr))
-	//     mxcsr &= ~0x6000
-	//     mxcsr |= (mode << 3)
-	//     __asm__volatile ("ldmxcsr %0" : : "m" (mxcsr));
-	//
-	// where mode is either FE_DOWNWARD or FE_UPWARD.
-	// unfortunately, this doesn't set the actual fpu rounding mode,
-	// and only controls it for the sse instructions.  in practice, llvm
-	// seems to heavily prefer using fpu instructions (possibly exclusively),
-	//
-	{
-		// add set_rup()
-		FunctionType *set_rup_t = FunctionType::get(Type::getVoidTy(_module->getContext()), false);
-		Constant *c = _module->getOrInsertFunction("set_rup", set_rup_t);
-		Function *r_upf = cast<Function>(c);
-		BasicBlock *bb = BasicBlock::Create(_module->getContext(), "entry", r_upf);
-		_builder.SetInsertPoint(bb);
-		Value *mxcsr = _builder.CreateAlloca(Type::getIntNTy(_module->getContext(), 32), 0, "the_mxcsr");
-		_builder.CreateCall(stmxcsr, mxcsr);
-		Value *l = _builder.CreateLoad(mxcsr);
-		Value *l2 = _builder.CreateAnd(l, ~0x6000);
-		Value *l3 = _builder.CreateOr(l2, FE_UPWARD << 3);
-		_builder.CreateStore(l3, mxcsr);
-		_builder.CreateCall(ldmxcsr, mxcsr);
-		_builder.CreateRetVoid();
-		_round_up = r_upf;
-	}
-	{
-		// add set_rdown()
-		FunctionType *set_rdown_t = FunctionType::get(Type::getVoidTy(_module->getContext()), false);
-		Constant *c = _module->getOrInsertFunction("set_rdown", set_rdown_t);
-		Function *r_downf = cast<Function>(c);
-		BasicBlock *bb = BasicBlock::Create(_module->getContext(), "entry", r_downf);
-		_builder.SetInsertPoint(bb);
-		Value *mxcsr = _builder.CreateAlloca(Type::getIntNTy(_module->getContext(), 32), 0, "the_mxcsr");
-		_builder.CreateCall(stmxcsr, mxcsr);
-		Value *l = _builder.CreateLoad(mxcsr);
-		Value *l2 = _builder.CreateAnd(l, ~0x6000);
-		Value *l3 = _builder.CreateOr(l2, FE_DOWNWARD << 3);
-		_builder.CreateStore(l3, mxcsr);
-		_builder.CreateCall(ldmxcsr, mxcsr);
-		_builder.CreateRetVoid();
-		_round_down = r_downf;
-	}
 
-	{
-		// initialize _iv_type to be a struct of two doubles.
-		vector<Type*> dbls;
-		dbls.push_back(Type::getDoubleTy(_module->getContext()));
-		dbls.push_back(Type::getDoubleTy(_module->getContext()));
-		_iv_type = StructType::get(_module->getContext(), dbls, false);
-	}
+	InitializeNativeTarget();
+	EngineBuilder eb{_module.get()};
+	eb.setEngineKind(EngineKind::JIT);
+	_exec_engine = eb.create();	_fpm.add(new TargetData(*_exec_engine->getTargetData()));
+	_fpm.add(createBasicAliasAnalysisPass());
+	_fpm.add(createInstructionCombiningPass());
+	_fpm.add(createReassociatePass());
+	_fpm.add(createGVNPass());
+	_fpm.add(createCFGSimplificationPass());
+	_fpm.doInitialization();
+	_fpm_ref = &_fpm;
+
+	FunctionType *voidvoid = FunctionType::get(Type::getVoidTy(_module->getContext()), false);
+
+	Constant *ru = _module->getOrInsertFunction("set_rounding_mode_up", voidvoid);
+	Constant *rd = _module->getOrInsertFunction("set_rounding_mode_down", voidvoid);
+
+	_round_up = cast<Function>(ru);
+	_round_down = cast<Function>(rd);
+
+	vector<Type*> dbls;
+	dbls.push_back(Type::getDoubleTy(_module->getContext()));
+	dbls.push_back(Type::getDoubleTy(_module->getContext()));
+	_iv_type = StructType::get(_module->getContext(), dbls, false);
+
 }
 
 
@@ -437,6 +374,11 @@ Function *Compiler::compile_expr(ExprPtr const &e) {
 	return compile_func(FuncExpr(e->clone()));
 }
 
+void Compiler::optimize(Function &e) {
+	_fpm_ref->run(e);
+}
+
+
 Function *Compiler::compile_func(FuncExpr const &e) {
 	vector<Type*> eparms(2*e.params().size(), Type::getDoubleTy(_module->getContext()));
 	FunctionType *etype = FunctionType::get(_iv_type, eparms, false);
@@ -453,12 +395,14 @@ Function *Compiler::compile_func(FuncExpr const &e) {
 	_builder.SetInsertPoint(bb);
 	VInterval v = compile(*e.impl());
 	if (!v.lo || !v.hi)
-		throw iv_arithmetic_error("Error compiling definition of "+e.name()+". Recived null llvm::Value interval");
+		throw iv_arithmetic_error("Error compiling definition of "+e.name()+". Recived null Value interval");
 
 	Value *agg = c_i2v(v, e.name()+"_res");
 	_builder.CreateRet(agg);
 
 	verifyFunction(*efunc);
+	if (is_optimizing())
+		optimize(*efunc);
 	return efunc;
 }
 
@@ -496,11 +440,138 @@ void Compiler::visit(CallExpr &e) {
 	_iv.hi = _builder.CreateExtractValue(res, idxs);
 }
 
+void *Compiler::jit_to_void(Function *f) {
+	return _exec_engine->getPointerToFunction(f);
+}
+
+jitted_function Compiler::jit(Function *f) {
+	if (f->arg_size() != 0) throw iv_arithmetic_error("JIT: expected f->arg_size == 0");
+	// note: UB before c++11. the earlier equivalent cast would be (jitted_function)(intptr_t)(f)
+	return reinterpret_cast<jitted_function>(jit_to_void(f));
+}
+
+jitted_function Compiler::jit_expr(ExprPtr const &e) {
+	if (e->as_func_expr()) throw iv_arithmetic_error("Expected expression in call to jit_expr");
+	Function *f = compile_expr(e);
+	return jit(f);
+}
+
+vector<Value*> Compiler::ivec2vvec(vector<interval> const &v) {
+	vector<Value *> vals;
+	for (auto const &iv : v) {
+		vals.push_back(ConstantFP::get(_module->getContext(), APFloat(iv.lo())));
+		vals.push_back(ConstantFP::get(_module->getContext(), APFloat(iv.hi())));
+	}
+	return vals;
+}
+
+
+interval Compiler::execute(Function *f, vector<interval> const &args) {
+	jitted_function fn = jit_call(f, args);
+	return fn();
+}
+
+
+interval Compiler::execute(string const &s, vector<interval> const &args) {
+	jitted_function f = jit_call(s, args);
+	return f();
+}
+
+interval Compiler::execute(ExprPtr const &ep) {
+	if (ep->as_func_expr()) {
+		compile(*ep);
+		return interval::empty();
+	}
+	jitted_function f = jit_expr(ep);
+	return f();
+}
+
+
+void Compiler::do_jit(llvm::Function *f) {
+	_exec_engine->runJITOnFunction(f);
+}
+
+jitted_function Compiler::jit_call(Function *f, vector<interval> const &args) {
+	if (f->arg_size() != 2 * args.size()) throw iv_arithmetic_error("Wrong number of args to function");
+	vector<Type*> empty_argl;
+	FunctionType *type = FunctionType::get(_iv_type, empty_argl, false);
+	Function *wrapper = Function::Create(type, Function::ExternalLinkage, "", _module.get());
+	BasicBlock *bb = BasicBlock::Create(_module->getContext(), "wrapper_start", wrapper);
+	_builder.SetInsertPoint(bb);
+	vector<Value*> val_args = ivec2vvec(args);
+	Value *res = _builder.CreateCall(f, val_args);
+	_builder.CreateRet(res);
+	verifyFunction(*wrapper);
+	if (is_optimizing())
+		optimize(*wrapper); // nfc what this could do.  maybe inline?
+
+	return jit(f);
+}
+
+jitted_function Compiler::jit_call(string const &name, vector<interval> const &args) {
+	Function *f = _module->getFunction(name);
+	if (!f) throw iv_arithmetic_error("Unknown function: '"+name+"'");
+	return jit_call(f, args);
+}
+
+
 VInterval Compiler::compile(Expr &e) {
 	_iv.lo = _iv.hi = nullptr;
 	e.accept(*this);
 	return _iv;
 }
+
+
+
+PartialComp::PartialComp() : _ctx(nullptr) {}
+
+PartialComp::PartialComp(Compiler *c) : _ctx(c) {}
+
+PartialComp::PartialComp(Compiler *c, FuncExpr &fe) : _ctx(c), _pnames(fe.params()) { initialize(fe); }
+
+PartialComp &PartialComp::operator=(PartialComp const &pc) {
+	_ctx = pc._ctx;
+	_fname = pc._fname;
+	_pnames = pc._pnames;
+	_pf_names = pc._pf_names;
+	_funcs = pc._funcs;
+	for (auto const &ep : pc._fpartials)
+		_fpartials.push_back(ep->clone());
+	EXPECT(_ctx, "Error: PartialComp initialized with null compiler!");
+	return *this;
+}
+
+void PartialComp::initialize(FuncExpr const &fe) {
+	EXPECT(_ctx, "Error: PartialComp initialized with null compiler!");
+	string deriv_prefix = stringize() << "d" << _fname << "/d";
+	_pf_names.push_back(fe.name());
+	ExprPtr ffe = Expr::make_func(fe.name(), fe.params(), Simplifier::simplified(fe.impl()));
+	_fpartials.push_back(move(ffe));
+	Function *f = _ctx->compile_func(*ffe->as_func_expr());
+	_funcs.push_back(f);
+	for (auto const &i : Derivator::partials(fe)) {
+		_pf_names.push_back(deriv_prefix + i.first);
+		ExprPtr pfe = Expr::make_func(_pf_names.back(), _pnames, Simplifier::simplified(i.second));
+		_fpartials.push_back(move(pfe));
+		Function *pf = _ctx->compile_func(*pfe->as_func_expr());
+		_ctx->do_jit(pf);
+		_funcs.push_back(pf);
+	}
+}
+
+
+
+vector<interval> PartialComp::calculate(vector<interval> const &args) {
+	vector<interval> res;
+	// idea: generate a function which takes a function as an argument,
+	// and calls it with `args`, then call that function wich each
+	// Function in _funcs.
+	for (auto f : _funcs)
+		res.push_back(_ctx->execute(f, args));
+	return res;
+}
+
+
 
 
 }
