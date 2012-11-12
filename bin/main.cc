@@ -6,6 +6,8 @@
 #include "visitors/eval.hh"
 #include "visitors/derivator.hh"
 #include "visitors/compiler.hh"
+#include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/Debug.h>
 #include <cstdio>
 #include <cstdlib>
 #include <random>
@@ -207,7 +209,10 @@ int handle_expr(ExprPtr const &expr,
 						cout << "\t";
 						print.print(*pcomp.partials().at(i));
 						cout << endl;
+						cout.flush();
 						pcomp.funcs().at(i)->dump();
+						cout.flush();
+						llvm::dbgs().flush();
 					}
 					did_codegen = true;
 				} else {
@@ -240,7 +245,9 @@ int handle_expr(ExprPtr const &expr,
 					PartialComp pc(c, *fe);
 					for (size_t i = 0; i < pc.expr_count(); ++i) {
 						print.print(*pc.partials().at(i));
+						cout.flush();
 						pc.funcs().at(i)->dump();
+						llvm::dbgs().flush();
 					}
 				}
 			}
