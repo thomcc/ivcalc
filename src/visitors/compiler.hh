@@ -7,7 +7,7 @@
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
-
+#include "llvm/Support/NoFolder.h"
 #include <map>
 
 namespace calc {
@@ -109,7 +109,7 @@ private:
 	// a pointer to the llvm module.
 	llvm::Module *_module;
 	// the ir builder we're using.
-	llvm::IRBuilder<> _builder;
+	llvm::IRBuilder<true, llvm::NoFolder> _builder;
 	// vintervals for the named values in this function.
 	// We unbox arguments for functions to reduce the calling overhead
 	// so `func(a, b, c, d)` is compiled to a llvm::Function taking 8 doubles,

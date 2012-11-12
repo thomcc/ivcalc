@@ -58,7 +58,8 @@ void Compiler::init_module() {
 	_fpm.add(createInstructionCombiningPass());
 	_fpm.add(createReassociatePass());
 	_fpm.add(createGVNPass());
-	_fpm.add(createCFGSimplificationPass());
+// segfaults due to llvm bug.  bug is fixed in a newer (unstable) release
+//	_fpm.add(createCFGSimplificationPass());
 	_fpm.doInitialization();
 	_fpm_ref = &_fpm;
 
@@ -258,7 +259,7 @@ void Compiler::visit(DivExpr &e) {
 Value *Compiler::cpow(Value *val, int times, string const &name) {
 	assert(times > 0);
 	Value *res = val;
-	for (int i = 0; i < times; ++i) {
+	for (int i = 1; i < times; ++i) {
 		string s = stringize() << name << "_iter_" << i << "_";
 		res = _builder.CreateFMul(res, val, s);
 	}
@@ -303,9 +304,9 @@ void Compiler::visit(ExptExpr &e) {
 		_builder.SetInsertPoint(both_neg);
 		round_down();
 		Value *lo_expt_bneg = cpow(base.hi, expt, "expt_even_bothneg_lo");
-
 		round_up();
 		Value *hi_expt_bneg = cpow(base.lo, expt, "expt_even_bothneg_hi");
+
 		// rounding mode is up gooing to merge block
 		_builder.CreateBr(merge_block);
 		fn->getBasicBlockList().push_back(one_pos);
