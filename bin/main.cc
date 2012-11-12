@@ -257,7 +257,7 @@ int handle_expr(ExprPtr const &expr,
 int repl(bool verbose, bool benchmark, bool codegen, bool emit_partials, bool jit) {
 
 	cout << endl;
-	cout << "Interval compile." << endl;
+	cout << "Interval arithmetic evaluator/compiler." << endl;
 	cout << "Press Ctrl+C to exit" << endl;
 	cout << "enter `!h` for options" << endl;
 	cout << endl;
