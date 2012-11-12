@@ -35,10 +35,11 @@ typedef ret_interval (*jitted_function)(void);
 class Compiler : public ExprVisitor {
 public:
 	Compiler();
+	~Compiler();
 	// initialize from a module.  we check if the the module has
 	// the r_up and r_down functions and define them if not.  otherwise
 	// we assume it's been initiallized already.
-	Compiler(std::unique_ptr<llvm::Module>);
+	Compiler(llvm::Module*);
 	// these move the module from the other compiler.
 	// that is, the created or assigned compiler takes ownership
 	// of all data from the other, which is left empty.
@@ -54,7 +55,7 @@ public:
 	void visit(FuncExpr &e);
 	void visit(CallExpr &e);
 	// getter for the module
-	std::unique_ptr<llvm::Module> const &module() const { return _module; }
+	llvm::Module *module() const { return _module; }
 	// compile a function into llvm ir. if _optimizing is true,
 	// then it optimizes this function as well. otherwise, the function
 	// can be optimized using the optimize method.
@@ -105,7 +106,7 @@ private:
 	// visitor return value.
 	VInterval _iv;
 	// a pointer to the llvm module.
-	std::unique_ptr<llvm::Module> _module;
+	llvm::Module *_module;
 	// the ir builder we're using.
 	llvm::IRBuilder<> _builder;
 	// vintervals for the named values in this function.

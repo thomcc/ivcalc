@@ -24,17 +24,18 @@ Compiler::Compiler()
 , _module{new Module("interval jit", getGlobalContext())}
 , _builder(_module->getContext())
 , _round_mode(RoundMode::Unknown)
-, _fpm(_module.get())
+, _fpm(_module)
 , _optimizing(true) {
 	init_module();
 }
+Compiler::~Compiler() { /* delete _module; */ } // todo: figue out why this crashes
 
-Compiler::Compiler(unique_ptr<Module> module)
+Compiler::Compiler(Module *module)
 : _iv{nullptr, nullptr}
-, _module(move(module))
+, _module(module)
 , _builder(_module->getContext())
 , _round_mode(RoundMode::Unknown)
-, _fpm(_module.get())
+, _fpm(_module)
 , _optimizing(true) {
 	init_module();
 }
@@ -42,7 +43,7 @@ Compiler::Compiler(unique_ptr<Module> module)
 void Compiler::init_module() {
 
 	InitializeNativeTarget();
-	EngineBuilder eb{_module.get()};
+	EngineBuilder eb{_module};
 	eb.setEngineKind(EngineKind::JIT);
 	_exec_engine = eb.create();	_fpm.add(new TargetData(*_exec_engine->getTargetData()));
 	_fpm.add(createBasicAliasAnalysisPass());
@@ -382,7 +383,7 @@ void Compiler::optimize(Function &e) {
 Function *Compiler::compile_func(FuncExpr const &e) {
 	vector<Type*> eparms(2*e.params().size(), Type::getDoubleTy(_module->getContext()));
 	FunctionType *etype = FunctionType::get(_iv_type, eparms, false);
-	Function *efunc = Function::Create(etype, Function::ExternalLinkage, e.name(), _module.get());
+	Function *efunc = Function::Create(etype, Function::ExternalLinkage, e.name(), _module);
 	auto argiter = efunc->arg_begin();
 	for (auto const &parm : e.params()) {
 		VInterval &v = _named[parm];
@@ -495,7 +496,7 @@ jitted_function Compiler::jit_call(Function *f, vector<interval> const &args) {
 	if (f->arg_size() != 2 * args.size()) throw iv_arithmetic_error("Wrong number of args to function");
 	vector<Type*> empty_argl;
 	FunctionType *type = FunctionType::get(_iv_type, empty_argl, false);
-	Function *wrapper = Function::Create(type, Function::ExternalLinkage, "", _module.get());
+	Function *wrapper = Function::Create(type, Function::ExternalLinkage, "", _module);
 	BasicBlock *bb = BasicBlock::Create(_module->getContext(), "wrapper_start", wrapper);
 	_builder.SetInsertPoint(bb);
 	vector<Value*> val_args = ivec2vvec(args);

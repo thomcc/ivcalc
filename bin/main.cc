@@ -13,7 +13,7 @@
 #include <functional>
 #include <csignal>
 #include <fstream>
-
+// this is a huge mess. its really not worth even looking at.
 using namespace std;
 using namespace calc;
 
@@ -188,15 +188,21 @@ int handle_expr(ExprPtr const &expr,
 			cout << endl;
 		}
 
-		if (benchmark) {			if (FuncExpr *fe = expr->as_func_expr()) {
+		if (benchmark) {
+			if (FuncExpr *fe = expr->as_func_expr()) {
 				Timer t;
+				PartialComp pcomp;
 				t.start();
-				PartialComp pcomp(c, *fe);
-				t.stop();
+				if (jit) {
+					puts("compiling... (somewhat slow)");
+					pcomp = PartialComp(c, *fe);
+				}
 				PartialCalc pcalc(*fe, e);
+				t.stop();
+
 
 				cout << (jit ? "Derived and compiled " : "Derived ") << pcalc.partial_count() << " partials in " << t.get_time<chrono::milliseconds>() <<"ms." << endl;
-				if (partials) {
+				if (partials && jit) {
 					for (size_t i = 0; i < pcomp.expr_count(); ++i) {
 						cout << "\t";
 						print.print(*pcomp.partials().at(i));
@@ -298,9 +304,8 @@ int repl(bool verbose, bool benchmark, bool codegen, bool emit_partials, bool ji
 
 
 int handle_expr(string const &expr_src, bool vb, bool bm, bool cg, bool part, bool jit) {
-
+	static Compiler c; // todo: why is this crashing?
 	Evaluator e;
-	Compiler c;
 	Printer print(cout, true);
 	ErrorHandler eh(false, false);
 	Parser parser(expr_src, eh);
@@ -577,6 +582,7 @@ interp_flag:
 			printf("%s: Error reading file (%s)\n", program_name.c_str(), fname.c_str());
 			exit(1);
 		}
+		benchmark = true;
 		from_str = true;
 	} else if (flags.s) {
 		assert(!(flags.e || flags.f || flags.r));
