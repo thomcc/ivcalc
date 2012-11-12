@@ -19,10 +19,18 @@ struct VInterval {
 	llvm::Value *lo, *hi;
 };
 
+struct ret_interval {
+	double lo, hi;
+};
+
+inline interval from_ret(ret_interval ri) {
+	return interval{ri.lo, ri.hi};
+}
+
 // enum to represent the rounding mode.
 enum class RoundMode { /* ToNear, ToZero, */ Up, Down, Unknown };
 
-typedef interval (*jitted_function)(void);
+typedef ret_interval (*jitted_function)(void);
 
 class Compiler : public ExprVisitor {
 public:

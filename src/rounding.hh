@@ -9,6 +9,10 @@
 #include <limits>
 #include <algorithm> // std::max / std::min
 
+
+
+#define USE_CXX11_ROUNDING
+
 #if defined USE_CXX11_ROUNDING || defined USE_C99_ROUNDING
 
 #define ROUND_UP FE_UPWARD

@@ -468,13 +468,13 @@ vector<Value*> Compiler::ivec2vvec(vector<interval> const &v) {
 
 interval Compiler::execute(Function *f, vector<interval> const &args) {
 	jitted_function fn = jit_call(f, args);
-	return fn();
+	return from_ret(fn());
 }
 
 
 interval Compiler::execute(string const &s, vector<interval> const &args) {
 	jitted_function f = jit_call(s, args);
-	return f();
+	return from_ret(f());
 }
 
 interval Compiler::execute(ExprPtr const &ep) {
@@ -483,7 +483,7 @@ interval Compiler::execute(ExprPtr const &ep) {
 		return interval::empty();
 	}
 	jitted_function f = jit_expr(ep);
-	return f();
+	return from_ret(f());
 }
 
 
@@ -504,8 +504,11 @@ jitted_function Compiler::jit_call(Function *f, vector<interval> const &args) {
 	verifyFunction(*wrapper);
 	if (is_optimizing())
 		optimize(*wrapper); // nfc what this could do.  maybe inline?
-
-	return jit(f);
+//	Type *wrapty = wrapper->getReturnType();
+//	cout << "wrapty: ";
+//	wrapty->dump();
+//	cout << endl;
+	return jit(wrapper);
 }
 
 jitted_function Compiler::jit_call(string const &name, vector<interval> const &args) {
@@ -547,13 +550,13 @@ void PartialComp::initialize(FuncExpr const &fe) {
 	_pf_names.push_back(fe.name());
 	ExprPtr ffe = Expr::make_func(fe.name(), fe.params(), Simplifier::simplified(fe.impl()));
 	_fpartials.push_back(move(ffe));
-	Function *f = _ctx->compile_func(*ffe->as_func_expr());
+	Function *f = _ctx->compile_func(*_fpartials.back()->as_func_expr());
 	_funcs.push_back(f);
 	for (auto const &i : Derivator::partials(fe)) {
 		_pf_names.push_back(deriv_prefix + i.first);
 		ExprPtr pfe = Expr::make_func(_pf_names.back(), _pnames, Simplifier::simplified(i.second));
 		_fpartials.push_back(move(pfe));
-		Function *pf = _ctx->compile_func(*pfe->as_func_expr());
+		Function *pf = _ctx->compile_func(*_fpartials.back()->as_func_expr());
 		_ctx->do_jit(pf);
 		_funcs.push_back(pf);
 	}
