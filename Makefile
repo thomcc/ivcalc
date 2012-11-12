@@ -45,7 +45,7 @@ run_tests:
 	@echo running tests...
 	@./${TESTMAIN}
 
-${PROGRAMS}: ${PROGOBJS} ${addsuffix .cc, $@}
+${PROGRAMS}: ${PROGOBJS} ${TARGET} ${addsuffix .cc, $@}
 	@echo LINK $@
 	@${CXX} ${addsuffix .o, $@} ${LIBS} ${CXXFLAGS} ${TARGET} -g -o $@ -MD
 

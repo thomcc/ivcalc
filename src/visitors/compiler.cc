@@ -21,15 +21,21 @@ using namespace std;
 
 Compiler::Compiler()
 : _iv{nullptr, nullptr}
-, _module{new Module("interval jit", getGlobalContext())}
+, _module(new Module("interval jit", getGlobalContext()))
 , _builder(_module->getContext())
 , _round_mode(RoundMode::Unknown)
 , _fpm(_module)
 , _optimizing(true) {
 	init_module();
 }
-Compiler::~Compiler() { /* delete _module; */ } // todo: figue out why this crashes
 
+Compiler *Compiler::get() {
+	static Compiler c;
+	return &c;
+}
+
+Compiler::~Compiler() { /*delete _module;*/ } // todo: figure out why this crashes
+/*
 Compiler::Compiler(Module *module)
 : _iv{nullptr, nullptr}
 , _module(module)
@@ -38,14 +44,16 @@ Compiler::Compiler(Module *module)
 , _fpm(_module)
 , _optimizing(true) {
 	init_module();
-}
+}*/
 
 void Compiler::init_module() {
 
 	InitializeNativeTarget();
 	EngineBuilder eb{_module};
+//	eb.setEngineKind(EngineKind::Interpreter);
 	eb.setEngineKind(EngineKind::JIT);
-	_exec_engine = eb.create();	_fpm.add(new TargetData(*_exec_engine->getTargetData()));
+	_exec_engine = eb.create();
+	_fpm.add(new TargetData(*_exec_engine->getTargetData()));
 	_fpm.add(createBasicAliasAnalysisPass());
 	_fpm.add(createInstructionCombiningPass());
 	_fpm.add(createReassociatePass());

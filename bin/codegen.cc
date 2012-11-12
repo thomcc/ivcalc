@@ -51,7 +51,7 @@ int repl(int vrb) {
 	cout << endl;
 
 	Simplifier s;
-	Compiler c;
+	Compiler *c = Compiler::get();
 	Printer print(cout, true);
 	for (;;) {
 		string src;
@@ -84,7 +84,7 @@ int repl(int vrb) {
 			if (FuncExpr const *fe = expr->as_func_expr()) {
 				llvm::Function *f = nullptr;
 				try {
-					f = c.compile_func(*fe);
+					f = c->compile_func(*fe);
 				} catch (exception e) {
 					cerr << "Uncaught error: " << e.what() << endl;
 					return 3;

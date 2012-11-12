@@ -34,12 +34,7 @@ typedef ret_interval (*jitted_function)(void);
 
 class Compiler : public ExprVisitor {
 public:
-	Compiler();
-	~Compiler();
-	// initialize from a module.  we check if the the module has
-	// the r_up and r_down functions and define them if not.  otherwise
-	// we assume it's been initiallized already.
-	Compiler(llvm::Module*);
+
 	// these move the module from the other compiler.
 	// that is, the created or assigned compiler takes ownership
 	// of all data from the other, which is left empty.
@@ -102,8 +97,14 @@ public:
 	void optimize(llvm::Function &e);
 
 	void do_jit(llvm::Function *f);
+	static Compiler *get();
 private:
-	// visitor return value.
+	// these are private because freeing a module causes
+	// a segmentation fault from deep within llvm.
+	// TODO! figure the out.
+	Compiler();
+	~Compiler();
+
 	VInterval _iv;
 	// a pointer to the llvm module.
 	llvm::Module *_module;
