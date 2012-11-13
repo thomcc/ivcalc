@@ -186,7 +186,5 @@ interval int_pow(interval const &x, int y) {
 
 
 // rounding mode manipulation: called from jitted code.
-void set_rounding_mode_up(void) { ::calc::rmath::set_rup(); }
-void set_rounding_mode_down(void) { ::calc::rmath::set_rdown(); }
 //void set_rounding_mode_near(void) { ::calc::rmath::set_rnear(); }
 //void set_rounding_mode_tozr(void) { ::calc::rmath::set_rzero(); }

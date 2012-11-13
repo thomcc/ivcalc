@@ -24,7 +24,9 @@
 
 #else
 
-// use sse, which is what llvm uses for the jit
+// use sse, which is what llvm uses for the jit (some of the time?)
+// unfortunately, this causes many tests to fail, so there's likely
+// something other than this involved.
 
 #include <xmmintrin.h>
 
@@ -36,19 +38,8 @@
 
 #endif
 
-
-// called from jitted code, implementations are in
-// interval.cc.  They are implemented as calls to their rmath equivalents.
-extern "C" {
-	void set_rounding_mode_up(void);
-	void set_rounding_mode_down(void);
-}
-
-
 namespace calc {
 
-//typedef long double real;
-//#define REAL_FMT "%Lf"
 
 #define real_zero (static_cast<real>(0))
 #define real_one (static_cast<real>(1))
