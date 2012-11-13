@@ -271,7 +271,7 @@ int repl(bool verbose, bool benchmark, bool codegen, bool emit_partials, bool ji
 
 	Evaluator e;
 	Simplifier s;
-	Compiler *c = Compiler::get();
+	Compiler c;//*c = Compiler::get();
 	Printer print(cout, true);
 
 	for (;;) {
@@ -285,9 +285,10 @@ int repl(bool verbose, bool benchmark, bool codegen, bool emit_partials, bool ji
 			ErrorHandler eh;
 			ltrim(src);
 			if (src[0] == '!') {
-				bool opt = c->is_optimizing();
+				bool opt = c.is_optimizing();//c->is_optimizing();
 				parse_cmd(src, verbose, benchmark, codegen, emit_partials, jit, opt);
-				c->set_optimizing(opt);
+				c.set_optimizing();
+				//c->set_optimizing(opt);
 				src = "";
 				continue;
 			}
@@ -304,14 +305,14 @@ int repl(bool verbose, bool benchmark, bool codegen, bool emit_partials, bool ji
 			if (cin.eof()) return 0;
 			return 2;
 		}
-		int ret = handle_expr(expr, verbose, benchmark, codegen, emit_partials, jit, e, c, print);
+		int ret = handle_expr(expr, verbose, benchmark, codegen, emit_partials, jit, e, &c, print);
 		if (ret) return ret;
 	}
 }
 
 
 int handle_expr(string const &expr_src, bool vb, bool bm, bool cg, bool part, bool jit) {
-	Compiler *c = Compiler::get();
+	Compiler c;// = Compiler::get();
 	Evaluator e;
 	Printer print(cout, true);
 	ErrorHandler eh(false, false);
@@ -329,7 +330,7 @@ int handle_expr(string const &expr_src, bool vb, bool bm, bool cg, bool part, bo
 	}
 	if (eh.errors() != 0) return eh.errors();
 
-	return handle_expr(expr, vb, bm, cg, part, jit, e, c, print);
+	return handle_expr(expr, vb, bm, cg, part, jit, e, &c, print);
 }
 
 int do_bench(string expr_src) {

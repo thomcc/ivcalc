@@ -97,13 +97,10 @@ public:
 	void optimize(llvm::Function &e);
 
 	void do_jit(llvm::Function *f);
-	static Compiler *get();
-private:
-	// these are private because freeing a module causes
-	// a segmentation fault from deep within llvm.
-	// TODO! figure the out.
 	Compiler();
 	~Compiler();
+private:
+
 
 	VInterval _iv;
 	// a pointer to the llvm module.
@@ -147,6 +144,8 @@ private:
 	VInterval compile(Expr&);
 
 	void init_module();
+
+	llvm::Value *cforce_round(llvm::Value *a, std::string const &name="force_round");
 
 	// utility functions for compiling these operations.  some of
 	// them, e.g. {mul,div}_{hi,lo} aren't used.

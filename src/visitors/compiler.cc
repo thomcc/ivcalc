@@ -28,28 +28,14 @@ Compiler::Compiler()
 	init_module();
 }
 
-Compiler *Compiler::get() {
-	static Compiler c;
-	return &c;
-}
 
-Compiler::~Compiler() { /*delete _module;*/ } // todo: figure out why this crashes
-/*
-Compiler::Compiler(Module *module)
-: _iv{nullptr, nullptr}
-, _module(module)
-, _builder(_module->getContext())
-, _round_mode(RoundMode::Unknown)
-, _fpm(_module)
-, _optimizing(true) {
-	init_module();
-}*/
+Compiler::~Compiler() { delete _module; }
 
 void Compiler::init_module() {
 
 	InitializeNativeTarget();
 	EngineBuilder eb{_module};
-//	eb.setEngineKind(EngineKind::Interpreter);
+
 	eb.setEngineKind(EngineKind::JIT);
 	_exec_engine = eb.create();
 	_fpm.add(new TargetData(*_exec_engine->getTargetData()));
@@ -57,8 +43,7 @@ void Compiler::init_module() {
 	_fpm.add(createInstructionCombiningPass());
 	_fpm.add(createReassociatePass());
 	_fpm.add(createGVNPass());
-// segfaults due to llvm bug.  bug is fixed in a newer (unstable) release
-//	_fpm.add(createCFGSimplificationPass());
+	_fpm.add(createCFGSimplificationPass());
 	_fpm.doInitialization();
 	_fpm_ref = &_fpm;
 
@@ -95,45 +80,54 @@ void Compiler::reset_round() {
 	_round_mode = RoundMode::Unknown;
 }
 
+Value *Compiler::cforce_round(Value *a, string const &name) {
+	Value *mem = _builder.CreateAlloca(Type::getDoubleTy(_module->getContext()), 0, name+"_fr_mem");
+	_builder.CreateLifetimeStart(mem);
+	_builder.CreateStore(a, mem, true);
+	Value *rounded = _builder.CreateLoad(mem, true, name+"fr_rounded");
+	_builder.CreateLifetimeEnd(mem);
+	return rounded;
+}
+
 
 Value *Compiler::cadd_lo(Value *a, Value *b, const char *name) {
 	round_down();
-	return _builder.CreateFAdd(a, b, name);
+	return cforce_round(_builder.CreateFAdd(a, b, name));
 }
 
 Value *Compiler::cadd_hi(Value *a, Value *b, const char *name) {
 	round_up();
-	return _builder.CreateFAdd(a, b, name);
+	return cforce_round(_builder.CreateFAdd(a, b, name));
 }
 
 Value *Compiler::csub_lo(Value *a, Value *b, const char *name) {
 	round_down();
-	return _builder.CreateFSub(a, b, name);
+	return cforce_round(_builder.CreateFSub(a, b, name));
 }
 
 Value *Compiler::csub_hi(Value *a, Value *b, const char *name) {
 	round_up();
-	return _builder.CreateFSub(a, b, name);
+	return cforce_round(_builder.CreateFSub(a, b, name));
 }
 
 Value *Compiler::cmul_lo(Value *a, Value *b, const char *name) {
 	round_down();
-	return _builder.CreateFMul(a, b, name);
+	return cforce_round(_builder.CreateFMul(a, b, name));
 }
 
 Value *Compiler::cmul_hi(Value *a, Value *b, const char *name) {
 	round_up();
-	return _builder.CreateFMul(a, b, name);
+	return cforce_round(_builder.CreateFMul(a, b, name));
 }
 
 Value *Compiler::cdiv_lo(Value *a, Value *b, const char *name) {
 	round_down();
-	return _builder.CreateFDiv(a, b, name);
+	return cforce_round(_builder.CreateFDiv(a, b, name));
 }
 
 Value *Compiler::cdiv_hi(Value *a, Value *b, const char *name) {
 	round_up();
-	return _builder.CreateFDiv(a, b, name);
+	return cforce_round(_builder.CreateFDiv(a, b, name));
 }
 
 Value *Compiler::cmax(Value *a, Value *b, string const &name) {
@@ -170,14 +164,14 @@ VInterval Compiler::cinvert(Value *lo, Value *hi, string const &name) {
 
 	round_up();
 
-	Value *ah = _builder.CreateFDiv(one, lo, name+"_inv_hi_a");
-	Value *bh = _builder.CreateFDiv(one, hi, name+"_inv_hi_b");
+	Value *ah = cforce_round(_builder.CreateFDiv(one, lo, name+"_inv_hi_a"));
+	Value *bh = cforce_round(_builder.CreateFDiv(one, hi, name+"_inv_hi_b"));
 	ret.hi = cmax(ah, bh, name+"_inv_hi");
 
 	round_down();
 
-	Value *ch = _builder.CreateFDiv(one, lo, name+"_inv_lo_a");
-	Value *dh = _builder.CreateFDiv(one, hi, name+"_inv_lo_b");
+	Value *ch = cforce_round(_builder.CreateFDiv(one, lo, name+"_inv_lo_a"));
+	Value *dh = cforce_round(_builder.CreateFDiv(one, hi, name+"_inv_lo_b"));
 	ret.lo = cmin(ch, dh, name+"_inv_lo");
 
 	return ret;
@@ -220,17 +214,17 @@ void Compiler::visit(MulExpr &e) {
 	// todo: consider optimizing in a manner similar to interval.cc
 
 	round_up();
-	Value *ah = _builder.CreateFMul(lhs.lo, rhs.lo, "mul_hi_a");
-	Value *bh = _builder.CreateFMul(lhs.lo, rhs.hi, "mul_hi_b");
-	Value *ch = _builder.CreateFMul(lhs.hi, rhs.lo, "mul_hi_c");
-	Value *dh = _builder.CreateFMul(lhs.hi, rhs.hi, "mul_hi_d");
+	Value *ah = cforce_round(_builder.CreateFMul(lhs.lo, rhs.lo, "mul_hi_a"));
+	Value *bh = cforce_round(_builder.CreateFMul(lhs.lo, rhs.hi, "mul_hi_b"));
+	Value *ch = cforce_round(_builder.CreateFMul(lhs.hi, rhs.lo, "mul_hi_c"));
+	Value *dh = cforce_round(_builder.CreateFMul(lhs.hi, rhs.hi, "mul_hi_d"));
 	_iv.hi = cmax4(ah, bh, ch, dh, "mul_hi");
 
 	round_down();
-	Value *al = _builder.CreateFMul(lhs.lo, rhs.lo, "mul_lo_a");
-	Value *bl = _builder.CreateFMul(lhs.lo, rhs.hi, "mul_lo_b");
-	Value *cl = _builder.CreateFMul(lhs.hi, rhs.lo, "mul_lo_c");
-	Value *dl = _builder.CreateFMul(lhs.hi, rhs.hi, "mul_lo_d");
+	Value *al = cforce_round(_builder.CreateFMul(lhs.lo, rhs.lo, "mul_lo_a"));
+	Value *bl = cforce_round(_builder.CreateFMul(lhs.lo, rhs.hi, "mul_lo_b"));
+	Value *cl = cforce_round(_builder.CreateFMul(lhs.hi, rhs.lo, "mul_lo_c"));
+	Value *dl = cforce_round(_builder.CreateFMul(lhs.hi, rhs.hi, "mul_lo_d"));
 	_iv.lo = cmin4(al, bl, cl, dl, "mul_lo");
 
 }
@@ -240,17 +234,17 @@ void Compiler::visit(DivExpr &e) {
 	VInterval rhs = compile(*e.rhs());
 
 	round_up();
-	Value *ah = _builder.CreateFDiv(lhs.lo, rhs.lo, "div_hi_a");
-	Value *bh = _builder.CreateFDiv(lhs.lo, rhs.hi, "div_hi_b");
-	Value *ch = _builder.CreateFDiv(lhs.hi, rhs.lo, "div_hi_c");
-	Value *dh = _builder.CreateFDiv(lhs.hi, rhs.hi, "div_hi_d");
+	Value *ah = cforce_round(_builder.CreateFDiv(lhs.lo, rhs.lo, "div_hi_a"));
+	Value *bh = cforce_round(_builder.CreateFDiv(lhs.lo, rhs.hi, "div_hi_b"));
+	Value *ch = cforce_round(_builder.CreateFDiv(lhs.hi, rhs.lo, "div_hi_c"));
+	Value *dh = cforce_round(_builder.CreateFDiv(lhs.hi, rhs.hi, "div_hi_d"));
 	_iv.hi = cmax4(ah, bh, ch, dh, "div_hi");
 
 	round_down();
-	Value *al = _builder.CreateFDiv(lhs.lo, rhs.lo, "div_lo_a");
-	Value *bl = _builder.CreateFDiv(lhs.lo, rhs.hi, "div_lo_b");
-	Value *cl = _builder.CreateFDiv(lhs.hi, rhs.lo, "div_lo_c");
-	Value *dl = _builder.CreateFDiv(lhs.hi, rhs.hi, "div_lo_d");
+	Value *al = cforce_round(_builder.CreateFDiv(lhs.lo, rhs.lo, "div_lo_a"));
+	Value *bl = cforce_round(_builder.CreateFDiv(lhs.lo, rhs.hi, "div_lo_b"));
+	Value *cl = cforce_round(_builder.CreateFDiv(lhs.hi, rhs.lo, "div_lo_c"));
+	Value *dl = cforce_round(_builder.CreateFDiv(lhs.hi, rhs.hi, "div_lo_d"));
 	_iv.lo = cmin4(al, bl, cl, dl, "div_lo");
 
 }
@@ -295,8 +289,8 @@ Value *Compiler::cpow(Value *val, int pwr, string const &name) {
 	Value *y = (pwr & 1) ? x : get_dbl(1);
 	pwr >>= 1;
 	while (pwr > 0) {
-		x = _builder.CreateFMul(x, x, name+"_unroll_x");
-		if (pwr & 1) y = _builder.CreateFMul(x, y, name+"pwr_do_y");
+		x = cforce_round(_builder.CreateFMul(x, x, name+"_unroll_x"));
+		if (pwr & 1) y = cforce_round(_builder.CreateFMul(x, y, name+"pwr_do_y"));
 		pwr >>= 1;
 	}
 	return y;
@@ -401,12 +395,12 @@ void Compiler::visit(ExptExpr &e) {
 		if (negative) {
 			round_up();
 			Value *one = get_dbl(1);
-			Value *ah = _builder.CreateFDiv(one, reslo, "expt_invert_hi_a");
-			Value *bh = _builder.CreateFDiv(one, reshi, "expt_invert_hi_b");
+			Value *ah = cforce_round(_builder.CreateFDiv(one, reslo, "expt_invert_hi_a"));
+			Value *bh = cforce_round(_builder.CreateFDiv(one, reshi, "expt_invert_hi_b"));
 			_iv.hi = cmax(ah, bh, "expt_invert_hi");
 			round_down();
-			Value *ch = _builder.CreateFDiv(one, reslo, "expt_inv_lo_a");
-			Value *dh = _builder.CreateFDiv(one, reshi, "expt_inv_lo_b");
+			Value *ch = cforce_round(_builder.CreateFDiv(one, reslo, "expt_inv_lo_a"));
+			Value *dh = cforce_round(_builder.CreateFDiv(one, reshi, "expt_inv_lo_b"));
 			_iv.lo = cmin(ch, dh, "expt_invert_lo");
 		} else {
 			_iv.lo = reslo;
@@ -414,119 +408,6 @@ void Compiler::visit(ExptExpr &e) {
 		}
 	}
 }
-
-/*
-Value *Compiler::cpow(Value *val, int times, string const &name) {
-	assert(times > 0);
-	Value *res = val;
-	for (int i = 1; i < times; ++i) {
-		string s = stringize() << name << "_iter_" << i << "_";
-		res = _builder.CreateFMul(res, val, s);
-	}
-	return res;
-}
-void Compiler::visit(ExptExpr &e) {
-	VInterval base = compile(*e.base());
-	int expt = e.power();
-	bool negative = false;
-	if (expt < 0) { negative = true; expt *= -1; }
-	if (expt == 0) {
-		// [a,b]^0 = 0 \in [a,b] ? [0,1] : [1,1]
-		Value *zero = ConstantFP::get(_module->getContext(), APFloat(0.0));
-		Value *lo_ltz = _builder.CreateFCmpOLE(base.lo, zero, "expt0_lo_lez");
-		Value *hi_gtz = _builder.CreateFCmpOGE(base.hi, zero, "expt0_hi_gez");
-		Value *has_zero = _builder.CreateAnd(lo_ltz, hi_gtz, "expt0_base_has_zero");
-		Value *one = ConstantFP::get(_module->getContext(), APFloat(1.0));
-		_iv.lo = _builder.CreateSelect(has_zero, zero, one);
-		_iv.hi = ConstantFP::get(_module->getContext(), APFloat(1.0));
-		return;
-	} else if (expt&1) {
-
-		round_down();
-		_iv.lo = cpow(base.lo, expt, "expt_odd_pow_lo");
-		round_up();
-		_iv.hi = cpow(base.hi, expt, "expt_odd_pow_hi");
-
-	} else {
-		Value *zero = ConstantFP::get(_module->getContext(), APFloat(0.0));
-		Value *hi_lz = _builder.CreateFCmpOLT(base.hi, zero, "expt_ev_hi_ltz");
-		Function *fn = _builder.GetInsertBlock()->getParent();
-		BasicBlock *both_neg = BasicBlock::Create(_module->getContext(), "expt_ev_hi_is_neg", fn);
-		BasicBlock *one_pos = BasicBlock::Create(_module->getContext(), "expt_ev_hi_is_pos");
-		BasicBlock *both_pos = BasicBlock::Create(_module->getContext(), "expt_ev_both_are_pos");
-		BasicBlock *has_zero = BasicBlock::Create(_module->getContext(), "expt_ev_has_zero");
-		BasicBlock *merge_block = BasicBlock::Create(_module->getContext(), "expt_ev_done");
-		_builder.CreateCondBr(hi_lz, both_neg, one_pos);
-		bool negative = false;
-		if (expt < 0) { negative = true; expt *= -1; }
-		// handle if they're both negative
-		_builder.SetInsertPoint(both_neg);
-		round_down();
-		Value *lo_expt_bneg = cpow(base.hi, expt, "expt_even_bothneg_lo");
-		round_up();
-		Value *hi_expt_bneg = cpow(base.lo, expt, "expt_even_bothneg_hi");
-
-		// rounding mode is up gooing to merge block
-		_builder.CreateBr(merge_block);
-		fn->getBasicBlockList().push_back(one_pos);
-
-		// test if the interval has zero
-
-		_builder.SetInsertPoint(one_pos);
-		Value *lo_gz = _builder.CreateFCmpOGT(base.lo, zero, "expt_lo_gtz");
-		_builder.CreateCondBr(lo_gz, both_pos, has_zero);
-		fn->getBasicBlockList().push_back(one_pos);
-
-		// handle when the interval contains zero, e.g. [0, max(a^n, b^n)]
-		_builder.SetInsertPoint(has_zero);
-
-		round_up();
-		Value *lo_expt_hzero = cpow(base.lo, expt, "expt_even_hz_testlo");
-		Value *hi_expt_hzero = cpow(base.hi, expt, "expt_even_hz_testhi");
-		hi_expt_hzero = cmax(lo_expt_hzero, hi_expt_hzero, "expt_even_hz_hi");
-		lo_expt_hzero = zero;
-
-		// rounding mode is up going into merge block
-		_builder.CreateBr(merge_block);
-		fn->getBasicBlockList().push_back(has_zero);
-
-		_builder.SetInsertPoint(both_pos);
-
-		round_down();
-		Value *lo_expt_pos = cpow(base.lo, expt, "even_pow_bothpos_lo");
-
-		round_up();
-		Value *hi_expt_pos = cpow(base.hi, expt, "even_pow_bothpos_hi");
-
-		_builder.CreateBr(merge_block);
-		fn->getBasicBlockList().push_back(both_pos);
-
-		_builder.SetInsertPoint(merge_block);
-
-		PHINode *phi_lo = _builder.CreatePHI(Type::getDoubleTy(_module->getContext()), 3, "expt_lo");
-		PHINode *phi_hi = _builder.CreatePHI(Type::getDoubleTy(_module->getContext()), 3, "expt_hi");
-
-		phi_lo->addIncoming(lo_expt_bneg, both_neg);
-		phi_hi->addIncoming(hi_expt_bneg, both_neg);
-
-		phi_lo->addIncoming(lo_expt_hzero, has_zero);
-		phi_hi->addIncoming(hi_expt_hzero, has_zero);
-
-		phi_lo->addIncoming(lo_expt_pos, both_pos);
-		phi_hi->addIncoming(hi_expt_pos, both_pos);
-
-		_iv.lo = phi_lo;
-		_iv.hi = phi_hi;
-		fn->getBasicBlockList().push_back(merge_block);
-	}
-
-	if (negative) {
-		VInterval iv = cinvert(_iv.lo, _iv.hi, "expt_inv");
-		_iv.lo = iv.lo;
-		_iv.hi = iv.hi;
-	}
-
-}*/
 
 void Compiler::visit(LitExpr &e) {
 	_iv.lo = ConstantFP::get(_module->getContext(), APFloat(e.value().lo()));
