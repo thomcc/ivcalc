@@ -12,7 +12,6 @@
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
-
 namespace calc {
 
 using namespace llvm;
@@ -256,6 +255,167 @@ void Compiler::visit(DivExpr &e) {
 
 }
 
+Value *Compiler::ceq0test(Value *lo, Value *hi, string const &name) {
+	Value *zero = ConstantFP::get(_module->getContext(), APFloat(0.0));
+	Value *lo_is0 = _builder.CreateFCmpUEQ(lo, zero, name+"_lo_is_zero");
+	Value *hi_is0 = _builder.CreateFCmpUEQ(hi, zero, name+"_hi_is_zero");
+	return _builder.CreateAnd(lo_is0, hi_is0, name+"_is_zero");
+}
+
+Value *Compiler::clt0test(Value *lo, Value *hi, string const &name) {
+	UNUSED(lo);
+	return _builder.CreateFCmpOLT(hi, zero(), name);
+}
+
+Value *Compiler::cgt0test(Value *lo, Value *hi, string const &name) {
+	UNUSED(hi);
+	return _builder.CreateFCmpOGT(lo, zero(), name);
+}
+
+Value *Compiler::chas0test(Value *lo, Value *hi, string const &name) {
+	Value *lo_ltz = _builder.CreateFCmpOLE(lo, zero(), name+"_lo_lez");
+	Value *hi_gtz = _builder.CreateFCmpOGE(hi, zero(), name+"_hi_gez");
+	return _builder.CreateAnd(lo_ltz, hi_gtz, name+"_has_zero");
+}
+
+Value *Compiler::cemptytest(Value *lo, Value *hi, string const &name) {
+	return _builder.CreateFCmpUNO(lo, hi, name);
+}
+
+Value *Compiler::zero() {
+	return get_dbl(0);
+}
+
+Value *Compiler::get_dbl(double d) {
+	return ConstantFP::get(_module->getContext(), APFloat(d));
+}
+
+Value *Compiler::cpow(Value *val, int pwr, string const &name) {
+	Value *x = val;
+	Value *y = (pwr & 1) ? x : get_dbl(1);
+	pwr >>= 1;
+	while (pwr > 0) {
+		x = _builder.CreateFMul(x, x, name+"_unroll_x");
+		if (pwr & 1) y = _builder.CreateFMul(x, y, name+"pwr_do_y");
+		pwr >>= 1;
+	}
+	return y;
+}
+
+void Compiler::visit(ExptExpr &e) {
+	VInterval base = compile(*e.base());
+	int expt = e.power();
+	if (expt == 0) {
+		Value *isNaN = cemptytest(base.lo, base.hi, "expt_zero");
+		Value *isZero = ceq0test(base.lo, base.hi, "expt_zero");
+		Value *retnan = _builder.CreateOr(isZero, isNaN, "expt_zero_result_empty");
+		_iv.lo = _builder.CreateSelect(retnan, get_dbl(rmath::NaN()), get_dbl(1), "expt_zero_res_lo");
+		_iv.hi = _builder.CreateSelect(retnan, get_dbl(rmath::NaN()), get_dbl(1), "expt_zero_res_hi");
+	} else {
+		bool negative = false;
+		Value *reslo = nullptr, *reshi = nullptr;
+		if (expt < 0) { negative = true; expt *= -1; }
+		if (expt & 1) {
+			round_down();
+			reslo = cpow(base.lo, e.power(), "expt_odd_lo");
+			round_up();
+			reshi = cpow(base.hi, e.power(), "expt_odd_hi");
+		} else {
+			Value *test = _builder.CreateFCmpOGT(base.lo, zero(), "expt_even_are_both_pos_p");
+			Function *fn = _builder.GetInsertBlock()->getParent();
+
+			BasicBlock *pos_block = BasicBlock::Create(_module->getContext(), "expt_even_both_are_pos", fn);
+			BasicBlock *test_block = BasicBlock::Create(_module->getContext(), "expt_even_both_are_not_pos");
+
+			BasicBlock *neg_block = BasicBlock::Create(_module->getContext(), "expt_even_both_are_neg");
+			BasicBlock *mid_block = BasicBlock::Create(_module->getContext(), "expt_even_contains_zero");
+			BasicBlock *merge_block = BasicBlock::Create(_module->getContext(), "expt_even_merge");
+			round_up(); // ensure that we're rounding up at the start of each block. no_op if this is alread the case
+
+			_builder.CreateCondBr(test, pos_block, test_block);
+
+			// no need to push the block list back because fn was a parameter to BasicBlock::Create
+			_builder.SetInsertPoint(pos_block); // both are pos
+			Value *pos_block_res_lo = nullptr, *pos_block_res_hi = nullptr;
+			{
+				round_down(true);
+				pos_block_res_lo = cpow(base.lo, e.power(), "expt_even_pos_block_res_lo");
+				round_up();
+				pos_block_res_hi = cpow(base.hi, e.power(), "expt_even_pos_block_res_hi");
+
+				_builder.CreateBr(merge_block);
+			}
+
+			fn->getBasicBlockList().push_back(test_block);
+			_builder.SetInsertPoint(test_block); // lo < 0, dont know about hi.
+			{
+				Value *test2 = _builder.CreateFCmpOLT(base.hi, zero(), "expt_even_are_both_neg_p");
+
+				_builder.CreateCondBr(test2, neg_block, mid_block);
+
+			}
+
+			fn->getBasicBlockList().push_back(neg_block);
+			_builder.SetInsertPoint(neg_block); // both are neg
+			Value *neg_block_res_lo = nullptr, *neg_block_res_hi = nullptr;
+			{
+				round_down(true);
+				neg_block_res_lo = cpow(base.hi, e.power(), "expt_even_neg_block_res_lo");
+				round_up();
+				neg_block_res_hi = cpow(base.lo, e.power(), "expt_even_pos_block_res_hi");
+
+				_builder.CreateBr(merge_block);
+			}
+
+			fn->getBasicBlockList().push_back(mid_block);
+			_builder.SetInsertPoint(mid_block); // interval contains zero
+			Value *mid_block_res_lo = nullptr, *mid_block_res_hi = nullptr;
+			{
+				round_up(true);
+				mid_block_res_lo = zero();
+				Value *lo_pow = cpow(base.lo, e.power(), "expt_even_mid_block_lo_");
+				Value *hi_pow = cpow(base.hi, e.power(), "expt_even_mid_block_hi_");
+				mid_block_res_hi = cmax(lo_pow, hi_pow, "expt_even_mid_block_res_hi");
+				_builder.CreateBr(merge_block);
+			}
+
+			fn->getBasicBlockList().push_back(merge_block);
+			_builder.SetInsertPoint(merge_block); // last block, creates phi nodes
+
+			PHINode *phi_lo = _builder.CreatePHI(Type::getDoubleTy(_module->getContext()), 3, "expt_lo");
+			PHINode *phi_hi = _builder.CreatePHI(Type::getDoubleTy(_module->getContext()), 3, "expt_hi");
+
+			phi_lo->addIncoming(pos_block_res_lo, pos_block);
+			phi_hi->addIncoming(pos_block_res_hi, pos_block);
+
+			phi_lo->addIncoming(neg_block_res_lo, neg_block);
+			phi_hi->addIncoming(neg_block_res_hi, neg_block);
+
+			phi_lo->addIncoming(mid_block_res_lo, mid_block);
+			phi_hi->addIncoming(mid_block_res_hi, mid_block);
+
+			// we don't want to assign to _iv yet because we might still need to invert.
+			reslo = phi_lo;
+			reshi = phi_hi;
+		}
+		if (negative) {
+			round_up();
+			Value *one = get_dbl(1);
+			Value *ah = _builder.CreateFDiv(one, reslo, "expt_invert_hi_a");
+			Value *bh = _builder.CreateFDiv(one, reshi, "expt_invert_hi_b");
+			_iv.hi = cmax(ah, bh, "expt_invert_hi");
+			round_down();
+			Value *ch = _builder.CreateFDiv(one, reslo, "expt_inv_lo_a");
+			Value *dh = _builder.CreateFDiv(one, reshi, "expt_inv_lo_b");
+			_iv.lo = cmin(ch, dh, "expt_invert_lo");
+		} else {
+			_iv.lo = reslo;
+			_iv.hi = reshi;
+		}
+	}
+}
+
+/*
 Value *Compiler::cpow(Value *val, int times, string const &name) {
 	assert(times > 0);
 	Value *res = val;
@@ -265,7 +425,6 @@ Value *Compiler::cpow(Value *val, int times, string const &name) {
 	}
 	return res;
 }
-
 void Compiler::visit(ExptExpr &e) {
 	VInterval base = compile(*e.base());
 	int expt = e.power();
@@ -367,7 +526,7 @@ void Compiler::visit(ExptExpr &e) {
 		_iv.hi = iv.hi;
 	}
 
-}
+}*/
 
 void Compiler::visit(LitExpr &e) {
 	_iv.lo = ConstantFP::get(_module->getContext(), APFloat(e.value().lo()));

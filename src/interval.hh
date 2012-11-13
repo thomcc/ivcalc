@@ -365,4 +365,54 @@ inline interval power(interval const &x, interval const &y) {
 }
 
 }
+
+
+extern "C" {
+
+struct pod_interval {
+	calc::real lo, hi;
+};
+
+pod_interval iv_make_empty(void);
+pod_interval iv_make_zero(void);
+pod_interval iv_make_one(void);
+pod_interval iv_make_full(void);
+pod_interval iv_make_pi(void);
+pod_interval iv_make_half_pi(void);
+pod_interval iv_make_two_pi(void);
+pod_interval iv_make(calc::real x, calc::real y);
+bool iv_is_empty(pod_interval a);
+bool iv_is_zero(pod_interval a);
+pod_interval iv_neg(pod_interval a);
+pod_interval iv_add(pod_interval a, pod_interval b);
+pod_interval iv_sub(pod_interval a, pod_interval b);
+pod_interval iv_mul(pod_interval a, pod_interval b);
+pod_interval iv_invert(pod_interval a);
+pod_interval iv_div(pod_interval a, pod_interval b);
+pod_interval iv_mod(pod_interval a, pod_interval b);
+pod_interval iv_pow(pod_interval a, int b);
+
+pod_interval iv_sqrt(pod_interval x);
+pod_interval iv_exp(pod_interval x);
+pod_interval iv_log(pod_interval x);
+pod_interval iv_cos(pod_interval x);
+pod_interval iv_sin(pod_interval x);
+pod_interval iv_tan(pod_interval x);
+pod_interval iv_asin(pod_interval x);
+pod_interval iv_acos(pod_interval x);
+pod_interval iv_atan(pod_interval x);
+pod_interval iv_sinh(pod_interval x);
+pod_interval iv_cosh(pod_interval x);
+pod_interval iv_tanh(pod_interval x);
+pod_interval iv_asinh(pod_interval x);
+pod_interval iv_acosh(pod_interval x);
+pod_interval iv_atanh(pod_interval x);
+
+void set_rounding_mode_up(void);
+void set_rounding_mode_down(void);
+
+calc::real force_rounding(calc::real d);
+
+}
+
 #endif

@@ -174,6 +174,15 @@ private:
 	llvm::Value *cmax4(llvm::Value *a, llvm::Value *b, llvm::Value *c, llvm::Value *d, std::string const &name="max4");
 	llvm::Value *cmin4(llvm::Value *a, llvm::Value *b, llvm::Value *c, llvm::Value *d, std::string const &name="min4");
 
+	llvm::Value *zero();
+	llvm::Value *get_dbl(double d);
+
+	llvm::Value *ceq0test(llvm::Value *lo, llvm::Value *hi, std::string const &name="zero_test");
+	llvm::Value *clt0test(llvm::Value *lo, llvm::Value *hi, std::string const &name="lt_zero_test");
+	llvm::Value *cgt0test(llvm::Value *lo, llvm::Value *hi, std::string const &name="gt_zero_test");
+	llvm::Value *chas0test(llvm::Value *lo, llvm::Value *hi, std::string const &name="has_zero_test");
+	llvm::Value *cemptytest(llvm::Value *lo, llvm::Value *hi, std::string const &name="empty_test");
+
 	// convert a vinterval into an llvm::Value as an aggregate of two doubles.
 	llvm::Value *c_i2v(llvm::Value *a, llvm::Value *b, std::string const &name="iv");
 	llvm::Value *c_i2v(VInterval vi, std::string const &name="iv");

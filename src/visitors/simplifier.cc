@@ -82,6 +82,7 @@ void Simplifier::visit(ExptExpr &e) {
 		LitExpr const *l = eb->as_lit_expr();
 		if (l && (l->value().is_one() || l->value().is_zero())) _simplified = move(eb);
 		else if (l) _simplified = Expr::make_lit(int_pow(l->value(), e.power()));
+		else if (e.power() < 0) _simplified = Expr::make_div(Expr::make_lit(interval::one()), Expr::make_expt(move(eb), e.power()));
 		else _simplified = Expr::make_expt(move(eb), e.power());
 	}
 }

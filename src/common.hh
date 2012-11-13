@@ -67,7 +67,7 @@ while (false) { \
   *(static_cast<T* volatile*>(0)) = static_cast<S*>(0); \
 }
 
-
+#define UNUSED(x) ((void)x)
 
 #ifndef __has_attribute
 #  define __has_attribute(X) 0
