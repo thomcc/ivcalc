@@ -17,7 +17,6 @@ namespace calc {
 using namespace llvm;
 using namespace std;
 
-
 Compiler::Compiler()
 : _iv{nullptr, nullptr}
 , _module(new Module("interval jit", getGlobalContext()))
@@ -46,15 +45,18 @@ void Compiler::init_module() {
 	_fpm.add(createCFGSimplificationPass());
 	_fpm.doInitialization();
 	_fpm_ref = &_fpm;
+	Type *inttype = Type::getInt32Ty(_module->getContext());
+	Type *oneint[1] = {inttype};
+	FunctionType *intint = FunctionType::get(inttype, oneint, false);
 
 	FunctionType *voidvoid = FunctionType::get(Type::getVoidTy(_module->getContext()), false);
-
+	Constant *fsr = _module->getOrInsertFunction("fesetround", intint);
 	Constant *ru = _module->getOrInsertFunction("set_rounding_mode_up", voidvoid);
 	Constant *rd = _module->getOrInsertFunction("set_rounding_mode_down", voidvoid);
 
 	_round_up = cast<Function>(ru);
 	_round_down = cast<Function>(rd);
-
+	_fesetrnd = cast<Function>(fsr);
 	vector<Type*> dbls;
 	dbls.push_back(Type::getDoubleTy(_module->getContext()));
 	dbls.push_back(Type::getDoubleTy(_module->getContext()));
@@ -65,16 +67,31 @@ void Compiler::init_module() {
 
 void Compiler::round_up(bool force) {
 	if (force || (_round_mode != RoundMode::Up)) {
-		_builder.CreateCall(_round_up);
+		Type *i32 = Type::getInt32Ty(_module->getContext());
+		Value *mem = _builder.CreateAlloca(i32, 0, "rup_forcer");
+		_builder.CreateLifetimeStart(mem);
+		Value *fearg[1] = {ConstantInt::get(i32, FE_UPWARD)};
+		Value *v = _builder.CreateCall(_fesetrnd, fearg, "rup_force_unused");
+		_builder.CreateStore(v, mem, true);
+		_builder.CreateLifetimeEnd(mem);
+//		_builder.CreateCall(_round_up);
 		_round_mode = RoundMode::Up;
+
 	}
 }
 
 void Compiler::round_down(bool force) {
-	if (force || (_round_mode != RoundMode::Down)) {
-		_builder.CreateCall(_round_down);
+//	if (force || (_round_mode != RoundMode::Down)) {
+		Type *i32 = Type::getInt32Ty(_module->getContext());
+		Value *mem = _builder.CreateAlloca(i32, 0, "rdown_forcer");
+		_builder.CreateLifetimeStart(mem);
+		Value *fearg[1] = {ConstantInt::get(i32, FE_DOWNWARD)};
+		Value *v = _builder.CreateCall(_fesetrnd, fearg, "rdown_force_unused");
+		_builder.CreateStore(v, mem, true);
+		_builder.CreateLifetimeEnd(mem);
+//		_builder.CreateCall(_round_down);
 		_round_mode = RoundMode::Down;
-	}
+//	}
 }
 void Compiler::reset_round() {
 	_round_mode = RoundMode::Unknown;
@@ -88,7 +105,6 @@ Value *Compiler::cforce_round(Value *a, string const &name) {
 	_builder.CreateLifetimeEnd(mem);
 	return rounded;
 }
-
 
 Value *Compiler::cadd_lo(Value *a, Value *b, const char *name) {
 	round_down();
@@ -162,8 +178,17 @@ VInterval Compiler::cinvert(Value *lo, Value *hi, string const &name) {
 	VInterval ret{nullptr, nullptr};
 	Value *one = ConstantFP::get(_module->getContext(), APFloat(1.0));
 
-	round_up();
+	round_up(true);
+	Value *ah = cforce_round(_builder.CreateFDiv(one, lo, name+"_hi_a"));
+	Value *bh = cforce_round(_builder.CreateFDiv(one, hi, name+"_hi_b"));
+	ret.hi = cmax(ah, bh, name+"_hi");
 
+	round_down();
+	Value *al = cforce_round(_builder.CreateFDiv(one, lo, name+"_lo_a"));
+	Value *bl = cforce_round(_builder.CreateFDiv(one, hi, name+"_lo_b"));
+	ret.lo = cmin(al, bl, name+"_lo");
+
+/*
 	Value *ah = cforce_round(_builder.CreateFDiv(one, lo, name+"_inv_hi_a"));
 	Value *bh = cforce_round(_builder.CreateFDiv(one, hi, name+"_inv_hi_b"));
 	ret.hi = cmax(ah, bh, name+"_inv_hi");
@@ -173,7 +198,7 @@ VInterval Compiler::cinvert(Value *lo, Value *hi, string const &name) {
 	Value *ch = cforce_round(_builder.CreateFDiv(one, lo, name+"_inv_lo_a"));
 	Value *dh = cforce_round(_builder.CreateFDiv(one, hi, name+"_inv_lo_b"));
 	ret.lo = cmin(ch, dh, name+"_inv_lo");
-
+*/
 	return ret;
 }
 
@@ -207,6 +232,7 @@ void Compiler::visit(NegExpr &e) {
 	_iv.lo = _builder.CreateFNeg(val.hi, "neg_lo");
 	_iv.hi = _builder.CreateFNeg(val.lo, "neg_hi");
 }
+
 
 void Compiler::visit(MulExpr &e) {
 	VInterval lhs = compile(*e.lhs());
@@ -393,8 +419,9 @@ void Compiler::visit(ExptExpr &e) {
 			reshi = phi_hi;
 		}
 		if (negative) {
-			round_up();
-			Value *one = get_dbl(1);
+			round_up(true);
+			_iv = cinvert(reslo, reshi, "expt_invert_result");
+/*			Value *one = get_dbl(1);
 			Value *ah = cforce_round(_builder.CreateFDiv(one, reslo, "expt_invert_hi_a"));
 			Value *bh = cforce_round(_builder.CreateFDiv(one, reshi, "expt_invert_hi_b"));
 			_iv.hi = cmax(ah, bh, "expt_invert_hi");
@@ -402,6 +429,7 @@ void Compiler::visit(ExptExpr &e) {
 			Value *ch = cforce_round(_builder.CreateFDiv(one, reslo, "expt_inv_lo_a"));
 			Value *dh = cforce_round(_builder.CreateFDiv(one, reshi, "expt_inv_lo_b"));
 			_iv.lo = cmin(ch, dh, "expt_invert_lo");
+*/
 		} else {
 			_iv.lo = reslo;
 			_iv.hi = reshi;

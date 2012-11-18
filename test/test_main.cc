@@ -5,6 +5,7 @@
 #include "simplify_tests.hh"
 #include "derive_tests.hh"
 #include "interval_tests.hh"
+#include "flag_tests.hh"
 int
 main() {
 	using namespace calc;
@@ -26,6 +27,7 @@ main() {
 	ParserTest().run();
 	SimplifyTest().run();
 	DeriveTest().run();
+	FlagTest().run();
 	Test::summary();
 	Test::reset();
 	std::cout << "running interval tests..." << std::endl;

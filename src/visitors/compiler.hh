@@ -121,7 +121,7 @@ private:
 	// functions to change the rounding mode.  we keep a pointer to
 	// these so we don't need to call _module->getFunction(...)
 	// every time we want to change the rounding mode.
-	llvm::Function *_round_up, *_round_down;
+	llvm::Function *_round_up, *_round_down, *_fesetrnd;
 	// a struct type for intervals.  this is only used for the return value of functions
 	// (as llvm doesn't support multiple return values). it's simply an aggregate of two
 	// doubles. it's possible that we'd get better efficiency by using a vector type,

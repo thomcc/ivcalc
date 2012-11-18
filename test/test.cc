@@ -20,8 +20,13 @@ void Test::summary() {
 }
 
 void Test::run() {
+	rmath::set_rnear();
 	try {
 		run_tests();
+	} catch (std::exception const &e) {
+		CheckMsg(false, (std::string("Failure: uncaught exception: ")+e.what()).c_str());
+	} catch (std::string const &s) {
+		CheckMsg(false, (std::string("Failure: uncaught exception: ")+s).c_str());
 	} catch (...) {
 		CheckMsg(false, "Failure: uncaught exception");
 	}
