@@ -8,9 +8,6 @@
 #include <deque>
 #include <memory>
 #include <iostream>
-// taken from another project of mine, which was compiled with
-// -fno-exceptions, hence the c-style error handling
-// and repeated code present elsewhere
 
 namespace flag {
 
@@ -49,20 +46,15 @@ public:
 };
 
 struct BoolValue;
-struct IntValue;
 struct StringValue;
-struct DoubleValue;
 
 struct Value {
-	enum Type { BoolType, IntType, StringType, DoubleType };
 	virtual ~Value() {}
-	virtual Type type() const = 0;
 	virtual std::string str() const = 0;
 	virtual Error set(std::string const &v) = 0;
-
+	// necessary due to special case (bools don't require an argument)
 	virtual BoolValue *as_bool() { return nullptr; }
-	virtual DoubleValue *as_double() { return nullptr; }
-	virtual IntValue *as_int() { return nullptr; }
+	// necessary due to special case (strings print with 'quotes')
 	virtual StringValue *as_string() { return nullptr; }
 };
 
@@ -70,10 +62,8 @@ struct Value {
 struct BoolValue : public Value {
 	bool &value;
 	BoolValue(bool &b) : value(b) {}
-
 	std::string str() const { return format(value); }
 	Error set(std::string const &v);
-	Type type() const { return Value::BoolType; }
 	BoolValue *as_bool() { return this; }
 	static ErrorOr<bool> parse(std::string const &s);
 	static std::string format(bool b);
@@ -83,8 +73,6 @@ struct IntValue : public Value {
 	int &value;
 	IntValue(int &i) : value(i) {}
 	std::string str() const { return format(value); }
-	Type type() const { return Value::IntType; }
-	IntValue *as_int() { return this; }
 	Error set(std::string const &v);
 	static ErrorOr<int> parse(std::string const &s);
 	static std::string format(int v);
@@ -93,7 +81,6 @@ struct IntValue : public Value {
 struct StringValue : public Value {
 	std::string &value;
 	StringValue(std::string &s) : value(s) {}
-	Type type() const { return Value::StringType; }
 	StringValue *as_string() { return this; }
 	std::string str() const { return value; }
 	Error set(std::string const &v) { value = std::string(v); return Error(); }
@@ -103,8 +90,6 @@ struct DoubleValue : public Value {
 	double &value;
 	DoubleValue(double &d) : value(d) {}
 	std::string str() const { return format(value); }
-	Type type() const { return Value::DoubleType; }
-	DoubleValue *as_double() { return this; }
 	Error set(std::string const &v);
 	static ErrorOr<double> parse(std::string const &s);
 	static std::string format(double v);
@@ -115,10 +100,7 @@ struct Flag {
 	Flag();
 	Flag(Flag const &o) = default;
 	Flag &operator=(Flag const &o) = default;
-	std::string name;
-	std::string usage;
-	std::string def_value;
-	// todo: un shared_ptrify now that theres no sharing.
+	std::string name, usage, def_value;
 	std::shared_ptr<Value> value;
 };
 
@@ -132,52 +114,42 @@ public:
 	};
 private:
 	std::function<void(FlagSet&)> usage;
-	std::string                   name;
-	bool                          parsed;
-	std::map<std::string, Flag>   actual;
-	std::map<std::string, Flag>   formal;
-	std::deque<std::string>       args;
-	ErrorHandling                 error_handling;
-	bool                          exit_on_error;
-	int                           original_argc;
-	char                        **original_argv;
-	FILE                         *out;
+	std::string name;
+	bool parsed;
+	std::map<std::string, Flag> actual;
+	std::map<std::string, Flag> formal;
+	std::deque<std::string> args;
+	ErrorHandling error_handling;
+	bool exit_on_error;
+	int original_argc;
+	char **original_argv;
+	FILE *out;
 public:
 	FlagSet(int argc, char **argv, FILE *fp=nullptr, ErrorHandling eh=ExitOnError);
-	void  SetArgs(int argc, char **argv);
-	void  SetOutput(FILE *fp);
-	void  SetErrorHandling(ErrorHandling eh);
+	void SetArgs(int argc, char **argv);
+	void SetOutput(FILE *fp);
+	void SetErrorHandling(ErrorHandling eh);
 	FILE *Output() const;
-	bool  Parsed() const;
+	bool Parsed() const;
 	Error Parse();
-	void  SetUsage(std::function<void(FlagSet&)> fn);
-	void  Usage();
-	void  VisitAll(std::function<void(Flag&)> fn);
-	void  PrintDefaults();
-
-	int NArgs() const; // number of args after parsing
+	void SetUsage(std::function<void(FlagSet&)> fn);
+	void Usage();
+	void VisitAll(std::function<void(Flag&)> fn);
+	void PrintDefaults();
+	int NArgs() const;
 	std::string Arg(int n) const;
 	std::deque<std::string> Args() const;
-
-//	bool &Bool(std::string name, bool value, std::string usage);
 	void Bool(bool &b, std::string name, std::string usage);
-
-//	int &Int(std::string name, int value, std::string usage);
 	void Int(int &i, std::string name, std::string usage);
-
-//	std::string &String(std::string name, std::string value, std::string usage);
 	void String(std::string &s, std::string name, std::string usage);
-
-//	double &Double(std::string name, double value, std::string usage);
 	void Double(double &d, std::string name, std::string usage);
-
 	void Var(std::shared_ptr<Value> value, std::string name, std::string usage);
+	void Complain(std::string const &compaint);
 private:
+	Error fail(std::string const &str);
 	void default_usage();
 	std::vector<Flag> sort_flags(std::map<std::string, Flag> const &flg) const;
-	Error fail(std::string const &str);
 	ErrorOr<bool> parse_one();
-
 };
 
 

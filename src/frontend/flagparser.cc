@@ -113,18 +113,18 @@ string DoubleValue::format(double v) {
 }
 
 vector<Flag> FlagSet::sort_flags(map<string, Flag> const &flgs) const {
-	vector<string> list(flgs.size());
+	vector<string> list;
 	for (auto const &fp : flgs)
-		list.push_back(fp.second.name);
+		list.push_back(fp.first);
 	sort(list.begin(), list.end());
-	vector<Flag> result(list.size());
+	vector<Flag> result;
 	for (auto const &name : list)
 		result.push_back(flgs.at(name));
 	return result;
 }
 
 Error FlagSet::fail(string const &err) {
-	fputs(err.c_str(), Output());
+	fprintf(Output(), "%s\n", err.c_str());
 	Usage();
 	return Error(err);
 }
@@ -142,6 +142,11 @@ int FlagSet::NArgs() const {
 	return args.size();
 }
 
+void FlagSet::Complain(std::string const &complaint) {
+	fprintf(Output(), "%s: error: ", name.c_str());
+	fputs(complaint.c_str(), Output());
+	Usage();
+}
 
 
 ErrorOr<bool> FlagSet::parse_one() {
@@ -177,8 +182,7 @@ ErrorOr<bool> FlagSet::parse_one() {
 	auto const &it = formal.find(name); // bug
 	if (it == formal.end()) {
 		if (name == "help" || name == "h") { // special case: help message
-			Usage();
-			return ErrorOr<bool>("help requested");
+			return fail("help requested");
 		}
 		return fail("Flag provided but not defined: -"+name);
 	}
@@ -211,6 +215,7 @@ Error FlagSet::Parse() {
 		ErrorOr<bool> seen = parse_one();
 		if (seen.good() && seen.value) continue;
 		if (seen.good() && !seen.value) break;
+
 		switch (error_handling) {
 		case ContinueOnError: return seen;
 		case ExitOnError: exit(2);
@@ -248,15 +253,29 @@ void FlagSet::VisitAll(function<void(Flag&)> fn) {
 }
 
 void FlagSet::default_usage() {
-	fprintf(Output(), "Usage of %s: ", name.c_str());
+	fprintf(Output(), "Usage of %s: \n", name.c_str());
 	PrintDefaults();
 }
 
 void FlagSet::PrintDefaults() {
-	VisitAll([this](Flag &flag) {
-		const char *fmt = "  -%s=%s: %s\n";
-		if (flag.value->as_string()) fmt = "  -%s='%s': %s\n";
-		fprintf(Output(), fmt, flag.name.c_str(), flag.def_value.c_str(), flag.usage.c_str());
+	int longest = 0;
+	VisitAll([this, &longest](Flag &flag) {
+		const char *fmt = "  -%s=%s";
+		if (flag.value->as_string()) fmt = "  -%s='%s'";
+		size_t len = snprintf(NULL, 0, fmt, flag.name.c_str(), flag.def_value.c_str());
+		if (len > longest) longest = len;
+	});
+	VisitAll([this, longest](Flag &flag) {
+		const char *fmt = "  -%s=%s:";
+		if (flag.value->as_string()) fmt = "  -%s='%s':";
+		FILE *fp = Output();
+		size_t len = fprintf(fp, fmt, flag.name.c_str(), flag.def_value.c_str());
+		fflush(fp);
+		while (len++ < 4+longest) fputc(' ', fp);
+		fflush(fp);
+		fprintf(fp, "%s\n", flag.usage.c_str());
+		fflush(fp);
+//		fprintf(Output(), "%s", flag.name.c_str(), flag.def_value.c_str(), flag.usage.c_str());
 	});
 }
 
@@ -282,56 +301,22 @@ void FlagSet::Var(shared_ptr<Value> v, string name, string usage) {
 	formal[name] = f;
 }
 
-
-//shared_ptr<bool> FlagSet::Bool(string name, bool value, string usage) {
-//	shared_ptr<bool> val = make_shared<bool>(value);
-//	shared_ptr<Value> v = static_pointer_cast<Value>(make_shared<BoolValue>(val));
-//	Var(v, name, usage);
-//	return val;
-//}
-//
-//shared_ptr<int> FlagSet::Int(string name, int value, string usage) {
-//	shared_ptr<int> val = make_shared<int>(value);
-//	shared_ptr<Value> v = static_pointer_cast<Value>(make_shared<IntValue>(val));
-//	Var(v, name, usage);
-//	return val;
-//}
-//
-//shared_ptr<string> FlagSet::String(string name, string value, string usage) {
-//	shared_ptr<string> val = make_shared<string>(value);
-//	shared_ptr<Value> v = static_pointer_cast<Value>(make_shared<StringValue>(val));
-//	Var(v, name, usage);
-//	return val;
-//}
-//
-//shared_ptr<double> FlagSet::Double(string name, double value, string usage) {
-//	shared_ptr<double> val = make_shared<double>(value);
-//	shared_ptr<Value> v = static_pointer_cast<Value>(make_shared<DoubleValue>(val));
-//	Var(v, name, usage);
-//	return val;
-//}
-
 void FlagSet::Bool(bool &b, string name, string usage) {
 	shared_ptr<Value> v = static_pointer_cast<Value>(make_shared<BoolValue>(b));
 	Var(v, name, usage);
 }
-
 void FlagSet::Int(int &i, string name, string usage) {
 	shared_ptr<Value> v = static_pointer_cast<Value>(make_shared<IntValue>(i));
 	Var(v, name, usage);
 }
-
 void FlagSet::String(string &s, string name, string usage) {
 	shared_ptr<Value> v = static_pointer_cast<Value>(make_shared<StringValue>(s));
 	Var(v, name, usage);
 }
-
 void FlagSet::Double(double &d, string name, string usage) {
 	shared_ptr<Value> v = static_pointer_cast<Value>(make_shared<DoubleValue>(d));
 	Var(v, name, usage);
 }
-
-
 
 FILE *FlagSet::Output() const { return out ? out : stderr; }
 bool  FlagSet::Parsed() const { return parsed; }

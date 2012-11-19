@@ -6,6 +6,7 @@
 #include "visitors/eval.hh"
 #include "visitors/derivator.hh"
 #include "visitors/compiler.hh"
+#include "frontend/flagparser.hh"
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/Debug.h>
 #include <cstdio>
@@ -15,9 +16,11 @@
 #include <functional>
 #include <csignal>
 #include <fstream>
+
 // this is a huge mess. its really not worth even looking at.
 using namespace std;
 using namespace calc;
+using namespace flag;
 
 static bool is_balanced(const char *s) {
 	int p, b, bk;
@@ -395,252 +398,84 @@ struct Args {
 
 };
 
-Args::Args(int argc, char **argv) {
-	verbose = benchmark = compile = compile_partials = false;
-	bench_iters = 1000;
-	// convert to vector of strings, check for conflicts.
-	struct { bool v, b, c, p, r, e, f, s, j, I; } flags = { 0 };
+int main(int argc, char *argv[]) {
+	FlagSet fset(argc, argv);
 
-	string fname;
-	string expr_str;
-	for (argc--, argv++; argc > 0; argc--, argv++) {
-		char *item = argv[0] +1;
-		switch (*item++) {
-		case 'b':
-			args.push_back("--bench 1000");
-			if (flags.b)
-				printf("%s: warning: -b or --bench repeated.\n", program_name.c_str());
-			flags.b = true;
-			break;
-		case 'h':
-			usage(EXIT_SUCCESS);
-			break;
-		case 'k':
-			args.push_back("--jit");
-			if (flags.j)
-				printf("%s: warning: -j or --jit repeated.\n", program_name.c_str());
-		case 'v':
-verbose_flag:
-			args.push_back("--verbose");
-			if (flags.v)
-				printf("%s: warning: -v or --verbose repeated.\n", program_name.c_str());
-			flags.v = true;
-			break;
-		case 'c':
-codegen_flag:
-			args.push_back("--codegen");
-			if (flags.c)
-				printf("%s: warning: -c or --codegen repeated.\n", program_name.c_str());
-			flags.c = true;
-			break;
-		case 'p':
-partials_flag:
-			args.push_back("--emit-partials");
-			if (flags.p)
-				printf("%s: warning: -p or --emit-partials repeated.\n", program_name.c_str());
-			flags.p = true;
-			break;
-		case 'f':
-file_flag:
-			if (flags.f)
-				printf("%s: warning: -f or --file repeated.\n", program_name.c_str());
-			if (argc > 1) {
-				++argv; --argc;
-				flags.f = true;
-				fname = string(*argv);
-				args.push_back(string("--file")+fname);
-			} else {
-				printf("%s: no file given for -f\n", program_name.c_str());
-				exit(-1);
-			}
-			if (flags.e || flags.r || flags.s) {
-				printf("%s: conflicting options: only one of -[refs] may be specified\n", program_name.c_str());
-				usage();
-			}
-			break;
-		case 'e':
-expr_flag:
-			if (flags.e)
-				printf("%s: warning: -e or --expr repeated.\n", program_name.c_str());
-			if (argc > 1) {
-				++argv; --argc;
-				flags.e = true;
-				expr_str = string(*argv);
-				args.push_back(string("--expr ")+expr_str);
-			} else {
-				printf("%s: no expression given for -e\n", program_name.c_str());
-				exit(-1);
-			}
-			if (flags.f || flags.r || flags.s) {
-				printf("%s: conflicting options: only one of -[refs] may be specified\n", program_name.c_str());
-				usage();
-			}
-			break;
-		case 's':
-stdin_flag:
-			if (flags.s)
-				printf("%s: warning: -s or --stdin repeated.\n", program_name.c_str());
-			flags.s = true;
-			args.push_back("--stdin");
-			if (flags.e || flags.r || flags.f) {
-				printf("%s: conflicting options: only one of -[refs] may be specified\n", program_name.c_str());
-				usage();
-			}
-			break;
-		case 'r':
-repl_flag:
-			if (flags.r)
-				printf("%s: warning: -r or --repl repeated.\n", program_name.c_str());
-			flags.r = true;
-			args.push_back("--repl");
-			if (flags.e || flags.r || flags.f) {
-				printf("%s: conflicting options: only one of -[refs] may be specified\n", program_name.c_str());
-				usage();
-			}
-			break;
-		case 'j':
-jit_flag:
-			if (flags.j)
-				printf("%s: warning: -j or --jit repeated.\n", program_name.c_str());
-			if (flags.I) {
-				printf("%s: error: -I (--interpret) and -j (--jit) are incompatible\n", program_name.c_str());
-				usage();
-			}
-			flags.j = true;
-			args.push_back("--jit");
-			break;
-		case 'I':
-interp_flag:
-			if (flags.I)
-				printf("%s: warning -I or --interpret repeated.\n", program_name.c_str());
-			if (flags.j) {
-				printf("%s: error: -I (--interpret) and -j (--jit) are incompatible\n", program_name.c_str());
-				usage();
-			}
-			flags.I = true;
-			args.push_back("--interpret");
-			break;
-		case '-':
-			if (strcmp((*argv)+2, "bench") == 0) {
-				if (argc > 1) {
-					++argv; --argc;
-					if (flags.b)
-						printf("%s: warning: -b or --bench repeated.\n", program_name.c_str());
-					flags.b = true;
-					string msg = string(*argv);
-					args.push_back(string("--bench ")+msg);
-					istringstream ss(msg);
-					if (!(ss >> bench_iters)) {
-						printf("%s: bad number specified for --bench: %s\n", program_name.c_str(), msg.c_str());
-						exit(-1);
-					}
-				} else {
-					printf("%s: no number specified for --bench\n", program_name.c_str());
-					exit(-1);
-				}
-				break;
-			} else if (strcmp((*argv)+2, "help") == 0) usage(EXIT_SUCCESS);
-			else if (strcmp((*argv)+2, "verbose") == 0) goto verbose_flag;
-			else if (strcmp((*argv)+2, "codegen") == 0) goto codegen_flag;
-			else if (strcmp((*argv)+2, "emit-partials") == 0) goto partials_flag;
-			else if (strcmp((*argv)+2, "repl") == 0) goto repl_flag;
-			else if (strcmp((*argv)+2, "expr") == 0) goto expr_flag;
-			else if (strcmp((*argv)+2, "file") == 0) goto file_flag;
-			else if (strcmp((*argv)+2, "stdin") == 0) goto stdin_flag;
-			else if (strcmp((*argv)+2, "jit") == 0) goto jit_flag;
-			else if (strcmp((*argv)+2, "interpret") == 0) goto interp_flag;
-		default: // fallthrough
-			printf("%s: unknown argument: %s\n", program_name.c_str(), *argv);
-			usage();
-			break;
-		}
+	std::string empty = "";
+
+	bool verbose = false;
+	bool codegen = false;
+	bool simplify = true;
+	bool emit_partials = false;
+	bool interpret = false;
+	bool dobench = false;
+	int bench = 1000;
+	bool repl = false;
+	std::string file = empty;
+	std::string expr = empty;
+	bool stdin = false;
+
+	fset.Bool(verbose, "verbose", "print extra info (doesn't do much currently)");
+	fset.Bool(codegen, "codegen", "emit generated llvm-ir?");
+	fset.Bool(emit_partials, "partials", "emit llvm-ir for partial derivatives?");
+	fset.Bool(interpret, "interpret", "Interpret expressions instead of using the JIT");
+	fset.Bool(simplify, "simplify", "Simplify expressions.");
+	fset.Bool(dobench, "bench", "run benchmark on partials for expressions?");
+	fset.Int(bench, "iter", "number of benchmark iterations. Implies -b");
+	fset.Bool(repl, "repl", "use repl? Incompatible with -file, -expr, -stdin");
+	fset.String(file, "file", "read from file. Incompatible with -repl, -expr, -stdin");
+	fset.String(expr, "expr", "evaluate expr. Incompatible with -repl, -file, -stdin");
+	fset.Bool(stdin, "stdin", "read from stdin? Incompatible with -repl, -file, -expr");
+ 	Error err = fset.Parse();
+ 	if (err.bad()) exit(2);
+
+ 	if (bench != 1000) dobench = true;
+ 	if (bench <= 0) {
+ 		fset.Complain(stringize() << "-iter must be >= 0. got: " << bench);
+ 		exit(2);
+ 	}
+
+ 	if (!repl && !stdin && file == empty && expr == empty)
+ 		repl = true;
+
+ 	int i = 0;
+ 	if (repl) ++i;
+ 	if (stdin) ++i;
+ 	if (file != empty) ++i;
+ 	if (expr != empty) ++i;
+ 	if (i != 1) {
+		fset.Complain("-repl, -file, -expr, -stdin are mutually exclusive");
+		exit(2);
 	}
-	if (flags.p) flags.c = true;
 
-	if (flags.I) use_jit = false;
-	else use_jit = true; // hrm.
-
-	verbose = flags.v;
-	benchmark = flags.b;
-	compile = flags.c;
-//	use_jit = flags.j;
-
-	compile_partials = flags.p;
-
-	if (!(flags.e || flags.f || flags.s || flags.r))
-		flags.r = true;
-
-	if (flags.r) {
-		assert(!(flags.e || flags.s || flags.f));
-		from_str = false;
-	} else if (flags.e) {
-		assert(!(flags.f || flags.s || flags.r));
-		from_str = true;
-		// e_expr already has the text
-	} else if (flags.f) {
-		assert(!(flags.e || flags.s || flags.r));
-		ifstream file(fname);
-		if (!file.is_open()) {
-			printf("%s: Cannot open file (%s)\n", program_name.c_str(), fname.c_str());
-			exit(1);
+	std::string expr_str = "";
+	bool use_str = false;
+	if (expr != empty) { expr_str = expr; use_str = true; }
+	else if (stdin) {
+		std::string line;
+		while (getline(cin, line)) expr_str += " "+line;
+		use_str = true;
+	} else if (file != empty) {
+		ifstream infile(file);
+		if (!infile.is_open()) {
+			fset.Complain("Couldn't open file: "+file);
+			exit(3);
 		}
 		try {
-			e_expr = (static_cast<stringstream const&>(stringstream() << file.rdbuf()).str());
-		} catch (std::exception e) {
-			printf("%s: Error reading file (%s)\n", program_name.c_str(), fname.c_str());
-			exit(1);
+			expr_str = (static_cast<stringstream const&>(stringstream() << infile.rdbuf()).str());
+		} catch (...) {
+			fset.Complain("Couldn't read from file: "+file);
+			exit(3);
 		}
-		benchmark = true;
-		from_str = true;
-	} else if (flags.s) {
-		assert(!(flags.e || flags.f || flags.r));
-		string line;
-		while (getline(cin, line)) e_expr += " "+line;
-		from_str = true;
-	} else {
-		printf("%s: bug: error parsing arguments. read:\n", program_name.c_str());
-		for (auto const &arg : args) printf("  %s\n", arg.c_str());
+		use_str = true;
 	}
-}
+	if (dobench) partial_iterations = bench;
 
+	if (use_str)
+		return handle_expr(expr_str, verbose, dobench, codegen, emit_partials, !interpret);
+	else //repl(args.verbose, args.benchmark, args.compile, args.compile_partials, args.use_jit
+		return ::repl(verbose, dobench, codegen, emit_partials, !interpret);
 
-void Args::usage(int exit_with) {
-	static const char *const usage_msg[] = {
-		"switches:",
-		"  -v              set verbose mode",
-		"  -b              benchmark partials for functions",
-		"  -c              emit llvm ir for all expressions",
-		"  -p              also emit llvm ir for partial derivatives of functions. implies -c.",
-		"  -j              use the JIT instead of interpreter",
-		"  -h              print this message and quit",
-		"  --verbose       set verbose mode",
-		"  --bench <uint>  run <uint> benchmarks. (-b is equivalent to --bench 1000)",
-		"  --codegen       emit llvm ir",
-		"  --emit-partials emit llvm ir for partial derivatives of functions.",
-		"  --jit           use the JIT instead of the interpreter",
-		"  --help          print this message and quit",
-		"modes:",
-		"  -r              run interactive prompt (default)",
-		"  -e 'expr'       run on expression 'expr'",
-		"  -f 'file'       run on the file 'file'",
-		"  -s              run on stdin",
-		"  --repl          run interactive prompt",
-		"  --expr 'expr'   run on expression 'expr'",
-		"  --file 'file'   run on file 'file'",
-		"  --stdin         run on stdin.",
-		nullptr
-	};
-	const char *const *p = usage_msg;
-	printf("Usage: %s [switches] [one mode]\n", program_name.c_str());
-	while (*p) printf("  %s\n", *p++);
-	exit(exit_with);
-}
-
-int main(int argc, char *argv[]) {
-	Args args(argc, argv);
-	partial_iterations = args.bench_iters;
-	if (args.from_str) return handle_expr(args.e_expr, args.verbose, args.benchmark, args.compile, args.compile_partials, args.use_jit);
-	else return repl(args.verbose, args.benchmark, args.compile, args.compile_partials, args.use_jit);
 }
 
 
