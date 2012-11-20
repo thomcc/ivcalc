@@ -491,6 +491,22 @@ pod_interval iv_atanh(pod_interval x) {
 	};
 }
 
+// for completeness.
+pod_interval iv_sec(pod_interval x) { return iv_invert(iv_cos(x)); }
+pod_interval iv_csc(pod_interval x) { return iv_invert(iv_sin(x)); }
+pod_interval iv_cot(pod_interval x) { return iv_invert(iv_tan(x)); }
+pod_interval iv_asec(pod_interval x) { return iv_acos(iv_invert(x)); }
+pod_interval iv_acsc(pod_interval x) { return iv_asin(iv_invert(x)); }
+pod_interval iv_acot(pod_interval x) { return iv_acot(iv_invert(x)); }
+pod_interval iv_sech(pod_interval x) { return iv_invert(iv_cosh(x)); }
+pod_interval iv_csch(pod_interval x) { return iv_invert(iv_sinh(x)); }
+pod_interval iv_coth(pod_interval x) { return iv_div(iv_cosh(x), iv_sinh(x)); }
+pod_interval iv_asech(pod_interval x) { return iv_acosh(iv_invert(x)); }
+pod_interval iv_acsch(pod_interval x) { return iv_asinh(iv_invert(x)); }
+pod_interval iv_acoth(pod_interval x) { return iv_atanh(iv_invert(x)); }
+
+
+
 void set_rounding_mode_up(void) {
 	calc::rmath::set_rup();
 }

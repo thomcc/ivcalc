@@ -1,7 +1,7 @@
 #include "visitors/compiler.hh"
 #include "visitors/simplifier.hh"
 #include "visitors/derivator.hh"
-
+#include "visitors/varaddresser.hh"
 #include <llvm/DerivedTypes.h>
 #include <llvm/Analysis/Verifier.h>
 #include <llvm/Intrinsics.h>
@@ -38,13 +38,58 @@ void Compiler::init_module() {
 	eb.setEngineKind(EngineKind::JIT);
 	_exec_engine = eb.create();
 	_fpm.add(new TargetData(*_exec_engine->getTargetData()));
-	_fpm.add(createBasicAliasAnalysisPass());
-	_fpm.add(createInstructionCombiningPass());
-	_fpm.add(createReassociatePass());
-	_fpm.add(createGVNPass());
+//	_fpm.add(createBasicAliasAnalysisPass());
+//	_fpm.add(createInstructionCombiningPass());
+//	_fpm.add(createReassociatePass());
+//	_fpm.add(createGVNPass());
+//	_fpm.add(createCFGSimplificationPass());
+
+
 	_fpm.add(createCFGSimplificationPass());
+	_fpm.add(createPromoteMemoryToRegisterPass());
+
+	//_fpm.add(createInstructionCombiningPass());
+	_fpm.add(createScalarReplAggregatesPass());
+	//_fpm.add(createInstructionCombiningPass());
+	_fpm.add(createJumpThreadingPass());
+	_fpm.add(createCFGSimplificationPass());
+	//_fpm.add(createInstructionCombiningPass());
+
+	//_fpm.add(createCFGSimplificationPass());
+	_fpm.add(createReassociatePass());
+
+#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR >= 1
+	//_fpm.add(createBBVectorizePass());
+#endif
+	_fpm.add(createEarlyCSEPass());
+
+	//_fpm.add(createLoopIdiomPass());
+	//_fpm.add(createLoopRotatePass());
+	//_fpm.add(createLICMPass());
+	//_fpm.add(createLoopUnswitchPass());
+	_fpm.add(createInstructionCombiningPass());
+	//_fpm.add(createIndVarSimplifyPass());
+	//_fpm.add(createLoopDeletionPass());
+	//_fpm.add(createLoopUnrollPass());
+	//_fpm.add(createLoopStrengthReducePass());
+
+	//_fpm.add(createInstructionCombiningPass());
+	_fpm.add(createGVNPass());
+	//_fpm.add(createMemCpyOptPass());
+	_fpm.add(createSCCPPass());
+
+	//_fpm.add(createSinkingPass());
+	//_fpm.add(createInstructionSimplifierPass());
+	_fpm.add(createInstructionCombiningPass());
+	_fpm.add(createJumpThreadingPass());
+	_fpm.add(createDeadStoreEliminationPass());
+
+	_fpm.add(createAggressiveDCEPass());
+	_fpm.add(createCFGSimplificationPass());
+
 	_fpm.doInitialization();
 	_fpm_ref = &_fpm;
+
 	Type *inttype = Type::getInt32Ty(_module->getContext());
 	Type *oneint[1] = {inttype};
 	FunctionType *intint = FunctionType::get(inttype, oneint, false);
@@ -62,8 +107,31 @@ void Compiler::init_module() {
 	dbls.push_back(Type::getDoubleTy(_module->getContext()));
 	_iv_type = StructType::get(_module->getContext(), dbls, false);
 
+	init_builtins();
 }
 
+void Compiler::init_builtins() {
+#define BUILTIN_N(name, n) add_builtin("iv_" STRINGIZE(name), STRINGIZE(name))
+#define BUILTIN(name) BUILTIN_N(name, 1)
+	BUILTIN(sqrt);  BUILTIN(exp);   BUILTIN(log);   BUILTIN(sin);   BUILTIN(cos);
+	BUILTIN(tan);   BUILTIN(sec);   BUILTIN(csc);   BUILTIN(cot);   BUILTIN(asin);
+	BUILTIN(acos);  BUILTIN(atan);  BUILTIN(asec);  BUILTIN(acsc);  BUILTIN(acot);
+	BUILTIN(sinh);  BUILTIN(cosh);  BUILTIN(tanh);  BUILTIN(sech);  BUILTIN(csch);
+	BUILTIN(coth);  BUILTIN(asinh); BUILTIN(acosh); BUILTIN(atanh); BUILTIN(asech);
+	BUILTIN(acsch); BUILTIN(acoth);
+#undef BUILTIN
+#undef BUILTIN_N
+}
+
+void Compiler::add_builtin(string const &name, string const &alias, size_t nargs) {
+	std::vector<Type*> args(nargs, _iv_type);
+	FunctionType *builtin_type = FunctionType::get(_iv_type, args, false);
+	Constant *cf = _module->getOrInsertFunction(name, builtin_type);
+	Function *f = cast<Function>(cf);
+	if (_builtin.find(alias) != _builtin.end())
+		throw iv_arithmetic_error("BUG: builtin duplicated!");
+	_builtin[alias] = f;
+}
 
 void Compiler::round_up(bool force) {
 	if (force || (_round_mode != RoundMode::Up)) {
@@ -93,7 +161,7 @@ void Compiler::round_down(bool force) {
 		_round_mode = RoundMode::Down;
 //	}
 }
-void Compiler::reset_round() {
+void Compiler::branched() {
 	_round_mode = RoundMode::Unknown;
 }
 
@@ -178,7 +246,7 @@ VInterval Compiler::cinvert(Value *lo, Value *hi, string const &name) {
 	VInterval ret{nullptr, nullptr};
 	Value *one = ConstantFP::get(_module->getContext(), APFloat(1.0));
 
-	round_up(true);
+	round_up();
 	Value *ah = cforce_round(_builder.CreateFDiv(one, lo, name+"_hi_a"));
 	Value *bh = cforce_round(_builder.CreateFDiv(one, hi, name+"_hi_b"));
 	ret.hi = cmax(ah, bh, name+"_hi");
@@ -188,17 +256,6 @@ VInterval Compiler::cinvert(Value *lo, Value *hi, string const &name) {
 	Value *bl = cforce_round(_builder.CreateFDiv(one, hi, name+"_lo_b"));
 	ret.lo = cmin(al, bl, name+"_lo");
 
-/*
-	Value *ah = cforce_round(_builder.CreateFDiv(one, lo, name+"_inv_hi_a"));
-	Value *bh = cforce_round(_builder.CreateFDiv(one, hi, name+"_inv_hi_b"));
-	ret.hi = cmax(ah, bh, name+"_inv_hi");
-
-	round_down();
-
-	Value *ch = cforce_round(_builder.CreateFDiv(one, lo, name+"_inv_lo_a"));
-	Value *dh = cforce_round(_builder.CreateFDiv(one, hi, name+"_inv_lo_b"));
-	ret.lo = cmin(ch, dh, name+"_inv_lo");
-*/
 	return ret;
 }
 
@@ -358,7 +415,8 @@ void Compiler::visit(ExptExpr &e) {
 			_builder.SetInsertPoint(pos_block); // both are pos
 			Value *pos_block_res_lo = nullptr, *pos_block_res_hi = nullptr;
 			{
-				round_down(true);
+				branched();
+				round_down();
 				pos_block_res_lo = cpow(base.lo, e.power(), "expt_even_pos_block_res_lo");
 				round_up();
 				pos_block_res_hi = cpow(base.hi, e.power(), "expt_even_pos_block_res_hi");
@@ -369,6 +427,7 @@ void Compiler::visit(ExptExpr &e) {
 			fn->getBasicBlockList().push_back(test_block);
 			_builder.SetInsertPoint(test_block); // lo < 0, dont know about hi.
 			{
+				branched();
 				Value *test2 = _builder.CreateFCmpOLT(base.hi, zero(), "expt_even_are_both_neg_p");
 
 				_builder.CreateCondBr(test2, neg_block, mid_block);
@@ -379,7 +438,8 @@ void Compiler::visit(ExptExpr &e) {
 			_builder.SetInsertPoint(neg_block); // both are neg
 			Value *neg_block_res_lo = nullptr, *neg_block_res_hi = nullptr;
 			{
-				round_down(true);
+				branched();
+				round_down();
 				neg_block_res_lo = cpow(base.hi, e.power(), "expt_even_neg_block_res_lo");
 				round_up();
 				neg_block_res_hi = cpow(base.lo, e.power(), "expt_even_pos_block_res_hi");
@@ -391,7 +451,8 @@ void Compiler::visit(ExptExpr &e) {
 			_builder.SetInsertPoint(mid_block); // interval contains zero
 			Value *mid_block_res_lo = nullptr, *mid_block_res_hi = nullptr;
 			{
-				round_up(true);
+				branched();
+				round_up();
 				mid_block_res_lo = zero();
 				Value *lo_pow = cpow(base.lo, e.power(), "expt_even_mid_block_lo_");
 				Value *hi_pow = cpow(base.hi, e.power(), "expt_even_mid_block_hi_");
@@ -419,17 +480,8 @@ void Compiler::visit(ExptExpr &e) {
 			reshi = phi_hi;
 		}
 		if (negative) {
-			round_up(true);
+			branched();
 			_iv = cinvert(reslo, reshi, "expt_invert_result");
-/*			Value *one = get_dbl(1);
-			Value *ah = cforce_round(_builder.CreateFDiv(one, reslo, "expt_invert_hi_a"));
-			Value *bh = cforce_round(_builder.CreateFDiv(one, reshi, "expt_invert_hi_b"));
-			_iv.hi = cmax(ah, bh, "expt_invert_hi");
-			round_down();
-			Value *ch = cforce_round(_builder.CreateFDiv(one, reslo, "expt_inv_lo_a"));
-			Value *dh = cforce_round(_builder.CreateFDiv(one, reshi, "expt_inv_lo_b"));
-			_iv.lo = cmin(ch, dh, "expt_invert_lo");
-*/
 		} else {
 			_iv.lo = reslo;
 			_iv.hi = reshi;
@@ -457,7 +509,65 @@ void Compiler::optimize(Function &e) {
 }
 
 
-Function *Compiler::compile_func(FuncExpr const &e) {
+Function *Compiler::compile_func_partials(FuncExpr const &e) {
+	vector<Type*> eparms(2, Type::getDoublePtrTy(_module->getContext()));
+	// takes a vector of <src, dst>
+	FunctionType *etype = FunctionType::get(Type::getVoidTy(_module->getContext()), eparms, false);
+	Function *efunc = Function::Create(etype, Function::ExternalLinkage, e.name()+"_partials", _module);
+	BasicBlock *bb = BasicBlock::Create(_module->getContext(), "entry", efunc);
+	auto argiter = efunc->arg_begin();
+	argiter->setName("dst");
+	Value *ary_dest = argiter++;
+	argiter->setName("src");
+	Type *i64 = Type::getInt64Ty(_module->getContext());
+	Value *ary_src = argiter++;
+	size_t idx = 0;
+	_builder.SetInsertPoint(bb);
+
+	// add everything to the _named map.
+	for (auto const &parm : e.params()) {
+		VInterval &v = _named[parm];
+		Value *gepmem = _builder.CreateConstGEP1_64(ary_src, idx++, parm+"_lo_gep");
+		v.lo = _builder.CreateLoad(gepmem, parm+"_lo");
+		Value *gepmem2 = _builder.CreateConstGEP1_64(ary_src, idx++, parm+"_hi_gep");
+		v.hi = _builder.CreateLoad(gepmem2, parm+"_hi");
+	}
+	// compile the function itself
+	VInterval v = compile(*e.impl());
+	if (!v.lo || !v.hi)
+		throw iv_arithmetic_error("Error during compilation of "+e.name()+" got null VInterval from compiler");
+
+	idx = 0;
+	// compile storing it in the dest array
+	Value *gep_dst_meml = _builder.CreateConstGEP1_64(ary_dest, idx++, e.name()+"_orig_res_loptr");
+	_builder.CreateStore(v.lo, gep_dst_meml);
+	Value *gep_dst_memh = _builder.CreateConstGEP1_64(ary_dest, idx++, e.name()+"_orig_res_hiptr");
+	_builder.CreateStore(v.hi, gep_dst_memh);
+	// compile each of the partials, and their storing in the dest array.
+	for (auto const &part : Derivator::partials(e)) {
+//		vector<pair<string, ExprPtr>> partials = Derivator::partials(e);
+
+		std::string const &n = part.first;
+
+		VInterval v = compile(*Simplifier::simplified(part.second));
+		if (!v.lo || !v.hi)
+			throw iv_arithmetic_error("Error during compilation of d"+n+"/d"+e.name()+" got null VInterval from compiler");
+
+		Value *gep_dst_meml = _builder.CreateGEP(ary_dest, ConstantInt::get(i64, idx++), e.name()+"_d"+n+"_res_loptr");
+		_builder.CreateStore(v.lo, gep_dst_meml);
+
+		Value *gep_dst_memh = _builder.CreateGEP(ary_dest, ConstantInt::get(i64, idx++), e.name()+"_d"+n+"_res_hiptr");
+		_builder.CreateStore(v.hi, gep_dst_memh);
+
+	}
+	_builder.CreateRetVoid();
+	// check, optimize, return.
+	verifyFunction(*efunc);
+	if (is_optimizing())
+		optimize(*efunc);
+	return efunc;
+}
+Function *Compiler::compile_1func(FuncExpr const &e) {
 	vector<Type*> eparms(2*e.params().size(), Type::getDoubleTy(_module->getContext()));
 	FunctionType *etype = FunctionType::get(_iv_type, eparms, false);
 	Function *efunc = Function::Create(etype, Function::ExternalLinkage, e.name(), _module);
@@ -479,9 +589,45 @@ Function *Compiler::compile_func(FuncExpr const &e) {
 	_builder.CreateRet(agg);
 
 	verifyFunction(*efunc);
+
 	if (is_optimizing())
 		optimize(*efunc);
 	return efunc;
+}
+
+Function *Compiler::compile_func(FuncExpr const &e) {
+	FuncCode &fc = _compiled[e.name()];
+	auto it = _compiled.find(e.name());
+	if (it != _compiled.end()) {
+		// todo: find something reasonable to do here...
+		std::cerr << "Warning: redefining function '" << e.name() << "'." << endl;
+		fc.compiled->eraseFromParent();
+		fc.compiled = nullptr;
+		for (auto &i : fc.partials) {
+			FuncCode::Partial &v = i.getValue();
+			v.function->eraseFromParent();
+			v.function = nullptr;
+		}
+		fc.partials.clear();
+		fc.allpartials->eraseFromParent();
+		fc.allpartials = nullptr;
+		fc.self = nullptr;
+	}
+	fc.self = Simplifier::simplified(e.clone());
+	fc.compiled = compile_1func(*fc.self->as_func_expr());
+	fc.allpartials = compile_func_partials(*fc.self->as_func_expr());
+	size_t i = 0;
+	for (auto const &part : Derivator::partials(e)) {
+		std::string name = "d_"+part.first+"_d_"+e.name();
+		ExprPtr s = Expr::make_func(name, e.params(), Simplifier::simplified(part.second));
+		FuncCode::Partial &fcp = fc.partials[name];
+		fcp.idx = i++;
+		fcp.function = compile_1func(*s->as_func_expr());
+		fcp.param = part.first;
+		fcp.func_name = name;
+		fcp.expr = move(s);
+	}
+	return fc.compiled;
 }
 
 
@@ -494,43 +640,94 @@ void Compiler::visit(VarExpr &e) {
 }
 
 void Compiler::visit(CallExpr &e) {
-	Function *callee = _module->getFunction(e.name());
-	if (!callee) throw iv_arithmetic_error("Unknown function: '"+e.name()+"'");
-	if ((e.name() == "set_rup") || (e.name() == "set_rdown"))
-		throw iv_arithmetic_error("Calls to '"+e.name()+"' are prohibited");
-	if (callee->arg_size() & 1)
-		throw iv_arithmetic_error("Bug: odd number of arguments (internal) to function: '"+e.name()+"'");
-	if (callee->arg_size() != 2 * e.args().size())
-		throw iv_arithmetic_error(stringize() << "Invalid argument count for call to '" << e.name() << "'. expected: " << (callee->arg_size()/2) << ", got: " << e.args().size());
+	// this is a cludge.  ideally, compiled functions would have the
+	// same, uh, 'calling convention', for lack of a better term
+	// than builtin functions, however due to necessary changes in how
+	// compiled functions are represented, this is not the case.
+	//
+	// builtins take some number of pod_intervals, and return a pod_interval.
+	// compiled functions take two pointers to arrays of doubles (dst, src),
+	// with the actual function arguments in src, and store the results in dst.
+	auto it = _builtin.find(e.name());
+	if (it != _builtin.end()) {
+		llvm::Function *callee = it->getValue();
+		vector<Value*> args;
+		for (auto const &expr : e.args())
+			args.push_back(c_i2v(compile(*expr), "call_arg_"));
+		Value *res = _builder.CreateCall(callee, args, "call_"+e.name()+"_res");
+		vector<unsigned> idxs;
+		idxs.push_back(0);
+		_iv.lo = _builder.CreateExtractValue(res, idxs);
+		idxs.clear();
+		idxs.push_back(1);
+		_iv.hi = _builder.CreateExtractValue(res, idxs);
+	} else {
+		auto it = _compiled.find(e.name());
+//		Function *callee = _module->getFunction(e.name());
+		if (it == _compiled.end()) throw iv_arithmetic_error("Unknown function: '"+e.name()+"'");
+		Function *callee = it->getValue().compiled;
+		if (callee->arg_size() & 1)
+			throw iv_arithmetic_error("Bug: odd number of arguments (internal) to function: '"+e.name()+"'");
+		if (callee->arg_size() != 2 * e.args().size())
+			throw iv_arithmetic_error(stringize() << "Invalid argument count for call to '"+e.name()+"'. expected: "
+			                                      << (callee->arg_size()/2)
+			                                      << ", got: " << e.args().size());
 
-	vector<Value*> args;
-	for (auto const &expr : e.args()) {
-		VInterval res = compile(*expr);
-		args.push_back(res.lo);
-		args.push_back(res.hi);
+		vector<Value*> args;
+		for (auto const &expr : e.args()) {
+			VInterval res = compile(*expr);
+			args.push_back(res.lo);
+			args.push_back(res.hi);
+		}
+
+		Value *res = _builder.CreateCall(callee, args, "call_"+e.name()+"_res");
+		vector<unsigned> idxs;
+		idxs.push_back(0);
+		_iv.lo = _builder.CreateExtractValue(res, idxs);
+		idxs.clear();
+		idxs.push_back(1);
+		_iv.hi = _builder.CreateExtractValue(res, idxs);
+
 	}
-	Value *res = _builder.CreateCall(callee, args, "call_"+e.name()+"_res");
-	vector<unsigned> idxs;
-	idxs.push_back(0);
-	_iv.lo = _builder.CreateExtractValue(res, idxs);
-	idxs.clear();
-	idxs.push_back(1);
-	_iv.hi = _builder.CreateExtractValue(res, idxs);
 }
 
 void *Compiler::jit_to_void(Function *f) {
 	return _exec_engine->getPointerToFunction(f);
 }
 
-jitted_function Compiler::jit(Function *f) {
-	if (f->arg_size() != 0) throw iv_arithmetic_error("JIT: expected f->arg_size == 0");
-	// note: UB before c++11. the earlier equivalent cast would be (jitted_function)(intptr_t)(f)
-	return reinterpret_cast<jitted_function>(jit_to_void(f));
+vector<interval> Compiled::operator()(vector<interval> const &v) {
+	if (v.size() != _nargs) throw iv_arithmetic_error("Wrong number of arguments to compiled function");
+	assert(_jitted != nullptr);
+	size_t dsz = 2 * v.size();
+	std::vector<interval> result;
+	result.reserve(v.size());
+	size_t i = 0;
+	for (auto const &e : v) { _dbls[i++] = e.lo(); _dbls[i++] = e.hi(); }
+	memset(&_retdbls[0], '\0', sizeof(double) * dsz);
+	_jitted(_retdbls.get(), _dbls.get());
+	rmath::set_rnear();
+	for (i = 0; i < dsz; i += 2)
+		result.push_back(interval(_dbls[i], _dbls[i+1]));
+	return result;
 }
 
-jitted_function Compiler::jit_expr(ExprPtr const &e) {
+Compiled Compiler::jit(Function *f) {
+//	if (f->arg_size() != 0) throw iv_arithmetic_error("JIT: expected f->arg_size == 0");
+	Compiled c(f->arg_size());
+	// probably ub, but probably will work too.
+	c._jitted = Compiled::FuncType(
+		reinterpret_cast<Compiled::FuncPtrType>(
+			reinterpret_cast<uintptr_t>(jit_to_void(f))));
+	return std::move(c);
+}
+
+
+
+Compiled Compiler::jit_expr(ExprPtr const &e) {
 	if (e->as_func_expr()) throw iv_arithmetic_error("Expected expression in call to jit_expr");
+
 	Function *f = compile_expr(e);
+	assert(f);
 	return jit(f);
 }
 
@@ -544,32 +741,39 @@ vector<Value*> Compiler::ivec2vvec(vector<interval> const &v) {
 }
 
 
-interval Compiler::execute(Function *f, vector<interval> const &args) {
-	jitted_function fn = jit_call(f, args);
-	return from_ret(fn());
-}
-
-
-interval Compiler::execute(string const &s, vector<interval> const &args) {
-	jitted_function f = jit_call(s, args);
-	return from_ret(f());
-}
-
+//interval Compiler::execute(Function *f, vector<interval> const &args) {
+//	jitted_function fn = jit_call(f, args);
+//	return from_ret(fn());
+//}
+//
+//
+//interval Compiler::execute(string const &s, vector<interval> const &args) {
+//	jitted_function f = jit_call(s, args);
+//	return from_ret(f());
+//}
+//
 interval Compiler::execute(ExprPtr const &ep) {
 	if (ep->as_func_expr()) {
 		compile(*ep);
 		return interval::empty();
 	}
-	jitted_function f = jit_expr(ep);
-	return from_ret(f());
+
+	Function *f = compile_1func(FuncExpr(ep->clone()));
+	assert(f);
+	assert(f->arg_size() == 0);
+	assert(ep.get());
+//	POD_JITFunc ff = reinterpret_cast<POD_JITFunc>(
+//		reinterpret_cast<uintptr_t>(jit_to_void(f)));
+	pod_interval (*ff)(void) = (pod_interval (*)(void))reinterpret_cast<uintptr_t>(jit_to_void(f));
+	return from_ret(ff());
 }
 
 
 void Compiler::do_jit(llvm::Function *f) {
 	_exec_engine->runJITOnFunction(f);
 }
-
-jitted_function Compiler::jit_call(Function *f, vector<interval> const &args) {
+/*
+Compiled Compiler::jit_call(Function *f, vector<interval> const &args) {
 	if (f->arg_size() != 2 * args.size()) throw iv_arithmetic_error("Wrong number of args to function");
 	vector<Type*> empty_argl;
 	FunctionType *type = FunctionType::get(_iv_type, empty_argl, false);
@@ -589,12 +793,12 @@ jitted_function Compiler::jit_call(Function *f, vector<interval> const &args) {
 	return jit(wrapper);
 }
 
-jitted_function Compiler::jit_call(string const &name, vector<interval> const &args) {
+Compiled Compiler::jit_call(string const &name, vector<interval> const &args) {
 	Function *f = _module->getFunction(name);
 	if (!f) throw iv_arithmetic_error("Unknown function: '"+name+"'");
 	return jit_call(f, args);
 }
-
+*/
 
 VInterval Compiler::compile(Expr &e) {
 	_iv.lo = _iv.hi = nullptr;
@@ -602,6 +806,22 @@ VInterval Compiler::compile(Expr &e) {
 	return _iv;
 }
 
+Function *Compiler::lookup(string const &name) {
+	auto it = _compiled.find(name);
+	if (it == _compiled.end()) return nullptr;
+	return it->getValue().compiled;
+}
+
+Function *Compiler::lookup_partials(string const &name) {
+	auto it = _compiled.find(name);
+	if (it == _compiled.end()) return nullptr;
+	return it->getValue().allpartials;
+}
+
+
+Compiled Compiler::from_fn(Function *f) {
+	return jit(f);
+}
 
 
 PartialComp::PartialComp() : _ctx(nullptr) {}
@@ -615,7 +835,7 @@ PartialComp &PartialComp::operator=(PartialComp const &pc) {
 	_fname = pc._fname;
 	_pnames = pc._pnames;
 	_pf_names = pc._pf_names;
-	_funcs = pc._funcs;
+	_compiled = pc._compiled;
 	for (auto const &ep : pc._fpartials)
 		_fpartials.push_back(ep->clone());
 	EXPECT(_ctx, "Error: PartialComp initialized with null compiler!");
@@ -628,28 +848,23 @@ void PartialComp::initialize(FuncExpr const &fe) {
 	_pf_names.push_back(fe.name());
 	ExprPtr ffe = Expr::make_func(fe.name(), fe.params(), Simplifier::simplified(fe.impl()));
 	_fpartials.push_back(move(ffe));
-	Function *f = _ctx->compile_func(*_fpartials.back()->as_func_expr());
-	_funcs.push_back(f);
 	for (auto const &i : Derivator::partials(fe)) {
 		_pf_names.push_back(deriv_prefix + i.first);
 		ExprPtr pfe = Expr::make_func(_pf_names.back(), _pnames, Simplifier::simplified(i.second));
 		_fpartials.push_back(move(pfe));
-		Function *pf = _ctx->compile_func(*_fpartials.back()->as_func_expr());
-		_ctx->do_jit(pf);
-		_funcs.push_back(pf);
 	}
+	_fn = _ctx->compile_func_partials(fe);
+	_ctx->do_jit(_fn);
+	_compiled = _ctx->jit(_fn);
 }
 
 
 
 vector<interval> PartialComp::calculate(vector<interval> const &args) {
-	vector<interval> res;
-	// idea: generate a function which takes a function as an argument,
-	// and calls it with `args`, then call that function wich each
-	// Function in _funcs.
-	for (auto f : _funcs)
-		res.push_back(_ctx->execute(f, args));
-	return res;
+//	vector<interval> res;
+//	for (auto f : _funcs)
+//		res.push_back(_ctx->execute(f, args));
+	return std::move(_compiled(args));
 }
 
 

@@ -18,18 +18,19 @@ public:
 };
 
 class interval {
-private:
-	real _lo, _hi;
+//private: // attempt to make usable from JIT code...
 public:
+	real _lo, _hi;
+
 	interval();
 	interval(real x);
 	interval(real lo, real hi);
-	interval(interval const &other);
+	interval(interval const &other) = default;
 
 	real lo() const;
 	real hi() const;
 
-	interval &operator=(interval const &i);
+	interval &operator=(interval const &i) = default;
 	interval &operator=(real r);
 
 	bool operator==(interval const &other) const;
@@ -93,12 +94,12 @@ inline interval::interval(real lo, real hi) : _lo(lo), _hi(hi) {
 
 inline interval::interval(real x) : _lo(x), _hi(x) {}
 inline interval::interval() : _lo(real_zero), _hi(real_zero) {}
-inline interval::interval(interval const &other) : _lo(other._lo), _hi(other._hi) {}
+//inline interval::interval(interval const &other) : _lo(other._lo), _hi(other._hi) {}
 
 inline real interval::lo() const { return _lo; }
 inline real interval::hi() const { return _hi; }
 inline real interval::size() const { return std::abs(rmath::sub_hi(_lo, _hi)); }
-inline interval& interval::operator=(interval const &i) { _lo = i._lo;  _hi = i._hi; return *this; }
+//inline interval& interval::operator=(interval const &i) { _lo = i._lo;  _hi = i._hi; return *this; }
 inline interval& interval::operator=(real r) { _lo = _hi = r; return *this; }
 inline bool interval::operator==(interval const &other) const { return (_lo == other._lo) && (_hi == other._hi); }
 
@@ -395,18 +396,34 @@ pod_interval iv_pow(pod_interval a, int b);
 pod_interval iv_sqrt(pod_interval x);
 pod_interval iv_exp(pod_interval x);
 pod_interval iv_log(pod_interval x);
-pod_interval iv_cos(pod_interval x);
+
 pod_interval iv_sin(pod_interval x);
+pod_interval iv_cos(pod_interval x);
 pod_interval iv_tan(pod_interval x);
+pod_interval iv_sec(pod_interval x);
+pod_interval iv_csc(pod_interval x);
+pod_interval iv_cot(pod_interval x);
+
 pod_interval iv_asin(pod_interval x);
 pod_interval iv_acos(pod_interval x);
 pod_interval iv_atan(pod_interval x);
+pod_interval iv_asec(pod_interval x);
+pod_interval iv_acsc(pod_interval x);
+pod_interval iv_acot(pod_interval x);
+
 pod_interval iv_sinh(pod_interval x);
 pod_interval iv_cosh(pod_interval x);
 pod_interval iv_tanh(pod_interval x);
+pod_interval iv_sech(pod_interval x);
+pod_interval iv_csch(pod_interval x);
+pod_interval iv_coth(pod_interval x);
+
 pod_interval iv_asinh(pod_interval x);
 pod_interval iv_acosh(pod_interval x);
 pod_interval iv_atanh(pod_interval x);
+pod_interval iv_asech(pod_interval x);
+pod_interval iv_acsch(pod_interval x);
+pod_interval iv_acoth(pod_interval x);
 
 void set_rounding_mode_up(void);
 void set_rounding_mode_down(void);

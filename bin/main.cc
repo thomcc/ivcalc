@@ -212,11 +212,13 @@ int handle_expr(ExprPtr const &expr,
 						cout << "\t";
 						print.print(*pcomp.partials().at(i));
 						cout << endl;
-						cout.flush();
-						pcomp.funcs().at(i)->dump();
-						cout.flush();
-						llvm::dbgs().flush();
+//						cout.flush();
+//						pcomp.funcs().at(i)->dump();
+//						cout.flush();
+//						llvm::dbgs().flush();
 					}
+					pcomp.fn()->dump();
+
 					did_codegen = true;
 				} else {
 					for (auto const &fexpr : pcalc.partials()) {
@@ -249,9 +251,10 @@ int handle_expr(ExprPtr const &expr,
 					for (size_t i = 0; i < pc.expr_count(); ++i) {
 						print.print(*pc.partials().at(i));
 						cout.flush();
-						pc.funcs().at(i)->dump();
-						llvm::dbgs().flush();
+//						pc.funcs().at(i)->dump();
+//						llvm::dbgs().flush();
 					}
+					pc.fn()->dump();
 				}
 			}
 		}

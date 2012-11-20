@@ -8,6 +8,7 @@
 #include "llvm/PassManager.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/Support/NoFolder.h"
+#include "llvm/ADT/StringMap.h"
 #include <map>
 
 namespace calc {
@@ -19,26 +20,65 @@ struct VInterval {
 	llvm::Value *lo, *hi;
 };
 
-struct ret_interval {
-	double lo, hi;
-};
-
-inline interval from_ret(ret_interval ri) {
+inline interval from_ret(pod_interval ri) {
 	return interval{ri.lo, ri.hi};
 }
+
 
 // enum to represent the rounding mode.
 enum class RoundMode { /* ToNear, ToZero, */ Up, Down, Unknown };
 
-typedef ret_interval (*jitted_function)(void);
+typedef pod_interval(*POD_JITFunc)(void);
+
+// represents a single compiled function returned from the compiler.
+// note that this isn't the compiler's interal representation, but
+// instead the representation it returns.
+
+class Compiled {
+	friend class Compiler;
+	std::function<void(double*, double*)> _jitted;
+	size_t _nargs;
+	std::unique_ptr<double[]> _dbls;
+	std::unique_ptr<double[]> _retdbls;
+public:
+	typedef std::function<void(double*, double*)> FuncType;
+	typedef void (*FuncPtrType)(double*, double*);
+	Compiled() : _nargs(0), _dbls(nullptr), _retdbls(nullptr) {}
+	Compiled(size_t n) : _nargs(n), _dbls{new double[n*2]}, _retdbls{new double[(n+1)*2]} {}
+	Compiled &operator=(Compiled &&o) {
+		_dbls = std::move(o._dbls);
+		_retdbls = std::move(o._retdbls);
+		_nargs = o._nargs;
+		_jitted = o._jitted;
+		return *this;
+	}
+	interval operator()(interval const &i) {
+		std::vector<interval> r = operator()(std::vector<interval>{i});
+		if (r.size() == 0) return interval::empty();
+		return r[0];
+	}
+	std::vector<interval> operator()(std::vector<interval> const &);
+};
+
+// this is the compiler's internal representation of functions.
+// its more heavyweight than the above representation, and stores
+// information about all the partials, and their values.
+struct FuncCode {
+	struct Partial {
+		std::string param, func_name;
+		llvm::Function *function;
+		ExprPtr expr;
+		int idx;
+	};
+	ExprPtr self;
+	llvm::Function *compiled, *allpartials;
+	llvm::StringMap<Partial> partials;
+};
 
 class Compiler : public ExprVisitor {
 public:
 
-	// these move the module from the other compiler.
-	// that is, the created or assigned compiler takes ownership
-	// of all data from the other, which is left empty.
-	void visit(EmptyExpr&) { assert(0); } // impossible
+	void visit(EmptyExpr&) { assert(0); }
 	void visit(AddExpr &e);
 	void visit(SubExpr &e);
 	void visit(NegExpr &e);
@@ -54,7 +94,11 @@ public:
 	// compile a function into llvm ir. if _optimizing is true,
 	// then it optimizes this function as well. otherwise, the function
 	// can be optimized using the optimize method.
+	llvm::Function *compile_func_partials(FuncExpr const &f);
 	llvm::Function *compile_func(FuncExpr const &f);
+
+
+
 	// compile an expression into llvm ir. if it's a FuncExpr
 	// it returns compile_func.  otherwise it compiles it into
 	// a function which has no name and takes no arguments but
@@ -67,24 +111,24 @@ public:
 	// JIT compiles the function into a function which takes
 	// no arguments and returns an interval. if `f` takes arguments,
 	// an exception is thrown.
-	jitted_function jit(llvm::Function *f);
+	Compiled jit(llvm::Function *f);
 	// same as above, but runs compile_expr first, and throws
 	// if e is a FuncExpr. (note: if _optimizing is true, this
 	// function will be optimized).
-	jitted_function jit_expr(ExprPtr const &e);
+	Compiled jit_expr(ExprPtr const &e);
 	// convert a function call to a jitted function.
 	// this is somewhat slow, as it needs to compile a small function to do this.
 	// when possible, prefer the execute method
-	jitted_function jit_call(llvm::Function *f, std::vector<interval> const &args);
+	Compiled jit_call(llvm::Function *f, std::vector<interval> const &args);
 	// ame as above, but looks the function up in the symbol table first.
-	jitted_function jit_call(std::string const &name, std::vector<interval> const &args);
+	Compiled jit_call(std::string const &name, std::vector<interval> const &args);
 	// convert a vector of intervals to a vector of ConstantFPs.
 	std::vector<llvm::Value*> ivec2vvec(std::vector<interval> const &v);
 	// convert a vector of intervals to a vector of llvm generic values (representing doubles).
 	// execute the given function with the given arguments
-	interval execute(llvm::Function *f, std::vector<interval> const &args);
+//	interval execute(llvm::Function *f, std::vector<interval> const &args);
 	// same as above, but look up the expression in the symbol table first
-	interval execute(std::string const &s, std::vector<interval> const &args);
+//	interval execute(std::string const &s, std::vector<interval> const &args);
 	// compile and execute ep.  returns an empty interval if ep is a funcexpr.
 	interval execute(ExprPtr const &ep);
 
@@ -97,6 +141,12 @@ public:
 	void optimize(llvm::Function &e);
 
 	void do_jit(llvm::Function *f);
+
+	llvm::Function *lookup(std::string const &name);
+	llvm::Function *lookup_partials(std::string const &name);
+
+	Compiled from_fn(llvm::Function *f);
+
 	Compiler();
 	~Compiler();
 private:
@@ -106,12 +156,15 @@ private:
 	// a pointer to the llvm module.
 	llvm::Module *_module;
 	// the ir builder we're using.
-	llvm::IRBuilder<true, llvm::NoFolder> _builder;
+	llvm::IRBuilder<> _builder;
 	// vintervals for the named values in this function.
 	// We unbox arguments for functions to reduce the calling overhead
 	// so `func(a, b, c, d)` is compiled to a llvm::Function taking 8 doubles,
 	// specifically a_lo, a_hi, b_lo, b_hi, c_lo, c_hi, d_lo, and d_hi.
-	std::map<std::string, VInterval> _named;
+
+	llvm::StringMap<FuncCode> _compiled;
+	llvm::StringMap<VInterval> _named;
+	llvm::StringMap<llvm::Function*> _builtin;
 	// current rounding mode. initally Unknown.
 	// we try to avoid changing this because changes are slow,
 	// so we keep track of it here. when round_up and round_down
@@ -142,8 +195,10 @@ private:
 	bool _optimizing;
 
 	VInterval compile(Expr&);
-
+	void init_builtins();
+	void add_builtin(std::string const &name, std::string const &alias, size_t nargs=1);
 	void init_module();
+	llvm::Function *compile_1func(FuncExpr const &f);
 
 	llvm::Value *cforce_round(llvm::Value *a, std::string const &name="force_round");
 
@@ -165,7 +220,7 @@ private:
 	// rounding mode active than
 	void round_up(bool force=false);
 	void round_down(bool force=false);
-	void reset_round();
+	void branched();
 	// compile code computing the min/max of two numbers, and return those numbers.
 	llvm::Value *cmax(llvm::Value *a, llvm::Value *b, std::string const &name="max");
 	llvm::Value *cmin(llvm::Value *a, llvm::Value *b, std::string const &name="min");
@@ -190,38 +245,14 @@ private:
 	Compiler &operator=(Compiler const &) = delete;
 };
 
-/*
-class PartialCalc {
-	Evaluator _ctx; // env with partial functions defined
-	std::string _fname; // original func name
-	std::vector<std::string> _pnames, _pf_names; // param names and partial func names
-	std::vector<ExprPtr> _fpartials; // funcexprs representing the partials
-	void initialize(FuncExpr const &fe);
-public:
-	PartialCalc();
-	PartialCalc(FuncExpr const &fe, Evaluator &ev);
-	PartialCalc(FuncExpr const &fe);
-	PartialCalc(PartialCalc const &) = default;
-	PartialCalc&operator=(PartialCalc const &);
-	PartialCalc&operator=(PartialCalc&&) = default;
-	std::string const &func_name() const { return _fname; }
-	void call_args(CallExpr const &ce, std::vector<interval> &parms) { _ctx.call_args(ce, parms); }
-	std::vector<std::string> const &params() const { return _pnames; }
-	std::vector<ExprPtr> const &partials() const { return _fpartials; }
-	size_t partial_count() const { return _fpartials.size() - 1; }
-	size_t expr_count() const { return _fpartials.size(); }
-	std::vector<interval> calculate(std::vector<interval> const &args);
-	std::vector<interval> calculate(std::vector<ExprPtr> const &args);
-};
-
-*/
-
 class PartialComp {
+private:
 	Compiler *_ctx;
 	std::string _fname;
-	std::vector<std::string> _pnames, _pf_names;
 	std::vector<ExprPtr> _fpartials;
-	std::vector<llvm::Function*> _funcs;
+	std::vector<std::string> _pnames, _pf_names;
+	Compiled _compiled;
+	llvm::Function *_fn;
 	void initialize(FuncExpr const &e);
 public:
 	PartialComp();
@@ -230,24 +261,14 @@ public:
 	PartialComp &operator=(PartialComp const &);
 
 	std::vector<interval> calculate(std::vector<interval> const &args);
-
+	llvm::Function *fn() const { return _fn; }
 	PartialComp(PartialComp const &) = default;
 	PartialComp &operator=(PartialComp&&) = default;
-
-
 	std::vector<std::string> const &params() const { return _pnames; }
 	std::vector<ExprPtr> const &partials() const { return _fpartials; }
-	std::vector<llvm::Function*> const &funcs() const { return _funcs; }
 	size_t partial_count() const { return _fpartials.size() - 1; }
 	size_t expr_count() const { return _fpartials.size(); }
-
 };
-
-
-
-
-
-
 
 
 
