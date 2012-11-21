@@ -8,8 +8,11 @@
 #include "visitors/compiler.hh"
 #include "frontend/flagparser.hh"
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/raw_os_ostream.h>
 #include <llvm/Support/Debug.h>
+#include <llvm/Assembly/AssemblyAnnotationWriter.h>
 #include <llvm/Support/CommandLine.h>
+//#include <llvm/Support/Streams.h>
 #include <cstdio>
 #include <cstdlib>
 #include <random>
@@ -87,8 +90,8 @@ public:
 
 unsigned partial_iterations = 1000;
 
-template <typename PartialC>
-void run_benchmark(PartialC &pc) {
+template <typename TimeUnit=chrono::milliseconds, typename PartialC>
+unsigned long long run_benchmark(PartialC &pc) {
 	using namespace chrono;
 	size_t nargs = pc.params().size();
 	vector<interval> args(nargs);
@@ -99,7 +102,8 @@ void run_benchmark(PartialC &pc) {
 		pc.calculate(args);
 		timer.stop();
 	}
-	std::cout << "ran " << partial_iterations << " iterations in " << timer.get_time<milliseconds>() << "ms" << endl;
+	std::cout << "ran " << partial_iterations << " iterations in " << timer.get_time<chrono::milliseconds>() << "ms" << endl;
+	return timer.get_time<TimeUnit>();
 }
 
 void parse_cmd(string const &src, int &verbose, bool &benchmark, bool &codegen, bool &partials, bool &jit, bool &opt) {
@@ -343,7 +347,7 @@ int handle_expr(string const &expr_src, int vb, bool opt, bool bm, bool cg, bool
 	} catch (string s) {
 		cerr << "Caught Error: " << s << endl;
 		return 1;
-	} catch (exception e) {
+	} catch (exception const &e) {
 		cerr << "Caught Error: " << e.what() << endl;
 		return 1;
 	}
@@ -352,43 +356,107 @@ int handle_expr(string const &expr_src, int vb, bool opt, bool bm, bool cg, bool
 	return handle_expr(expr, vb, bm, cg, part, jit, e, &c, print);
 }
 
-int do_bench(string expr_src) {
+string millistring(unsigned long long ctime) {
+	stringstream ss;
+	int milli = ctime;
+	if (ctime > 1000) {
+		int s = ctime / 1000;
+		milli = ctime % 1000;
+		if (s > 60) {
+			int m = s / 60;
+			s = s % 60;
+			if (m > 60) {
+				int h = m / 60;
+				m = m % 60;
+				ss << h << "hr ";
+			}
+			ss << m << "min ";
+		}
+		ss << s << "s ";
+	}
+	ss << milli << "ms";
+	return ss.str();
+}
+
+string microstring(unsigned long long ctime) {
+	stringstream ss;
+	int micro = ctime;
+	if (micro > 1000) {
+		ss << millistring(micro / 1000) << " ";
+		micro = micro % 1000;
+	}
+	ss << micro << "us";
+	return ss.str();
+}
+string nanostring(unsigned long long ctime) {
+	stringstream ss;
+	int nano = ctime;
+	if (nano > 1000) {
+		ss << microstring(nano / 1000) << " ";
+		nano = nano % 1000;
+	}
+	ss << nano << "ns";
+	return ss.str();
+}
+
+int benchcompare(string const &expr_src, int vb, bool opt, bool cg) {
+	Compiler c;
+	c.set_verbose(vb);
+	c.set_optimizing(opt);
+	Evaluator e;
+	Printer print(cout, true);
 	ErrorHandler eh(false, false);
 	Parser parser(expr_src, eh);
-	Printer print(cout, true);
-	Evaluator e;
-	PartialCalc pcalc;
 	ExprPtr expr;
 	try {
 		expr = parser.parse_expression();
-	} catch (string s) {
-		cerr << "Caught Error: " << s << endl;
-		return 1;
-	} catch (exception e) {
-		cerr << "Caught Error: " << e.what() << endl;
-		return 1;
+		if (vb > 1) { cout << "PARSE: "; print.print(*expr); cout << endl; }
+	} catch (exception const &e) {
+		cerr << "Caught: " << e.what() << endl;
 	}
 	if (eh.errors() != 0) return eh.errors();
-	if (FuncExpr const *fe = expr->as_func_expr()) {
-		Timer t;
-		t.start();
-		PartialCalc pc(*fe, e);
-		t.stop();
-		cout << "Derived " << pc.partial_count() << " partials in " << t.get_time<chrono::milliseconds>() <<"ms." << endl;
-		for (auto const &fexpr : pc.partials()) {
-			cout << "\t";
-			print.print(*fexpr);
-			cout << endl;
-		}
-		e.eval(*expr);
-		pcalc = pc;
-	} else {
-		cerr << "error, expected function expression: `<func_name>(<arg0>, <arg1>, ...) = <expr>`" << endl;
-		return 1;
+	if (!expr.get()) fputs("Got NULL expr!\n", stderr);
+	if (FuncExpr *fe = expr->as_func_expr()) {
+		Timer compiler_timer, eval_timer;
+		string prefix = cg ? "; " : "";
+		cerr << prefix << "Compiling... " << flush;
+		compiler_timer.start();
+		PartialComp pcomp(&c, *fe); // todo: why does this want a pointer?
+		compiler_timer.stop();
+		cerr << compiler_timer.get_time<chrono::milliseconds>() << "ms" << endl;
+
+		cerr << prefix << "Preparing evaluator... " << flush;
+		eval_timer.start();
+		PartialCalc pcalc(*fe, e); // todo: fix argument order differences
+		eval_timer.stop();
+		cerr << eval_timer.get_time<chrono::milliseconds>() << "ms" << endl;
+
+
+
+		unsigned long long compiled_runtime = run_benchmark<chrono::microseconds>(pcomp);
+		unsigned long long evalled_runtime = run_benchmark<chrono::microseconds>(pcalc);
+		unsigned long long compile_time = compiler_timer.get_time<chrono::microseconds>();
+		unsigned long long eval_prep_time = eval_timer.get_time<chrono::microseconds>();
+		cerr << endl << prefix << "Benchmark results" << endl;
+		cerr << prefix << "iterations:             " << partial_iterations << endl;
+		cerr << prefix << "number of partials:     " << pcalc.partial_count() << endl;
+		cerr << prefix << "compile time:           " << microstring(compile_time) << endl;
+		cerr << prefix << "eval prep time:         " << microstring(eval_prep_time) << endl;
+		cerr << prefix << "  fraction:             " << (double(compile_time) / double(eval_prep_time)) << endl;
+		cerr << prefix << "compiled code runtime:  " << microstring(compiled_runtime) << endl;
+		cerr << prefix << "evaluated code runtime: " << microstring(evalled_runtime) << endl;
+		cerr << prefix << "  fraction:             " << (double(compiled_runtime) / double(evalled_runtime)) << endl;
+		cerr << prefix << "compile total:          " << microstring(compiled_runtime + compile_time) << endl;
+		cerr << prefix << "evalled total:          " << microstring(evalled_runtime + eval_prep_time) << endl;
+		cerr << prefix << "  fraction:             " << (double(compiled_runtime + compile_time) / double(evalled_runtime + eval_prep_time)) << endl;
+		cerr << endl;
+		AssemblyAnnotationWriter writer;
+		raw_os_ostream rawstrm(cout);
+		if (cg) c.module()->print(rawstrm, &writer);
+		exit(0);
 	}
-	cout << endl << "Benchmarking " << partial_iterations << " iterations of computing points on " << pcalc.expr_count() << " expressions..." << endl;
-	run_benchmark(pcalc);
-	return 0;
+	cerr << "Error, expected function expression" << endl;
+	exit(1);
 }
 
 int main(int argc, char *argv[]) {
@@ -407,10 +475,12 @@ int main(int argc, char *argv[]) {
 	int bench = 1000;
 	bool repl = false;
 	std::string file = empty;
+
 	std::string expr = empty;
 	bool stdin = false;
 	bool v = false;
 	bool no_optimize = false;
+	bool bench_compare = false;
 
 	fset.Int(verbose, "verbose", "print extra info.");
 	fset.Bool(v, "v", "same as -verbose=1");
@@ -420,7 +490,7 @@ int main(int argc, char *argv[]) {
 	fset.Bool(interpret, "interpret", "Interpret expressions instead of using the JIT");
 	fset.Bool(simplify, "simplify", "Simplify expressions.");
 	fset.Bool(dobench, "bench", "run benchmark on partials for expressions?");
-
+	fset.Bool(bench_compare, "bench-both", "bench both JIT and interpreter. Not available with -repl");
 	fset.Int(bench, "iter", "number of benchmark iterations. Implies -b");
 	fset.Bool(repl, "repl", "use repl? Incompatible with -file, -expr, -stdin");
 	fset.String(file, "file", "read from file. Incompatible with -repl, -expr, -stdin");
@@ -437,7 +507,10 @@ int main(int argc, char *argv[]) {
 
  	if (!repl && !stdin && file == empty && expr == empty)
  		repl = true;
-
+ 	if (repl && bench_compare) {
+ 		fset.Complain("-bench-compare is not available from -repl mode.");
+ 		exit(2);
+ 	}
  	int i = 0;
  	if (repl) ++i;
  	if (stdin) ++i;
@@ -474,6 +547,8 @@ int main(int argc, char *argv[]) {
 
 	if (dobench) partial_iterations = bench;
 	try {
+		if (bench_compare)
+			return benchcompare(expr_str, verbose, no_optimize, codegen);
 		if (use_str)
 			return handle_expr(expr_str, verbose, !no_optimize, dobench, codegen, emit_partials, !interpret);
 		else //repl(args.verbose, args.benchmark, args.compile, args.compile_partials, args.use_jit

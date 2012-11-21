@@ -165,5 +165,7 @@ file = File.new $settings[:file] if $settings[:file]
 file.write "#{$settings[:name]}(#{names.join ','}) = "
 file.puts(p.join("+"))
 
+STDERR.write "#{$settings[:name]}(#{names.join ','}) = "
+STDERR.puts(p.join("+"))
 
 
