@@ -1,6 +1,7 @@
 #include "common.hh"
 #include "interval.hh"
 #include "parser/parser.hh"
+#include "parser/sexp_parser.hh"
 #include "visitors/printer.hh"
 #include "visitors/simplifier.hh"
 #include "visitors/eval.hh"
@@ -171,7 +172,7 @@ void parse_cmd(string const &src, int &verbose, bool &benchmark, bool &codegen, 
 		break;
 	}
 }
-
+template <typename Parser>
 int handle_expr(ExprPtr const &expr,
                 int verbose,
                 bool benchmark,
@@ -278,7 +279,7 @@ int handle_expr(ExprPtr const &expr,
 }
 
 
-
+template <typename Parser>
 int repl(int verbose, bool opt, bool benchmark, bool codegen, bool emit_partials, bool jit) {
 
 	cout << endl;
@@ -326,12 +327,12 @@ int repl(int verbose, bool opt, bool benchmark, bool codegen, bool emit_partials
 			if (cin.eof()) return 0;
 			return 2;
 		}
-		int ret = handle_expr(expr, c.verbiosity(), benchmark, codegen, emit_partials, jit, e, &c, print);
+		int ret = handle_expr<Parser>(expr, c.verbiosity(), benchmark, codegen, emit_partials, jit, e, &c, print);
 		if (ret) return ret;
 	}
 }
 
-
+template <typename Parser>
 int handle_expr(string const &expr_src, int vb, bool opt, bool bm, bool cg, bool part, bool jit) {
 	Compiler c;// = Compiler::get();
 	c.set_verbose(vb);
@@ -353,7 +354,7 @@ int handle_expr(string const &expr_src, int vb, bool opt, bool bm, bool cg, bool
 	}
 	if (!parser) return parser.errors();
 
-	return handle_expr(expr, vb, bm, cg, part, jit, e, &c, print);
+	return handle_expr<Parser>(expr, vb, bm, cg, part, jit, e, &c, print);
 }
 
 string millistring(unsigned long long ctime) {
@@ -398,7 +399,7 @@ string nanostring(unsigned long long ctime) {
 	ss << nano << "ns";
 	return ss.str();
 }
-
+template <typename Parser>
 int benchcompare(string const &expr_src, int vb, bool opt, bool cg) {
 	Compiler c;
 	c.set_verbose(vb);
@@ -481,7 +482,7 @@ int main(int argc, char *argv[]) {
 	bool v = false;
 	bool no_optimize = false;
 	bool bench_compare = false;
-
+	bool sexp = false;
 	fset.Int(verbose, "verbose", "print extra info.");
 	fset.Bool(v, "v", "same as -verbose=1");
 	fset.Bool(no_optimize, "no-opt", "control optimizations for the JIT compiler");
@@ -492,6 +493,7 @@ int main(int argc, char *argv[]) {
 	fset.Bool(dobench, "bench", "run benchmark on partials for expressions?");
 	fset.Bool(bench_compare, "bench-both", "bench both JIT and interpreter. Not available with -repl");
 	fset.Int(bench, "iter", "number of benchmark iterations. Implies -b");
+	fset.Bool(sexp, "sexp", "use s-expression parser");
 	fset.Bool(repl, "repl", "use repl? Incompatible with -file, -expr, -stdin");
 	fset.String(file, "file", "read from file. Incompatible with -repl, -expr, -stdin");
 	fset.String(expr, "expr", "evaluate expr. Incompatible with -repl, -file, -stdin");
@@ -547,12 +549,21 @@ int main(int argc, char *argv[]) {
 
 	if (dobench) partial_iterations = bench;
 	try {
-		if (bench_compare)
-			return benchcompare(expr_str, verbose, no_optimize, codegen);
-		if (use_str)
-			return handle_expr(expr_str, verbose, !no_optimize, dobench, codegen, emit_partials, !interpret);
-		else //repl(args.verbose, args.benchmark, args.compile, args.compile_partials, args.use_jit
-			return ::repl(verbose, !no_optimize, dobench, codegen, emit_partials, !interpret);
+		if (sexp) {
+			if (bench_compare)
+				return benchcompare<SexpParser>(expr_str, verbose, no_optimize, codegen);
+			if (use_str)
+				return handle_expr<SexpParser>(expr_str, verbose, !no_optimize, dobench, codegen, emit_partials, !interpret);
+			else
+				return ::repl<SexpParser>(verbose, !no_optimize, dobench, codegen, emit_partials, !interpret);
+		} else {
+			if (bench_compare)
+				return benchcompare<Parser>(expr_str, verbose, no_optimize, codegen);
+			if (use_str)
+				return handle_expr<Parser>(expr_str, verbose, !no_optimize, dobench, codegen, emit_partials, !interpret);
+			else
+				return ::repl<Parser>(verbose, !no_optimize, dobench, codegen, emit_partials, !interpret);
+		}
 	} catch (std::exception const &e) {
 		cerr << "Uncaught exception: " << e.what() << endl;
 	} catch (std::string const &e) {
