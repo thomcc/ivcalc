@@ -5,10 +5,11 @@
 #include "expr.hh"
 #include "parser/lexer.hh"
 #include "parser/queue.hh"
+#include "parser/iparser.hh"
 #include <deque>
 namespace calc {
 
-class SexpParser {
+class SexpParser : public IParser {
 public:
 	SexpParser(std::string const &text, std::unique_ptr<ErrorHandler> eh)
 		: _lexer(text), _on_error(std::move(eh)) {}
@@ -18,7 +19,10 @@ public:
 	int errors() const { return _on_error->errors(); }
 	bool need_lines() const { return _on_error->need_lines(); }
 	explicit operator bool() const { return errors() == 0; }
-
+	template<typename... Args>
+	static std::unique_ptr<IParser> get(Args&&... args) {
+		return std::unique_ptr<IParser>{new SexpParser(std::forward<Args>(args)...)};
+	}
 private:
 	Lexer _lexer;
 	Token _last;

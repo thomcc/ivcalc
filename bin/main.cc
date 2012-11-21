@@ -107,7 +107,7 @@ unsigned long long run_benchmark(PartialC &pc) {
 	return timer.get_time<TimeUnit>();
 }
 
-void parse_cmd(string const &src, int &verbose, bool &benchmark, bool &codegen, bool &partials, bool &jit, bool &opt) {
+void parse_cmd(string const &src, int &verbose, bool &benchmark, bool &codegen, bool &partials, bool &jit, bool &opt, bool &sexp) {
 	switch(src[1]) {
 	case 'b':
 		benchmark = !benchmark;
@@ -151,6 +151,10 @@ void parse_cmd(string const &src, int &verbose, bool &benchmark, bool &codegen, 
 		opt = !opt;
 		cout << "optimizations on? " << boolalpha << opt << endl;
 		break;
+	case 's':
+		sexp = !sexp;
+		cout << "Parsing mode: " << (sexp ? "Prefix" : "Infix") << endl;
+		break;
 	case 'q':
 		exit(0);
 		break;
@@ -158,6 +162,7 @@ void parse_cmd(string const &src, int &verbose, bool &benchmark, bool &codegen, 
 		cout << "Recognized commands: " << endl;
 		cout << "  !h        -- print this message" << endl;
 		cout << "  !b        -- toggle benchmarking" << endl;
+		cout << "  !s        -- toggle parser mode (prefix vs infix)" << endl;
 		cout << "  !j        -- use JIT instead of interpreter" << endl;
 		cout << "  !c        -- toggle printing llvm ir" << endl;
 		cout << "  !o        -- toggle whether or not the JIT compiler performs optimizations" << endl;
@@ -172,7 +177,6 @@ void parse_cmd(string const &src, int &verbose, bool &benchmark, bool &codegen, 
 		break;
 	}
 }
-template <typename Parser>
 int handle_expr(ExprPtr const &expr,
                 int verbose,
                 bool benchmark,
@@ -277,10 +281,14 @@ int handle_expr(ExprPtr const &expr,
 		return 4;
 	}
 }
+template <typename... Args>
+std::unique_ptr<IParser> get_parser(bool sexp, Args&&... args) {
+	if (sexp) return SexpParser::get(std::forward<Args>(args)...);
+	return Parser::get(std::forward<Args>(args)...);
+}
 
-
-template <typename Parser>
-int repl(int verbose, bool opt, bool benchmark, bool codegen, bool emit_partials, bool jit) {
+//template <typename Parser>
+int repl(int verbose, bool opt, bool benchmark, bool codegen, bool emit_partials, bool jit, bool sexp) {
 
 	cout << endl;
 	cout << "Interval arithmetic evaluator/compiler." << endl;
@@ -307,44 +315,44 @@ int repl(int verbose, bool opt, bool benchmark, bool codegen, bool emit_partials
 			if (src[0] == '!') {
 				bool opt = c.is_optimizing();//c->is_optimizing();
 				int v = c.verbiosity();
-				parse_cmd(src, v, benchmark, codegen, emit_partials, jit, opt);
+				parse_cmd(src, v, benchmark, codegen, emit_partials, jit, opt, sexp);
 				c.set_verbose(v);
 				c.set_optimizing(opt);
 				//c->set_optimizing(opt);
 				src = "";
 				continue;
 			}
-			Parser parser(src, true);
+			unique_ptr<IParser> parser = get_parser(sexp, src, true);
 			try {
-				expr = parser.parse_expression();
+				expr = parser->parse_expression();
 			} catch (exception e) {
 				cerr << "Error: " << e.what() << endl;
 				return 3;
 			}
-			if (parser.need_lines()) continue;
-			if (!parser.errors()) break;
+			if (parser->need_lines()) continue;
+			if (!parser->errors()) break;
 			else { src = ""; continue; }
 			if (cin.eof()) return 0;
 			return 2;
 		}
-		int ret = handle_expr<Parser>(expr, c.verbiosity(), benchmark, codegen, emit_partials, jit, e, &c, print);
+		int ret = handle_expr(expr, c.verbiosity(), benchmark, codegen, emit_partials, jit, e, &c, print);
 		if (ret) return ret;
 	}
 }
 
-template <typename Parser>
-int handle_expr(string const &expr_src, int vb, bool opt, bool bm, bool cg, bool part, bool jit) {
+//template <typename Parser>
+int handle_expr(string const &expr_src, int vb, bool opt, bool bm, bool cg, bool part, bool jit, bool sexp) {
 	Compiler c;// = Compiler::get();
 	c.set_verbose(vb);
 	c.set_optimizing(opt);
 	Evaluator e;
 	Printer print(cout, true);
 //	ErrorHandler eh(false, false);
-	Parser parser(expr_src);
+	unique_ptr<IParser> parser = get_parser(sexp, expr_src);
 	ExprPtr expr;
 
 	try {
-		expr = parser.parse_expression();
+		expr = parser->parse_expression();
 	} catch (string s) {
 		cerr << "Caught Error: " << s << endl;
 		return 1;
@@ -352,9 +360,9 @@ int handle_expr(string const &expr_src, int vb, bool opt, bool bm, bool cg, bool
 		cerr << "Caught Error: " << e.what() << endl;
 		return 1;
 	}
-	if (!parser) return parser.errors();
+	if (parser->errors() != 0) return parser->errors();
 
-	return handle_expr<Parser>(expr, vb, bm, cg, part, jit, e, &c, print);
+	return handle_expr(expr, vb, bm, cg, part, jit, e, &c, print);
 }
 
 string millistring(unsigned long long ctime) {
@@ -399,23 +407,23 @@ string nanostring(unsigned long long ctime) {
 	ss << nano << "ns";
 	return ss.str();
 }
-template <typename Parser>
-int benchcompare(string const &expr_src, int vb, bool opt, bool cg) {
+//template <typename Parser>
+int benchcompare(string const &expr_src, int vb, bool opt, bool cg, bool sexp) {
 	Compiler c;
 	c.set_verbose(vb);
 	c.set_optimizing(opt);
 	Evaluator e;
 	Printer print(cout, true);
 //	ErrorHandler eh(false, false);
-	Parser parser(expr_src, ErrorHandler::make_cerr());
+	unique_ptr<IParser> parser = get_parser(sexp, expr_src, ErrorHandler::make_cerr());
 	ExprPtr expr;
 	try {
-		expr = parser.parse_expression();
+		expr = parser->parse_expression();
 		if (vb > 1) { cout << "PARSE: "; print.print(*expr); cout << endl; }
 	} catch (exception const &e) {
 		cerr << "Caught: " << e.what() << endl;
 	}
-	if (!parser) return parser.errors();
+	if (parser->errors() != 0) return parser->errors();
 	if (!expr.get()) fputs("Got NULL expr!\n", stderr);
 	if (FuncExpr *fe = expr->as_func_expr()) {
 		Timer compiler_timer, eval_timer;
@@ -549,21 +557,12 @@ int main(int argc, char *argv[]) {
 
 	if (dobench) partial_iterations = bench;
 	try {
-		if (sexp) {
-			if (bench_compare)
-				return benchcompare<SexpParser>(expr_str, verbose, no_optimize, codegen);
-			if (use_str)
-				return handle_expr<SexpParser>(expr_str, verbose, !no_optimize, dobench, codegen, emit_partials, !interpret);
-			else
-				return ::repl<SexpParser>(verbose, !no_optimize, dobench, codegen, emit_partials, !interpret);
-		} else {
-			if (bench_compare)
-				return benchcompare<Parser>(expr_str, verbose, no_optimize, codegen);
-			if (use_str)
-				return handle_expr<Parser>(expr_str, verbose, !no_optimize, dobench, codegen, emit_partials, !interpret);
-			else
-				return ::repl<Parser>(verbose, !no_optimize, dobench, codegen, emit_partials, !interpret);
-		}
+		if (bench_compare)
+			return benchcompare(expr_str, verbose, no_optimize, codegen, sexp);
+		if (use_str)
+			return handle_expr(expr_str, verbose, !no_optimize, dobench, codegen, emit_partials, !interpret, sexp);
+		else
+			return ::repl(verbose, !no_optimize, dobench, codegen, emit_partials, !interpret, sexp);
 	} catch (std::exception const &e) {
 		cerr << "Uncaught exception: " << e.what() << endl;
 	} catch (std::string const &e) {

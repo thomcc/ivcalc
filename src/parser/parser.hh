@@ -4,8 +4,10 @@
 #include "common.hh"
 #include "parser/lexer.hh"
 #include "parser/queue.hh"
+#include "parser/iparser.hh"
 #include "expr.hh"
 #include "errors.hh"
+
 namespace calc {
 
 enum Precedence {
@@ -18,7 +20,7 @@ enum Precedence {
 };
 
 
-class Parser {
+class Parser : public IParser {
 public:
 	Parser(std::string const &text, std::unique_ptr<ErrorHandler> eh)
 		: _lexer(text), _lookahead(), _last(), _on_error(std::move(eh)) {}
@@ -28,6 +30,10 @@ public:
 	int errors() const { return _on_error->errors(); }
 	bool need_lines() const { return _on_error->need_lines(); }
 	explicit operator bool() const { return errors() == 0; }
+	template<typename... Args>
+	static std::unique_ptr<IParser> get(Args&&... args) {
+		return std::unique_ptr<IParser>{new Parser(std::forward<Args>(args)...)};
+	}
 private:
 	// parses an infix expression
 	typedef ExprPtr (Parser::*Led)(ExprPtr left, Token const &t);
