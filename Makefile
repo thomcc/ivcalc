@@ -6,7 +6,7 @@ CXX = clang++
 WARNINGS = -Wall -Wswitch -Wno-virtual-dtor -Woverloaded-virtual
 USE_CXX_11 = -std=c++11 -stdlib=libc++ -isystem /usr/lib/c++/v1 -isystem /usr/include/c++/4.2.1 -isystem /usr/include/c++/4.2.1/ext
 CXXFLAGS = -Isrc -Ilib -g ${USE_CXX_11} ${WARNINGS} ${OPTFLAGS} `llvm-config --cxxflags`  -fexceptions
-LIBS = `llvm-config --ldflags --libs all` -lc++
+LIBS = `llvm-config --ldflags --libs all`
 PRODFLAGS = -O3 -DNDEBUG
 
 SOURCES = ${wildcard src/*.cc src/**/*.cc}

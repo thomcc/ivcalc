@@ -9,6 +9,7 @@
 #include "frontend/flagparser.hh"
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/Debug.h>
+#include <llvm/Support/CommandLine.h>
 #include <cstdio>
 #include <cstdlib>
 #include <random>
@@ -21,7 +22,7 @@
 using namespace std;
 using namespace calc;
 using namespace flag;
-
+using namespace llvm;
 static bool is_balanced(const char *s) {
 	int p, b, bk;
 	for (p = b = bk = 0; *s; s++) {
@@ -101,7 +102,7 @@ void run_benchmark(PartialC &pc) {
 	std::cout << "ran " << partial_iterations << " iterations in " << timer.get_time<milliseconds>() << "ms" << endl;
 }
 
-void parse_cmd(string const &src, bool &verbose, bool &benchmark, bool &codegen, bool &partials, bool &jit, bool &opt) {
+void parse_cmd(string const &src, int &verbose, bool &benchmark, bool &codegen, bool &partials, bool &jit, bool &opt) {
 	switch(src[1]) {
 	case 'b':
 		benchmark = !benchmark;
@@ -116,12 +117,19 @@ void parse_cmd(string const &src, bool &verbose, bool &benchmark, bool &codegen,
 		if (partials) codegen = true;
 		cout << "Printing LLVM IR for expressions and partials? " << boolalpha << partials << endl;
 		break;
-	case 'v':
-		verbose = !verbose;
-		cout << "Verbose? " << boolalpha << verbose << endl;
+	case 'v': {
+		int v = 0;
+		istringstream is(src.substr(2));
+		if (is >> v) {
+			verbose = std::min(std::max(v, 0), 3);
+		} else if (verbose) verbose = 0;
+		else verbose++;
+		verbose = std::min(std::max(verbose, 0), 3);
+		cout << "Verbiosity: " << verbose << endl;
 		break;
+	}
 	case 'i': {
-		int i;
+		int i = 0;
 		istringstream is(src.substr(2));
 		is >> i;
 		if (i > 0) {
@@ -149,7 +157,7 @@ void parse_cmd(string const &src, bool &verbose, bool &benchmark, bool &codegen,
 		cout << "  !c        -- toggle printing llvm ir" << endl;
 		cout << "  !o        -- toggle whether or not the JIT compiler performs optimizations" << endl;
 		cout << "  !p        -- toggle printing of code for partials (forces !c when true)" << endl;
-		cout << "  !v        -- toggle verbose mode" << endl;
+		cout << "  !v [0-3]  -- change verbose mode" << endl;
 		cout << "  !i <uint> -- set benchmark iterations to <uint>" << endl;
 		cout << "  !q        -- quit." << endl;
 		cout << endl;
@@ -161,7 +169,7 @@ void parse_cmd(string const &src, bool &verbose, bool &benchmark, bool &codegen,
 }
 
 int handle_expr(ExprPtr const &expr,
-                bool verbose,
+                int verbose,
                 bool benchmark,
                 bool codegen,
                 bool partials,
@@ -267,7 +275,7 @@ int handle_expr(ExprPtr const &expr,
 
 
 
-int repl(bool verbose, bool benchmark, bool codegen, bool emit_partials, bool jit) {
+int repl(int verbose, bool opt, bool benchmark, bool codegen, bool emit_partials, bool jit) {
 
 	cout << endl;
 	cout << "Interval arithmetic evaluator/compiler." << endl;
@@ -279,7 +287,8 @@ int repl(bool verbose, bool benchmark, bool codegen, bool emit_partials, bool ji
 	Simplifier s;
 	Compiler c;//*c = Compiler::get();
 	Printer print(cout, true);
-
+	c.set_verbose(verbose);
+	c.set_optimizing(opt);
 	for (;;) {
 		string src;
 		ExprPtr expr(nullptr);
@@ -292,8 +301,10 @@ int repl(bool verbose, bool benchmark, bool codegen, bool emit_partials, bool ji
 			ltrim(src);
 			if (src[0] == '!') {
 				bool opt = c.is_optimizing();//c->is_optimizing();
-				parse_cmd(src, verbose, benchmark, codegen, emit_partials, jit, opt);
-				c.set_optimizing();
+				int v = c.verbiosity();
+				parse_cmd(src, v, benchmark, codegen, emit_partials, jit, opt);
+				c.set_verbose(v);
+				c.set_optimizing(opt);
 				//c->set_optimizing(opt);
 				src = "";
 				continue;
@@ -311,14 +322,16 @@ int repl(bool verbose, bool benchmark, bool codegen, bool emit_partials, bool ji
 			if (cin.eof()) return 0;
 			return 2;
 		}
-		int ret = handle_expr(expr, verbose, benchmark, codegen, emit_partials, jit, e, &c, print);
+		int ret = handle_expr(expr, c.verbiosity(), benchmark, codegen, emit_partials, jit, e, &c, print);
 		if (ret) return ret;
 	}
 }
 
 
-int handle_expr(string const &expr_src, bool vb, bool bm, bool cg, bool part, bool jit) {
+int handle_expr(string const &expr_src, int vb, bool opt, bool bm, bool cg, bool part, bool jit) {
 	Compiler c;// = Compiler::get();
+	c.set_verbose(vb);
+	c.set_optimizing(opt);
 	Evaluator e;
 	Printer print(cout, true);
 	ErrorHandler eh(false, false);
@@ -378,35 +391,14 @@ int do_bench(string expr_src) {
 	return 0;
 }
 
-struct Args {
-
-	Args(int argc, char **argv);
-	void usage(int exit_with=1);
-
-	vector<string> args;
-
-	string program_name;
-	string e_expr;
-
-	bool from_str;
-
-	bool verbose;
-	bool benchmark;
-	bool compile;
-	bool compile_partials;
-	bool use_jit;
-
-	unsigned bench_iters;
-
-
-};
-
 int main(int argc, char *argv[]) {
 	FlagSet fset(argc, argv);
-
+	// if I had known llvm::cl existed, and was configurable,
+	// I wouldn't have used FlagSet, but since that's not the case,
+	// I'm not sure how to implement these options that way...
 	std::string empty = "";
 
-	bool verbose = false;
+	int verbose = 0;
 	bool codegen = false;
 	bool simplify = true;
 	bool emit_partials = false;
@@ -417,13 +409,18 @@ int main(int argc, char *argv[]) {
 	std::string file = empty;
 	std::string expr = empty;
 	bool stdin = false;
+	bool v = false;
+	bool no_optimize = false;
 
-	fset.Bool(verbose, "verbose", "print extra info (doesn't do much currently)");
+	fset.Int(verbose, "verbose", "print extra info.");
+	fset.Bool(v, "v", "same as -verbose=1");
+	fset.Bool(no_optimize, "no-opt", "control optimizations for the JIT compiler");
 	fset.Bool(codegen, "codegen", "emit generated llvm-ir?");
 	fset.Bool(emit_partials, "partials", "emit llvm-ir for partial derivatives?");
 	fset.Bool(interpret, "interpret", "Interpret expressions instead of using the JIT");
 	fset.Bool(simplify, "simplify", "Simplify expressions.");
 	fset.Bool(dobench, "bench", "run benchmark on partials for expressions?");
+
 	fset.Int(bench, "iter", "number of benchmark iterations. Implies -b");
 	fset.Bool(repl, "repl", "use repl? Incompatible with -file, -expr, -stdin");
 	fset.String(file, "file", "read from file. Incompatible with -repl, -expr, -stdin");
@@ -431,7 +428,7 @@ int main(int argc, char *argv[]) {
 	fset.Bool(stdin, "stdin", "read from stdin? Incompatible with -repl, -file, -expr");
  	Error err = fset.Parse();
  	if (err.bad()) exit(2);
-
+ 	if (v) verbose = 1;
  	if (bench != 1000) dobench = true;
  	if (bench <= 0) {
  		fset.Complain(stringize() << "-iter must be >= 0. got: " << bench);
@@ -472,13 +469,23 @@ int main(int argc, char *argv[]) {
 		}
 		use_str = true;
 	}
+//	FakeArgs fa = fset.Remaining();
+//	cl::ParseCommandLineOptions(fa.argc, fa.argv);
+
 	if (dobench) partial_iterations = bench;
-
-	if (use_str)
-		return handle_expr(expr_str, verbose, dobench, codegen, emit_partials, !interpret);
-	else //repl(args.verbose, args.benchmark, args.compile, args.compile_partials, args.use_jit
-		return ::repl(verbose, dobench, codegen, emit_partials, !interpret);
-
+	try {
+		if (use_str)
+			return handle_expr(expr_str, verbose, !no_optimize, dobench, codegen, emit_partials, !interpret);
+		else //repl(args.verbose, args.benchmark, args.compile, args.compile_partials, args.use_jit
+			return ::repl(verbose, !no_optimize, dobench, codegen, emit_partials, !interpret);
+	} catch (std::exception const &e) {
+		cerr << "Uncaught exception: " << e.what() << endl;
+	} catch (std::string const &e) {
+		cerr << "Uncaught exception: " << e << endl;
+	} catch (...) {
+		cerr << "Uncaught exception: (source unknown)." << endl;
+		throw; // so we can pick it up in the debugger.
+	}
 }
 
 

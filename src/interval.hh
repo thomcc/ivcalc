@@ -136,7 +136,7 @@ inline interval& interval::operator/=(interval const &i) { return *this = (*this
 inline std::ostream& operator<<(std::ostream &o, interval const &i) {
 	std::streamsize sz = o.precision();
 	o.precision(std::numeric_limits<real>::digits10+1);
-	o << std::fixed;
+//	o << std::fixed;
 	if (i.is_empty()) o << "[]";
 	else if (i.is_singleton()) o << "[" << i.lo() << "]";
 	else o << "[" << i.lo() << ", " << i.hi() << "]";

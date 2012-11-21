@@ -23,7 +23,9 @@ Compiler::Compiler()
 , _builder(_module->getContext())
 , _round_mode(RoundMode::Unknown)
 , _fpm(_module)
-, _optimizing(true) {
+, _optimizing(true)
+, _verbose(0)
+, _vd(0) {
 	init_module();
 }
 
@@ -271,28 +273,49 @@ Value *Compiler::c_i2v(Value *a, Value *b, string const &name) {
 
 
 void Compiler::visit(AddExpr &e) {
+	int vv = ++_vd;
+	if (_verbose > 1) cout << "Compiler: ADD (" << vv << ")" << endl;
+	if (_verbose > 2) cout << "Compiler: ADD lhs (" << vv << ")" << endl;
 	VInterval lhs = compile(*e.lhs());
+	if (_verbose > 2) cout << "Compiler: ADD rhs (" << vv << ")" << endl;
 	VInterval rhs = compile(*e.rhs());
 	_iv.lo = cadd_lo(lhs.lo, rhs.lo);
 	_iv.hi = cadd_hi(lhs.hi, rhs.hi);
+	if (_verbose > 2) cout << "Compiler: ADD done (" << vv << ")" << endl;
+	--_vd;
 }
 
 void Compiler::visit(SubExpr &e) {
+	int vv = ++_vd;
+	if (_verbose > 1) cout << "Compiler: SUB (" << vv << ")" << endl;
+	if (_verbose > 2) cout << "Compiler: SUB lhs (" << vv << ")" << endl;
 	VInterval lhs = compile(*e.lhs());
+	if (_verbose > 2) cout << "Compiler: SUB rhs (" << vv << ")" << endl;
 	VInterval rhs = compile(*e.rhs());
 	_iv.lo = csub_lo(lhs.lo, rhs.hi);
 	_iv.hi = csub_hi(lhs.hi, rhs.lo);
+	if (_verbose > 2) cout << "Compiler: SUB done (" << vv << ")" << endl;
+	--_vd;
 }
 
 void Compiler::visit(NegExpr &e) {
+	int vv = ++_vd;
+	if (_verbose > 1) cout << "Compiler: NEG (" << vv << ")" << endl;
+	if (_verbose > 2) cout << "Compiler: NEG value (" << vv << ")" << endl;
 	VInterval val = compile(*e.value());
 	_iv.lo = _builder.CreateFNeg(val.hi, "neg_lo");
 	_iv.hi = _builder.CreateFNeg(val.lo, "neg_hi");
+	if (_verbose > 2) cout << "Compiler: NEG done (" << vv << ")" << endl;
+	--_vd;
 }
 
 
 void Compiler::visit(MulExpr &e) {
+	int vv = ++_vd;
+	if (_verbose > 1) cout << "Compiler: MUL (" << vv << ")" << endl;
+	if (_verbose > 2) cout << "Compiler: MUL lhs (" << vv << ")" << endl;
 	VInterval lhs = compile(*e.lhs());
+	if (_verbose > 2) cout << "Compiler: MUL rhs (" << vv << ")" << endl;
 	VInterval rhs = compile(*e.rhs());
 	// todo: consider optimizing in a manner similar to interval.cc
 
@@ -309,11 +332,18 @@ void Compiler::visit(MulExpr &e) {
 	Value *cl = cforce_round(_builder.CreateFMul(lhs.hi, rhs.lo, "mul_lo_c"));
 	Value *dl = cforce_round(_builder.CreateFMul(lhs.hi, rhs.hi, "mul_lo_d"));
 	_iv.lo = cmin4(al, bl, cl, dl, "mul_lo");
-
+	if (_verbose > 2) cout << "Compiler: MUL done (" << vv << ")" << endl;
+	--_vd;
 }
 
 void Compiler::visit(DivExpr &e) {
+	int vv = ++_vd;
+	if (_verbose > 1) cout << "Compiler: DIV (" << vv << ")" << endl;
+	if (_verbose > 2) cout << "Compiler: DIV lhs (" << vv << ")" << endl;
+
 	VInterval lhs = compile(*e.lhs());
+	if (_verbose > 2) cout << "Compiler: DIV rhs (" << vv << ")" << endl;
+
 	VInterval rhs = compile(*e.rhs());
 
 	round_up();
@@ -329,7 +359,8 @@ void Compiler::visit(DivExpr &e) {
 	Value *cl = cforce_round(_builder.CreateFDiv(lhs.hi, rhs.lo, "div_lo_c"));
 	Value *dl = cforce_round(_builder.CreateFDiv(lhs.hi, rhs.hi, "div_lo_d"));
 	_iv.lo = cmin4(al, bl, cl, dl, "div_lo");
-
+	if (_verbose > 2) cout << "Compiler: DIV done (" << vv << ")" << endl;
+	--_vd;
 }
 
 Value *Compiler::ceq0test(Value *lo, Value *hi, string const &name) {
@@ -380,6 +411,9 @@ Value *Compiler::cpow(Value *val, int pwr, string const &name) {
 }
 
 void Compiler::visit(ExptExpr &e) {
+	int vv = ++_vd;
+	if (_verbose > 1) cout << "Compiler: EXPT ^ " << e.power() << " (" << vv << ")" << endl;
+	if (_verbose > 2) cout << "Compiler: EXPT ^ " << e.power() << " value (" << vv << ")" << endl;
 	VInterval base = compile(*e.base());
 	int expt = e.power();
 	if (expt == 0) {
@@ -487,15 +521,24 @@ void Compiler::visit(ExptExpr &e) {
 			_iv.hi = reshi;
 		}
 	}
+	if (_verbose > 2) cout << "Compiler: EXPT ^ " << e.power() << " done (" << vv << ")" << endl;
+	--_vd;
 }
 
 void Compiler::visit(LitExpr &e) {
+	if (_verbose > 1) cout << "Compiler: LIT " << e.value() << endl;
 	_iv.lo = ConstantFP::get(_module->getContext(), APFloat(e.value().lo()));
 	_iv.hi = ConstantFP::get(_module->getContext(), APFloat(e.value().hi()));
 }
 
 void Compiler::visit(FuncExpr &e) {
-	compile_func(e);
+	int vv = ++_vd;
+	if (_verbose > 1) cout << "Compiler: FUNC " << e.name() << " (" << vv << ")" << endl;
+	compile_1func(e);
+	if (_verbose > 1) cout << "Compiler: FUNC done " << e.name() << " (" << vv << ")" << endl;
+	_iv.lo = ConstantFP::get(_module->getContext(), APFloat(rmath::NaN()));
+	_iv.hi = ConstantFP::get(_module->getContext(), APFloat(rmath::NaN()));
+	--_vd;
 }
 
 Function *Compiler::compile_expr(ExprPtr const &e) {
@@ -505,11 +548,15 @@ Function *Compiler::compile_expr(ExprPtr const &e) {
 }
 
 void Compiler::optimize(Function &e) {
+	if (_verbose > 0) cout << "Compiler: OPTIMIZE" << endl;
 	_fpm_ref->run(e);
+	if (_verbose > 0) cout << "Compiler: OPTIMIZE done" << endl;
 }
 
 
 Function *Compiler::compile_func_partials(FuncExpr const &e) {
+	int vv = ++_vd;
+	if (_verbose > 0) cout << "Compiler: PARTIALS OF " << e.name() << " (" << vv << ")" << endl;
 	vector<Type*> eparms(2, Type::getDoublePtrTy(_module->getContext()));
 	// takes a vector of <src, dst>
 	FunctionType *etype = FunctionType::get(Type::getVoidTy(_module->getContext()), eparms, false);
@@ -532,6 +579,7 @@ Function *Compiler::compile_func_partials(FuncExpr const &e) {
 		Value *gepmem2 = _builder.CreateConstGEP1_64(ary_src, idx++, parm+"_hi_gep");
 		v.hi = _builder.CreateLoad(gepmem2, parm+"_hi");
 	}
+	if (_verbose > 0) cout << "Compiler: PARTIALS OF " << e.name() << " COMPILING ORIGINAL (" << vv << ")" << endl;
 	// compile the function itself
 	VInterval v = compile(*e.impl());
 	if (!v.lo || !v.hi)
@@ -548,7 +596,7 @@ Function *Compiler::compile_func_partials(FuncExpr const &e) {
 //		vector<pair<string, ExprPtr>> partials = Derivator::partials(e);
 
 		std::string const &n = part.first;
-
+		if (_verbose > 0) cout << "Compiler: PARTIALS OF " << e.name() << " COMPILING " << part.first << " (" << vv << ")" << endl;
 		VInterval v = compile(*Simplifier::simplified(part.second));
 		if (!v.lo || !v.hi)
 			throw iv_arithmetic_error("Error during compilation of d"+n+"/d"+e.name()+" got null VInterval from compiler");
@@ -565,9 +613,15 @@ Function *Compiler::compile_func_partials(FuncExpr const &e) {
 	verifyFunction(*efunc);
 	if (is_optimizing())
 		optimize(*efunc);
+	if (_verbose > 0)
+		cout << "Compiler: PARTIALS OF " << e.name() << " DONE (" << vv << ")" << endl;
+	--_vd;
 	return efunc;
 }
+
 Function *Compiler::compile_1func(FuncExpr const &e) {
+	int vv = ++_vd;
+	if (_verbose > 1) cout << "Compiler: COMPILING SINGLE FUNCTION " << e.name() << " (" << vv << ")" << endl;
 	vector<Type*> eparms(2*e.params().size(), Type::getDoubleTy(_module->getContext()));
 	FunctionType *etype = FunctionType::get(_iv_type, eparms, false);
 	Function *efunc = Function::Create(etype, Function::ExternalLinkage, e.name(), _module);
@@ -590,46 +644,56 @@ Function *Compiler::compile_1func(FuncExpr const &e) {
 
 	verifyFunction(*efunc);
 
+
 	if (is_optimizing())
 		optimize(*efunc);
+	if (_verbose > 1) cout << "Compiler: COMPILED SINGLE FUNCTION " << e.name() << " (" << vv << ")" << endl;
+	--_vd;
 	return efunc;
 }
 
+FuncCode::~FuncCode() {
+	compiled->eraseFromParent();
+	for (auto &i : partials)
+		if (i.second.get())
+			i.second->function->eraseFromParent();
+	allpartials->eraseFromParent();
+}
+
 Function *Compiler::compile_func(FuncExpr const &e) {
-	FuncCode &fc = _compiled[e.name()];
+	int vv = ++_vd;
+	if (_verbose > 0) cout << "Compiler: COMPILING FUNCTION AND ALL PARTIALS TOGETHER AND SEPARATELY " << e.name() << " (" << vv << ")" << endl;
+
+	shared_ptr<FuncCode> fc{new FuncCode};
+//	FuncCode &fc = _compiled[e.name()];
 	auto it = _compiled.find(e.name());
 	if (it != _compiled.end()) {
 		// todo: find something reasonable to do here...
 		std::cerr << "Warning: redefining function '" << e.name() << "'." << endl;
-		fc.compiled->eraseFromParent();
-		fc.compiled = nullptr;
-		for (auto &i : fc.partials) {
-			FuncCode::Partial &v = i.getValue();
-			v.function->eraseFromParent();
-			v.function = nullptr;
-		}
-		fc.partials.clear();
-		fc.allpartials->eraseFromParent();
-		fc.allpartials = nullptr;
-		fc.self = nullptr;
 	}
-	fc.self = Simplifier::simplified(e.clone());
-	fc.compiled = compile_1func(*fc.self->as_func_expr());
-	fc.allpartials = compile_func_partials(*fc.self->as_func_expr());
+	fc->self = Simplifier::simplified(e.clone());
+	if (_verbose > 0) cout << "Compiler: COMPILING JUST FUNCTION  " << e.name() << " (" << vv << ")" << endl;
+	fc->compiled = compile_1func(*fc->self->as_func_expr());
+	if (_verbose > 0) cout << "Compiler: COMPILING ALL PARTIALS " << e.name() << " (" << vv << ")" << endl;
+	fc->allpartials = compile_func_partials(*fc->self->as_func_expr());
 	size_t i = 0;
 	for (auto const &part : Derivator::partials(e)) {
 		std::string name = "d_"+part.first+"_d_"+e.name();
+		if (_verbose > 0) cout << "Compiler: COMPILING SEPARATE PARTIAL  " << name << " (" << vv << ")" << endl;
 		ExprPtr s = Expr::make_func(name, e.params(), Simplifier::simplified(part.second));
-		FuncCode::Partial &fcp = fc.partials[name];
-		fcp.idx = i++;
-		fcp.function = compile_1func(*s->as_func_expr());
-		fcp.param = part.first;
-		fcp.func_name = name;
-		fcp.expr = move(s);
+		//FuncCode::Partial &fcp = fc->partials[name];
+		unique_ptr<FuncCode::Partial> fcp{new FuncCode::Partial};
+		fcp->idx = i++;
+		fcp->function = compile_1func(*s->as_func_expr());
+		fcp->param = part.first;
+		fcp->func_name = name;
+		fcp->expr = move(s);
+		fc->partials[name] = move(fcp);
 	}
-	return fc.compiled;
+	if (_verbose > 0) cout << "Compiler: DONE COMPILING FUNCTION AND ALL PARTIALS TOGETHER AND SEPARATELY " << e.name() << " (" << vv << ")" << endl;
+	--_vd;
+	return fc->compiled;
 }
-
 
 void Compiler::visit(VarExpr &e) {
 	auto i = _named.find(e.name());
@@ -648,8 +712,11 @@ void Compiler::visit(CallExpr &e) {
 	// builtins take some number of pod_intervals, and return a pod_interval.
 	// compiled functions take two pointers to arrays of doubles (dst, src),
 	// with the actual function arguments in src, and store the results in dst.
+	int vv = ++_vd;
+	if (_verbose > 1) cout << "Compiler: CALL " << e.name() << " (" << vv << ")" << endl;
 	auto it = _builtin.find(e.name());
 	if (it != _builtin.end()) {
+		if (_verbose > 2) cout << "Compiler: CALL (prim) " << e.name() << " (" << vv << ")" << endl;
 		llvm::Function *callee = it->getValue();
 		vector<Value*> args;
 		for (auto const &expr : e.args())
@@ -662,10 +729,11 @@ void Compiler::visit(CallExpr &e) {
 		idxs.push_back(1);
 		_iv.hi = _builder.CreateExtractValue(res, idxs);
 	} else {
+		if (_verbose > 1) cout << "Compiler: CALL (udf) " << e.name() << " (" << vv << ")" << endl;
 		auto it = _compiled.find(e.name());
 //		Function *callee = _module->getFunction(e.name());
 		if (it == _compiled.end()) throw iv_arithmetic_error("Unknown function: '"+e.name()+"'");
-		Function *callee = it->getValue().compiled;
+		Function *callee = it->getValue()->compiled;
 		if (callee->arg_size() & 1)
 			throw iv_arithmetic_error("Bug: odd number of arguments (internal) to function: '"+e.name()+"'");
 		if (callee->arg_size() != 2 * e.args().size())
@@ -689,6 +757,9 @@ void Compiler::visit(CallExpr &e) {
 		_iv.hi = _builder.CreateExtractValue(res, idxs);
 
 	}
+	if (_verbose > 1)
+		cout << "Compiler: CALL done " << e.name() << " (" << vv << ")" << endl;
+	--_vd;
 }
 
 void *Compiler::jit_to_void(Function *f) {
@@ -696,7 +767,8 @@ void *Compiler::jit_to_void(Function *f) {
 }
 
 vector<interval> Compiled::operator()(vector<interval> const &v) {
-	if (v.size() != _nargs) throw iv_arithmetic_error("Wrong number of arguments to compiled function");
+	if (v.size() != _nargs)
+		throw iv_arithmetic_error(stringize() << "Wrong number of arguments to compiled function. expected: " << _nargs << " got: " << v.size());
 	assert(_jitted != nullptr);
 	size_t dsz = 2 * v.size();
 	std::vector<interval> result;
@@ -711,9 +783,9 @@ vector<interval> Compiled::operator()(vector<interval> const &v) {
 	return result;
 }
 
-Compiled Compiler::jit(Function *f) {
+Compiled Compiler::jit(Function *f, size_t nargs) {
 //	if (f->arg_size() != 0) throw iv_arithmetic_error("JIT: expected f->arg_size == 0");
-	Compiled c(f->arg_size());
+	Compiled c(nargs);
 	// probably ub, but probably will work too.
 	c._jitted = Compiled::FuncType(
 		reinterpret_cast<Compiled::FuncPtrType>(
@@ -728,7 +800,7 @@ Compiled Compiler::jit_expr(ExprPtr const &e) {
 
 	Function *f = compile_expr(e);
 	assert(f);
-	return jit(f);
+	return jit(f, 0);
 }
 
 vector<Value*> Compiler::ivec2vvec(vector<interval> const &v) {
@@ -770,7 +842,9 @@ interval Compiler::execute(ExprPtr const &ep) {
 
 
 void Compiler::do_jit(llvm::Function *f) {
+	if (_verbose > 0) cout << "Compiler: JITTING TO NATIVE CODE " << endl;
 	_exec_engine->runJITOnFunction(f);
+	if (_verbose > 0) cout << "Compiler: DONE JITTING TO NATIVE CODE " << endl;
 }
 /*
 Compiled Compiler::jit_call(Function *f, vector<interval> const &args) {
@@ -809,19 +883,19 @@ VInterval Compiler::compile(Expr &e) {
 Function *Compiler::lookup(string const &name) {
 	auto it = _compiled.find(name);
 	if (it == _compiled.end()) return nullptr;
-	return it->getValue().compiled;
+	return it->getValue()->compiled;
 }
 
 Function *Compiler::lookup_partials(string const &name) {
 	auto it = _compiled.find(name);
 	if (it == _compiled.end()) return nullptr;
-	return it->getValue().allpartials;
+	return it->getValue()->allpartials;
 }
 
 
-Compiled Compiler::from_fn(Function *f) {
-	return jit(f);
-}
+//Compiled Compiler::from_fn(Function *f) {
+//	return jit(f);
+//}
 
 
 PartialComp::PartialComp() : _ctx(nullptr) {}
@@ -855,7 +929,7 @@ void PartialComp::initialize(FuncExpr const &fe) {
 	}
 	_fn = _ctx->compile_func_partials(fe);
 	_ctx->do_jit(_fn);
-	_compiled = _ctx->jit(_fn);
+	_compiled = _ctx->jit(_fn, fe.params().size());
 }
 
 

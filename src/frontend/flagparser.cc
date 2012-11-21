@@ -321,5 +321,35 @@ void FlagSet::Double(double &d, string name, string usage) {
 FILE *FlagSet::Output() const { return out ? out : stderr; }
 bool  FlagSet::Parsed() const { return parsed; }
 
+FakeArgs::~FakeArgs() {
+	if (argv) {
+		for (size_t i = 0; i < argc; ++i)
+			if (argv[i]) free(argv[i]);
+		free(argv);
+	}
+}
+
+FakeArgs::FakeArgs() : argc(0), argv(nullptr) {}
+
+FakeArgs::FakeArgs(FakeArgs const &fa) : argc(fa.argc), argv((char**)calloc(argc+2, sizeof(char*))) {
+	for (size_t i = 0; i < argc+2; ++i) {
+		if (fa.argv[i]) argv[i] = strdup(fa.argv[i]);
+		else argv[i] = nullptr;
+	}
+}
+
+FakeArgs FlagSet::Remaining() const {
+	deque<string> args = Args();
+	int n = args.size() + 2;
+	FakeArgs fa;
+	fa.argc = n-1;
+	fa.argv = (char**)calloc(n, sizeof(char*));
+	args.push_front(name);
+	for (size_t i = 0; i < args.size(); ++i)
+		fa.argv[i] = strdup(args.at(i).c_str());
+	fa.argv[n-1] = 0;
+	return fa;
+}
+
 
 }

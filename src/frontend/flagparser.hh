@@ -104,8 +104,24 @@ struct Flag {
 	std::shared_ptr<Value> value;
 };
 
-
-
+struct FakeArgs {
+	int argc;
+	char **argv;
+	FakeArgs();
+	FakeArgs(FakeArgs const &fa);
+	FakeArgs(FakeArgs &&fa) : FakeArgs() { using std::swap; swap(*this, fa); }
+	FakeArgs &operator=(FakeArgs fa) {
+		using std::swap;
+		swap(*this, fa);
+		return *this;
+	}
+	friend void swap(FakeArgs &a, FakeArgs &b) {
+		using std::swap;
+		swap(a.argc, b.argc);
+		swap(a.argv, b.argv);
+	}
+	~FakeArgs();
+};
 
 class FlagSet {
 public:
@@ -136,9 +152,12 @@ public:
 	void Usage();
 	void VisitAll(std::function<void(Flag&)> fn);
 	void PrintDefaults();
+
 	int NArgs() const;
 	std::string Arg(int n) const;
 	std::deque<std::string> Args() const;
+	std::string Name() const { return name; }
+	FakeArgs Remaining() const;
 	void Bool(bool &b, std::string name, std::string usage);
 	void Int(int &i, std::string name, std::string usage);
 	void String(std::string &s, std::string name, std::string usage);

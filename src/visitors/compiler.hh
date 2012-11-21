@@ -10,6 +10,7 @@
 #include "llvm/Support/NoFolder.h"
 #include "llvm/ADT/StringMap.h"
 #include <map>
+#include <unordered_map>
 
 namespace calc {
 
@@ -43,21 +44,38 @@ class Compiled {
 public:
 	typedef std::function<void(double*, double*)> FuncType;
 	typedef void (*FuncPtrType)(double*, double*);
-	Compiled() : _nargs(0), _dbls(nullptr), _retdbls(nullptr) {}
+	~Compiled() {}
+	Compiled() : _jitted(nullptr), _nargs(0), _dbls(nullptr), _retdbls(nullptr) {}
 	Compiled(size_t n) : _nargs(n), _dbls{new double[n*2]}, _retdbls{new double[(n+1)*2]} {}
-	Compiled &operator=(Compiled &&o) {
-		_dbls = std::move(o._dbls);
-		_retdbls = std::move(o._retdbls);
-		_nargs = o._nargs;
+	Compiled(Compiled &&o) : Compiled() { using std::swap; swap(*this, o); }
+	Compiled(Compiled const &o) : Compiled(o._nargs) {
 		_jitted = o._jitted;
-		return *this;
+		std::copy(o._dbls.get(), o._dbls.get() + 2 * o._nargs, _dbls.get());
+		std::copy(o._retdbls.get(), o._retdbls.get() + 2 * (o._nargs+1), _retdbls.get());
 	}
+//	Compiled &operator=(Compiled &&o) {
+//		_dbls = std::move(o._dbls);
+//		_retdbls = std::move(o._retdbls);
+//		_nargs = o._nargs;
+//		_jitted = o._jitted;
+//		o._nargs = 0;
+//		o._jitted = nullptr;
+//		return *this;
+//	}
+	Compiled &operator=(Compiled o) { using std::swap; swap(*this, o); return *this; }
 	interval operator()(interval const &i) {
 		std::vector<interval> r = operator()(std::vector<interval>{i});
 		if (r.size() == 0) return interval::empty();
 		return r[0];
 	}
 	std::vector<interval> operator()(std::vector<interval> const &);
+	friend void swap(Compiled& first, Compiled& second) {
+		using std::swap; // allow adl
+		swap(first._dbls, second._dbls);
+		swap(first._retdbls, second._retdbls);
+		swap(first._nargs, second._nargs);
+		swap(first._jitted, second._jitted);
+	}
 };
 
 // this is the compiler's internal representation of functions.
@@ -70,9 +88,10 @@ struct FuncCode {
 		ExprPtr expr;
 		int idx;
 	};
+	~FuncCode();
 	ExprPtr self;
 	llvm::Function *compiled, *allpartials;
-	llvm::StringMap<Partial> partials;
+	std::unordered_map<std::string, std::unique_ptr<Partial>> partials;
 };
 
 class Compiler : public ExprVisitor {
@@ -108,10 +127,11 @@ public:
 	// which may be reinterpret_cast into a function with the
 	// appropriate arguments.
 	void *jit_to_void(llvm::Function *f);
-	// JIT compiles the function into a function which takes
-	// no arguments and returns an interval. if `f` takes arguments,
-	// an exception is thrown.
-	Compiled jit(llvm::Function *f);
+
+
+
+	Compiled jit(llvm::Function *f, size_t nargs); // nargs is, e.g. FuncExpr::params().size()
+
 	// same as above, but runs compile_expr first, and throws
 	// if e is a FuncExpr. (note: if _optimizing is true, this
 	// function will be optimized).
@@ -136,6 +156,8 @@ public:
 	// a compiled function is optimized by default.
 	// the value of _optimizing defaults to true.
 	bool is_optimizing() const { return _optimizing; }
+	int verbiosity() const { return _verbose; }
+	void set_verbose(int v) { _verbose = v; }
 	void set_optimizing(bool val=true) { _optimizing = val; }
 	// perform optimization using this compilers _fpm on `e`
 	void optimize(llvm::Function &e);
@@ -144,8 +166,6 @@ public:
 
 	llvm::Function *lookup(std::string const &name);
 	llvm::Function *lookup_partials(std::string const &name);
-
-	Compiled from_fn(llvm::Function *f);
 
 	Compiler();
 	~Compiler();
@@ -162,7 +182,7 @@ private:
 	// so `func(a, b, c, d)` is compiled to a llvm::Function taking 8 doubles,
 	// specifically a_lo, a_hi, b_lo, b_hi, c_lo, c_hi, d_lo, and d_hi.
 
-	llvm::StringMap<FuncCode> _compiled;
+	llvm::StringMap<std::shared_ptr<FuncCode>> _compiled;
 	llvm::StringMap<VInterval> _named;
 	llvm::StringMap<llvm::Function*> _builtin;
 	// current rounding mode. initally Unknown.
@@ -193,6 +213,8 @@ private:
 	// should be optimized.
 	// (note: Expressions given to optimize are always optimized)
 	bool _optimizing;
+	int _verbose;
+	int _vd;
 
 	VInterval compile(Expr&);
 	void init_builtins();
