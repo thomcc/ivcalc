@@ -5,10 +5,10 @@
 namespace calc {
 using namespace std;
 void ParserTest::add() {
-	ErrorHandler eh(true, false);
-	Parser p("1 + 2", eh);
+//	ErrorHandler eh(true, false);
+	Parser p("1 + 2", ErrorHandler::make_silent());
 	ExprPtr e = p.parse_expression();
-	Check(!eh.errors());
+	Check(!!p);
 //	cout << "add: " << *e << endl;
 	AddExpr const *e2 = e->as_add_expr();
 	Check(e2);
@@ -27,10 +27,10 @@ void ParserTest::add() {
 }
 
 void ParserTest::sub() {
-	ErrorHandler eh(true, false);
-	Parser p("1-2", eh);
+//	ErrorHandler eh(true, false);
+	Parser p("1-2", ErrorHandler::make_silent());
 	ExprPtr e = p.parse_expression();
-	Check(!eh.errors());
+	Check(!!p);
 //	cout << "sub: " << *e << endl;
 	SubExpr const *e2 = e->as_sub_expr();
 	Check(e2);
@@ -47,10 +47,10 @@ void ParserTest::sub() {
 }
 
 void ParserTest::mul() {
-	ErrorHandler eh(true, false);
-	Parser p("1 * 2", eh);
+//	ErrorHandler eh(true, false);
+	Parser p("1 * 2", ErrorHandler::make_silent());
 	ExprPtr e = p.parse_expression();
-	Check(!eh.errors());
+	Check(!!p);
 //	cout << "mul: " << *e << endl;
 	MulExpr const *e2 = e->as_mul_expr();
 	Check(e2);
@@ -67,10 +67,9 @@ void ParserTest::mul() {
 }
 
 void ParserTest::div() {
-	ErrorHandler eh(true, false);
-	Parser p("1 / 2", eh);
+	Parser p("1 / 2", ErrorHandler::make_silent());
 	ExprPtr e = p.parse_expression();
-	Check(!eh.errors());
+	Check(!!p);
 //	cout << "div: " << *e << endl;
 	DivExpr const *e2 = e->as_div_expr();
 	Check(e2);
@@ -87,10 +86,10 @@ void ParserTest::div() {
 }
 
 void ParserTest::pow() {
-	ErrorHandler eh(true, false);
-	Parser p("1 / 1 ^ 2", eh);
+//	ErrorHandler eh(true, false);
+	Parser p("1 / 1 ^ 2", ErrorHandler::make_silent());
 	ExprPtr e = p.parse_expression();
-	Check(!eh.errors());
+	Check(!!p);
 //	cout << "pow: " << *e << endl;
 	if (DivExpr const *ed = CheckNull(e->as_div_expr())) {
 		if (LitExpr const *e1 = CheckNull(ed->lhs()->as_lit_expr()))
@@ -105,10 +104,10 @@ void ParserTest::pow() {
 }
 
 void ParserTest::lit() {
-	ErrorHandler eh(true, false);
-	Parser p("[1, 3]", eh);
+//	ErrorHandler eh(true, false);
+	Parser p("[1, 3]", ErrorHandler::make_silent());
 	ExprPtr e = p.parse_expression();
-	Check(!eh.errors());
+	Check(!!p);
 //	cout << "lit: " << *e << endl;
 	LitExpr const *e2 = e->as_lit_expr();
 	Check(e2);
@@ -121,11 +120,11 @@ void ParserTest::lit() {
 }
 
 void ParserTest::precedence() {
-	ErrorHandler eh(true, false);
-	Parser p("1 + 0 * 1 ^ 3 / -do_stuff(a^2, b)", eh);
+//	ErrorHandler eh(true, false);
+	Parser p("1 + 0 * 1 ^ 3 / -do_stuff(a^2, b)", ErrorHandler::make_silent());
 	// should parse as 1 + ((0 * (1^3)) / (-do_stuff((a^2), b)))
 	ExprPtr e = p.parse_expression();
-	Check(!eh.errors());
+	Check(!!p);
 //	cout << "precedence: " << *e << endl;
 	AddExpr const *e2 = e->as_add_expr();
 	Check(e2);
@@ -184,10 +183,10 @@ void ParserTest::precedence() {
 }
 
 void ParserTest::group() {
-	ErrorHandler eh(true, false);
-	Parser p("1 * (1 + 0)", eh);
+//	ErrorHandler eh(true, false);
+	Parser p("1 * (1 + 0)", ErrorHandler::make_silent());
 	ExprPtr e = p.parse_expression();
-	Check(!eh.errors());
+	Check(!!p);
 //	cout << "group: " << *e << endl;
 	MulExpr const *e2 = e->as_mul_expr();
 	Check(e2);
@@ -208,10 +207,10 @@ void ParserTest::group() {
 
 
 void ParserTest::func() {
-	ErrorHandler eh(true, false);
-	Parser p("f(x) = x", eh);
+//	ErrorHandler eh(true, false);
+	Parser p("f(x) = x", ErrorHandler::make_silent());
 	ExprPtr e = p.parse_expression();
-	Check(!eh.errors());
+	Check(!!p);
 //	cout << "func: " << *e << endl;
 	if (!CheckNull(e.get())) return;
 	if (FuncExpr const *fe = CheckNull(e->as_func_expr())) {

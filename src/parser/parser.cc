@@ -9,30 +9,6 @@
 
 namespace calc {
 
-void
-ErrorHandler::error(std::string const &msg, int lvl) {
-	if (_need_lines) return;
-	++_errors;
-	if (_silent) return;
-	std::string prefix = "[", suffix = "]";
-	if (isatty(STDERR_FILENO)) { // ansi escape code magic
-		std::string level = stringize() << lvl;
-		prefix = prefix + "\x1b[" + level + "m";
-		suffix = "\x1b[39m" + suffix;
-	}
-	switch (lvl) {
-	case E_Warn: std::cerr << prefix << "Warning" << suffix << " "; break;
-	case E_Error: std::cerr << prefix << "Error" << suffix << " "; break;
-	case E_Info: std::cerr << prefix << "Info" << suffix << " "; break;
-	case E_Bug: default: std::cerr << prefix << "Bug" << suffix << " "; break;
-	}
-	std::cerr << msg << std::endl;
-}
-
-std::ostream &operator<<(std::ostream &o, ErrorHandler const &e) {
-	o << "<EH: repl=" << e.at_repl() << " need_lines?=";
-	return o << e.need_lines() << " errors=" << e.errors() << ">";
-}
 Parser::Infix Parser::_infixes[] = {
 	{ &Parser::call,    P_Call   }, // T_LPAREN,
 	{ NULL,             -1       }, // T_RPAREN,
@@ -72,7 +48,7 @@ Parser::Prefix Parser::_prefixes[] = {
 real Parser::parse_real(std::string const &s) {
 	real d;
 	if (!sscanf(s.c_str(), REAL_FMT, &d)) {
-		_on_error.error("Invalid number: '"+s+"'");
+		_on_error->error("Invalid number: '"+s+"'");
 		d = 0.0;
 	}
 	return d;
@@ -112,7 +88,7 @@ ExprPtr Parser::call(ExprPtr lhs, Token const &t) {
 	std::vector<ExprPtr> args;
 	std::string name;
 	if (VarExpr const *e = lhs->as_var_expr()) name = e->name();
-	else _on_error.error("invalid function!");
+	else _on_error->error("invalid function!");
 	if (!match(T_RPAREN)) {
 		do args.push_back(parse_expression());
 		while (match(T_COMMA));
@@ -137,10 +113,10 @@ ExprPtr Parser::assign(ExprPtr lhs, Token const &t) {
 		std::vector<std::string> prams;
 		for (auto const &a : e->args())
 			if (VarExpr const *ve = a->as_var_expr()) prams.push_back(ve->name());
-			else _on_error.error("Error: non-identifier in function parameter list: '" + Printer::stringify(*a) + "'.");
+			else _on_error->error("Error: non-identifier in function parameter list: '" + Printer::stringify(*a) + "'.");
 		return Expr::make_func(name, prams, std::move(rhs));
 	}
-	_on_error.error(strprintf("bad syntax: '%s'. expected `<name>(<arg>, ...) = <expr>", t.text().c_str()));
+	_on_error->error(strprintf("bad syntax: '%s'. expected `<name>(<arg>, ...) = <expr>", t.text().c_str()));
 	return Expr::make_empty();
 }
 
@@ -183,7 +159,7 @@ ExprPtr Parser::expt(ExprPtr lhs, Token const &t) {
 	real d = parse_real(tt.text());
 	if (d != std::rint(d)) {
 		std::string s = stringize() << "Expected integer in exponent. rounding " << d << " to int.";
-		_on_error.error(s, 0);
+		_on_error->error(s);
 	}
 	return Expr::make_expt(std::move(lhs), (int)((neg_pow ? -1 : 1) * std::rint(d)));
 }
@@ -194,7 +170,7 @@ ExprPtr Parser::parse_expr(int precedence) {
 	Token t = consume();
 	Prefix p = _prefixes[t.type()];
 	if (!p.prefix) {
-		_on_error.error(strprintf("Couldn't parse (prefix) '%s'.", t.describe().c_str()));
+		_on_error->error(strprintf("Couldn't parse (prefix) '%s'.", t.describe().c_str()));
 		return Expr::make_empty();
 	}
 	ExprPtr left = (this->*p.prefix)(t);
@@ -205,7 +181,7 @@ ExprPtr Parser::parse_expr(int precedence) {
 		t = consume();
 		Infix s2 = _infixes[t.type()];
 		if (s2.infix) left = (this->*s2.infix)(std::move(left), t);
-		else _on_error.error(strprintf("Couldn't parse (infix) '%s'.", t.describe().c_str()));
+		else _on_error->error(strprintf("Couldn't parse (infix) '%s'.", t.describe().c_str()));
 	}
 	return std::move(left);
 }
@@ -226,14 +202,14 @@ bool Parser::match(TokenType t) {
 Token Parser::consume() {
 	fill_look_ahead(1);
 	_last = _lookahead.dequeue();
-	if (_last.is_a(T_EOF)) _on_error.want_lines();
+	if (_last.is_a(T_EOF)) _on_error->set_need_lines();
 	return _last;
 }
 
 // get the next token, register an error if its not the given type.
 Token Parser::consume(TokenType expected, std::string const &msg) {
 	if (look_ahead(expected)) return consume();
-	_on_error.error(msg);
+	_on_error->error(msg);
 	return consume();
 }
 
@@ -246,14 +222,14 @@ int Parser::get_precedence() {
 
 // if we're at the end of a line, tell the error handler we want more lines
 void Parser::check_line() {
-	if (look_ahead(T_EOF)) _on_error.want_lines();
+	if (look_ahead(T_EOF)) _on_error->set_need_lines();
 }
 
 // fill the look ahead buffer
 void Parser::fill_look_ahead(size_t size) {
 	while (_lookahead.count() < size) {
 		Token t = _lexer.next();
-		if (t.is_a(T_ERROR)) _on_error.error(t.text());
+		if (t.is_a(T_ERROR)) _on_error->error(t.text());
 		else _lookahead.enqueue(t);
 	}
 }

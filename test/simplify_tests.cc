@@ -6,11 +6,11 @@
 namespace calc {
 
 ExprPtr SimplifyTest::get_expr(std::string const &str, bool simplify) const {
-	ErrorHandler eh(true, false);
-	Parser p(str, eh);
+//	ErrorHandler eh(true, false);
+	Parser p(str, ErrorHandler::make_silent());
 	ExprPtr eptr = p.parse_expression();
 	Check(eptr.get());
-	Check(eh.errors() == 0);
+	Check(!!p);
 	if (simplify) {
 		Simplifier s;
 		ExprPtr e2 = s.simplify(*eptr);

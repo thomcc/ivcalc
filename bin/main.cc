@@ -301,7 +301,7 @@ int repl(int verbose, bool opt, bool benchmark, bool codegen, bool emit_partials
 			string line = get_line(cont);
 			if (cont) src += "\n";
 			src += line;
-			ErrorHandler eh;
+//			ErrorHandler eh;
 			ltrim(src);
 			if (src[0] == '!') {
 				bool opt = c.is_optimizing();//c->is_optimizing();
@@ -313,15 +313,15 @@ int repl(int verbose, bool opt, bool benchmark, bool codegen, bool emit_partials
 				src = "";
 				continue;
 			}
-			Parser parser(src, eh);
+			Parser parser(src, true);
 			try {
 				expr = parser.parse_expression();
 			} catch (exception e) {
 				cerr << "Error: " << e.what() << endl;
 				return 3;
 			}
-			if (eh.need_lines()) continue;
-			if (eh.errors() == 0) break;
+			if (parser.need_lines()) continue;
+			if (!parser.errors()) break;
 			else { src = ""; continue; }
 			if (cin.eof()) return 0;
 			return 2;
@@ -338,8 +338,8 @@ int handle_expr(string const &expr_src, int vb, bool opt, bool bm, bool cg, bool
 	c.set_optimizing(opt);
 	Evaluator e;
 	Printer print(cout, true);
-	ErrorHandler eh(false, false);
-	Parser parser(expr_src, eh);
+//	ErrorHandler eh(false, false);
+	Parser parser(expr_src);
 	ExprPtr expr;
 
 	try {
@@ -351,7 +351,7 @@ int handle_expr(string const &expr_src, int vb, bool opt, bool bm, bool cg, bool
 		cerr << "Caught Error: " << e.what() << endl;
 		return 1;
 	}
-	if (eh.errors() != 0) return eh.errors();
+	if (!parser) return parser.errors();
 
 	return handle_expr(expr, vb, bm, cg, part, jit, e, &c, print);
 }
@@ -405,8 +405,8 @@ int benchcompare(string const &expr_src, int vb, bool opt, bool cg) {
 	c.set_optimizing(opt);
 	Evaluator e;
 	Printer print(cout, true);
-	ErrorHandler eh(false, false);
-	Parser parser(expr_src, eh);
+//	ErrorHandler eh(false, false);
+	Parser parser(expr_src, ErrorHandler::make_cerr());
 	ExprPtr expr;
 	try {
 		expr = parser.parse_expression();
@@ -414,7 +414,7 @@ int benchcompare(string const &expr_src, int vb, bool opt, bool cg) {
 	} catch (exception const &e) {
 		cerr << "Caught: " << e.what() << endl;
 	}
-	if (eh.errors() != 0) return eh.errors();
+	if (!parser) return parser.errors();
 	if (!expr.get()) fputs("Got NULL expr!\n", stderr);
 	if (FuncExpr *fe = expr->as_func_expr()) {
 		Timer compiler_timer, eval_timer;

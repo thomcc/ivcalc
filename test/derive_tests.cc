@@ -6,11 +6,11 @@
 namespace calc {
 
 ExprPtr DeriveTest::get_expr(std::string const &str) const {
-	ErrorHandler eh(true, false);
-	Parser p(str, eh);
+//	ErrorHandler eh(true, false);
+	Parser p(str, ErrorHandler::make_silent());
 	ExprPtr eptr = p.parse_expression();
 	Check(eptr.get());
-	Check(eh.errors() == 0);
+	Check(!!p);
 	return std::move(eptr);
 }
 

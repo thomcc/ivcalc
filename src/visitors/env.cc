@@ -99,14 +99,13 @@ Env Env::global() {
 }
 
 void Env::add_builtin(string const &text) {
-	ErrorHandler eh(true, false);
-	Parser p(text, eh);
+//	ErrorHandler eh(true, false);
+	Parser p(text, ErrorHandler::make_silent());
 	ExprPtr eptr = p.parse_expression();
-	if ((eh.errors() != 0) || !eptr.get())
+	if (!p || !eptr.get())
 		throw iv_arithmetic_error("Bug: error adding builtin: parser error");
 	FuncExpr const *fe = eptr->as_func_expr();
-	if (!fe)
-		throw iv_arithmetic_error("Bug: error adding builtin: incorrectly parsed.");
+	if (!fe) throw iv_arithmetic_error("Bug: error adding builtin: incorrectly parsed.");
 	def(fe->name(), fe->params(), fe->impl()->clone());
 }
 

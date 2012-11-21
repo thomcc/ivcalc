@@ -5,29 +5,8 @@
 #include "parser/lexer.hh"
 #include "parser/queue.hh"
 #include "expr.hh"
+#include "errors.hh"
 namespace calc {
-
-enum ELevel {
-	E_Error = 31,
-	E_Warn = 33,
-	E_Info = 32,
-	E_Bug = 34,
-};
-
-
-class ErrorHandler {
-	bool _need_lines, _repl, _silent;
-	int _errors;
-public:
-	ErrorHandler(bool silent=false, bool repl=true) : _need_lines(false), _repl(repl), _silent(silent), _errors(0) {}
-
-	void error(std::string const &msg, int lvl=E_Error);
-	bool at_repl() const { return _repl; }
-	int errors() const { return _errors; }
-	bool need_lines() const { return _need_lines; }
-	void want_lines() { if (_repl) _need_lines = true; }
-};
-std::ostream &operator<<(std::ostream &o, ErrorHandler const &e);
 
 enum Precedence {
 	P_Assign  = 1,
@@ -41,10 +20,14 @@ enum Precedence {
 
 class Parser {
 public:
-	Parser(std::string const &text, ErrorHandler &eh)
-		: _lexer(text), _lookahead(), _last(), _on_error(eh) {}
-
+	Parser(std::string const &text, std::unique_ptr<ErrorHandler> eh)
+		: _lexer(text), _lookahead(), _last(), _on_error(std::move(eh)) {}
+	Parser(std::string const &text, bool at_repl=false)
+		: Parser(text, ErrorHandler::make_cerr(at_repl)) {}
 	ExprPtr parse_expression() { return parse_expr(); }
+	int errors() const { return _on_error->errors(); }
+	bool need_lines() const { return _on_error->need_lines(); }
+	explicit operator bool() const { return errors() == 0; }
 private:
 	// parses an infix expression
 	typedef ExprPtr (Parser::*Led)(ExprPtr left, Token const &t);
@@ -95,7 +78,7 @@ private:
 	Lexer _lexer;
 	Queue<Token, 1> _lookahead;
 	Token _last;
-	ErrorHandler &_on_error;
+	std::unique_ptr<ErrorHandler> _on_error;
 
 	DISALLOW_COPY_AND_ASSIGN(Parser);
 };

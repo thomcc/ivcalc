@@ -102,10 +102,10 @@ ExprPtr find_rule(std::string const &name) {
 		while (*s1 == *s2++) {
 			if (*s1++ == 0) { // found
 				if (dx_rules_ary[p].cached.get() == nullptr) {
-					ErrorHandler eh(true, false);
-					Parser parser(string(dx_rules_ary[p].impl), eh);
+//					ErrorHandler eh(true, false);
+					Parser parser(string(dx_rules_ary[p].impl), ErrorHandler::make_silent());
 					ExprPtr eptr = parser.parse_expression();
-					if ((eh.errors() != 0) || !eptr.get()) return nullptr;
+					if (!parser || !eptr.get()) return nullptr;
 					dx_rules_ary[p].cached = move(eptr);
 				}
 				return dx_rules_ary[p].cached->clone();
