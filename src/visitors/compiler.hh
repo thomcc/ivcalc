@@ -194,7 +194,7 @@ private:
 	// functions to change the rounding mode.  we keep a pointer to
 	// these so we don't need to call _module->getFunction(...)
 	// every time we want to change the rounding mode.
-	llvm::Function *_round_up, *_round_down, *_fesetrnd;
+	llvm::Function *_round_up, *_round_down, *_fesetrnd, *_ivadd, *_ivmul, *_ivsub, *_ivdiv, *_ivpow;
 	// a struct type for intervals.  this is only used for the return value of functions
 	// (as llvm doesn't support multiple return values). it's simply an aggregate of two
 	// doubles. it's possible that we'd get better efficiency by using a vector type,
@@ -221,6 +221,7 @@ private:
 	void add_builtin(std::string const &name, std::string const &alias, size_t nargs=1);
 	void init_module();
 	llvm::Function *compile_1func(FuncExpr const &f);
+
 
 	llvm::Value *cforce_round(llvm::Value *a, std::string const &name="force_round");
 
@@ -258,6 +259,8 @@ private:
 	llvm::Value *cgt0test(llvm::Value *lo, llvm::Value *hi, std::string const &name="gt_zero_test");
 	llvm::Value *chas0test(llvm::Value *lo, llvm::Value *hi, std::string const &name="has_zero_test");
 	llvm::Value *cemptytest(llvm::Value *lo, llvm::Value *hi, std::string const &name="empty_test");
+
+	VInterval opcall(llvm::Function *op, VInterval const &a, VInterval const &b, std::string const &name="op_call");
 
 	// convert a vinterval into an llvm::Value as an aggregate of two doubles.
 	llvm::Value *c_i2v(llvm::Value *a, llvm::Value *b, std::string const &name="iv");

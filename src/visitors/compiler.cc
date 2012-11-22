@@ -12,6 +12,11 @@
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
+
+
+//#define VOLATILE_FESETROUND
+
+
 namespace calc {
 
 using namespace llvm;
@@ -36,16 +41,18 @@ void Compiler::init_module() {
 
 	InitializeNativeTarget();
 	EngineBuilder eb{_module};
-
+	TargetOptions tgopts;
+	tgopts.HonorSignDependentRoundingFPMathOption = 1;
+	eb.setTargetOptions(tgopts);
 	eb.setEngineKind(EngineKind::JIT);
 	_exec_engine = eb.create();
 	_fpm.add(new TargetData(*_exec_engine->getTargetData()));
+
 //	_fpm.add(createBasicAliasAnalysisPass());
 //	_fpm.add(createInstructionCombiningPass());
 //	_fpm.add(createReassociatePass());
 //	_fpm.add(createGVNPass());
 //	_fpm.add(createCFGSimplificationPass());
-
 
 	_fpm.add(createCFGSimplificationPass());
 	_fpm.add(createPromoteMemoryToRegisterPass());
@@ -104,10 +111,27 @@ void Compiler::init_module() {
 	_round_up = cast<Function>(ru);
 	_round_down = cast<Function>(rd);
 	_fesetrnd = cast<Function>(fsr);
-	vector<Type*> dbls;
-	dbls.push_back(Type::getDoubleTy(_module->getContext()));
-	dbls.push_back(Type::getDoubleTy(_module->getContext()));
+	vector<Type*> dbls(2, Type::getDoubleTy(_module->getContext()));
 	_iv_type = StructType::get(_module->getContext(), dbls, false);
+
+	vector<Type*> ivs(2, _iv_type);
+	FunctionType *iv_op = FunctionType::get(_iv_type, ivs, false);
+	Constant *ivadd = _module->getOrInsertFunction("iv_add", iv_op);
+	Constant *ivsub = _module->getOrInsertFunction("iv_sub", iv_op);
+	Constant *ivmul = _module->getOrInsertFunction("iv_mul", iv_op);
+	Constant *ivdiv = _module->getOrInsertFunction("iv_div", iv_op);
+	Type *powargs[2] = {_iv_type, Type::getInt32Ty(_module->getContext())};
+	FunctionType *iv_pow_type = FunctionType::get(_iv_type, powargs, false);
+	Constant *ivpow = _module->getOrInsertFunction("iv_pow", iv_pow_type);
+	_ivadd = cast<Function>(ivadd);
+	_ivsub = cast<Function>(ivsub);
+	_ivdiv = cast<Function>(ivdiv);
+	_ivmul = cast<Function>(ivmul);
+	_ivpow = cast<Function>(ivpow);
+//ivvmul
+//ivvsub
+//ivvadd
+//ivvdiv
 
 	init_builtins();
 }
@@ -123,6 +147,7 @@ void Compiler::init_builtins() {
 	BUILTIN(acsch); BUILTIN(acoth);
 #undef BUILTIN
 #undef BUILTIN_N
+
 }
 
 void Compiler::add_builtin(string const &name, string const &alias, size_t nargs) {
@@ -138,30 +163,42 @@ void Compiler::add_builtin(string const &name, string const &alias, size_t nargs
 void Compiler::round_up(bool force) {
 	if (force || (_round_mode != RoundMode::Up)) {
 		Type *i32 = Type::getInt32Ty(_module->getContext());
+#ifdef VOLATILE_FESETROUND
 		Value *mem = _builder.CreateAlloca(i32, 0, "rup_forcer");
 		_builder.CreateLifetimeStart(mem);
+#endif
 		Value *fearg[1] = {ConstantInt::get(i32, FE_UPWARD)};
 		Value *v = _builder.CreateCall(_fesetrnd, fearg, "rup_force_unused");
+		(void)v;
+#ifdef VOLATILE_FESETROUND
 		_builder.CreateStore(v, mem, true);
 		_builder.CreateLifetimeEnd(mem);
 //		_builder.CreateCall(_round_up);
 		_round_mode = RoundMode::Up;
-
+#endif
 	}
 }
 
 void Compiler::round_down(bool force) {
-//	if (force || (_round_mode != RoundMode::Down)) {
+
+	if (force || (_round_mode != RoundMode::Down)) {
 		Type *i32 = Type::getInt32Ty(_module->getContext());
+#ifdef VOLATILE_FESETROUND
+
 		Value *mem = _builder.CreateAlloca(i32, 0, "rdown_forcer");
 		_builder.CreateLifetimeStart(mem);
+#endif
 		Value *fearg[1] = {ConstantInt::get(i32, FE_DOWNWARD)};
 		Value *v = _builder.CreateCall(_fesetrnd, fearg, "rdown_force_unused");
+		(void)v;
+#ifdef VOLATILE_FESETROUND
 		_builder.CreateStore(v, mem, true);
 		_builder.CreateLifetimeEnd(mem);
 //		_builder.CreateCall(_round_down);
 		_round_mode = RoundMode::Down;
-//	}
+#endif
+	}
+
 }
 void Compiler::branched() {
 	_round_mode = RoundMode::Unknown;
@@ -279,10 +316,12 @@ void Compiler::visit(AddExpr &e) {
 	VInterval lhs = compile(*e.lhs());
 	if (_verbose > 2) cout << "Compiler: ADD rhs (" << vv << ")" << endl;
 	VInterval rhs = compile(*e.rhs());
-	_iv.lo = cadd_lo(lhs.lo, rhs.lo);
-	_iv.hi = cadd_hi(lhs.hi, rhs.hi);
+//	_iv.lo = cadd_lo(lhs.lo, rhs.lo);
+//	_iv.hi = cadd_hi(lhs.hi, rhs.hi);
+	_iv = Compiler::opcall(_ivadd, lhs, rhs, "addcall");
 	if (_verbose > 2) cout << "Compiler: ADD done (" << vv << ")" << endl;
 	--_vd;
+
 }
 
 void Compiler::visit(SubExpr &e) {
@@ -292,8 +331,9 @@ void Compiler::visit(SubExpr &e) {
 	VInterval lhs = compile(*e.lhs());
 	if (_verbose > 2) cout << "Compiler: SUB rhs (" << vv << ")" << endl;
 	VInterval rhs = compile(*e.rhs());
-	_iv.lo = csub_lo(lhs.lo, rhs.hi);
-	_iv.hi = csub_hi(lhs.hi, rhs.lo);
+	_iv = Compiler::opcall(_ivsub, lhs, rhs, "subcall");
+//	_iv.lo = csub_lo(lhs.lo, rhs.hi);
+//	_iv.hi = csub_hi(lhs.hi, rhs.lo);
 	if (_verbose > 2) cout << "Compiler: SUB done (" << vv << ")" << endl;
 	--_vd;
 }
@@ -318,20 +358,22 @@ void Compiler::visit(MulExpr &e) {
 	if (_verbose > 2) cout << "Compiler: MUL rhs (" << vv << ")" << endl;
 	VInterval rhs = compile(*e.rhs());
 	// todo: consider optimizing in a manner similar to interval.cc
+	_iv = Compiler::opcall(_ivmul, lhs, rhs, "mulcall");
 
-	round_up();
-	Value *ah = cforce_round(_builder.CreateFMul(lhs.lo, rhs.lo, "mul_hi_a"));
-	Value *bh = cforce_round(_builder.CreateFMul(lhs.lo, rhs.hi, "mul_hi_b"));
-	Value *ch = cforce_round(_builder.CreateFMul(lhs.hi, rhs.lo, "mul_hi_c"));
-	Value *dh = cforce_round(_builder.CreateFMul(lhs.hi, rhs.hi, "mul_hi_d"));
-	_iv.hi = cmax4(ah, bh, ch, dh, "mul_hi");
-
-	round_down();
-	Value *al = cforce_round(_builder.CreateFMul(lhs.lo, rhs.lo, "mul_lo_a"));
-	Value *bl = cforce_round(_builder.CreateFMul(lhs.lo, rhs.hi, "mul_lo_b"));
-	Value *cl = cforce_round(_builder.CreateFMul(lhs.hi, rhs.lo, "mul_lo_c"));
-	Value *dl = cforce_round(_builder.CreateFMul(lhs.hi, rhs.hi, "mul_lo_d"));
-	_iv.lo = cmin4(al, bl, cl, dl, "mul_lo");
+//
+//	round_up();
+//	Value *ah = cforce_round(_builder.CreateFMul(lhs.lo, rhs.lo, "mul_hi_a"));
+//	Value *bh = cforce_round(_builder.CreateFMul(lhs.lo, rhs.hi, "mul_hi_b"));
+//	Value *ch = cforce_round(_builder.CreateFMul(lhs.hi, rhs.lo, "mul_hi_c"));
+//	Value *dh = cforce_round(_builder.CreateFMul(lhs.hi, rhs.hi, "mul_hi_d"));
+//	_iv.hi = cmax4(ah, bh, ch, dh, "mul_hi");
+//
+//	round_down();
+//	Value *al = cforce_round(_builder.CreateFMul(lhs.lo, rhs.lo, "mul_lo_a"));
+//	Value *bl = cforce_round(_builder.CreateFMul(lhs.lo, rhs.hi, "mul_lo_b"));
+//	Value *cl = cforce_round(_builder.CreateFMul(lhs.hi, rhs.lo, "mul_lo_c"));
+//	Value *dl = cforce_round(_builder.CreateFMul(lhs.hi, rhs.hi, "mul_lo_d"));
+//	_iv.lo = cmin4(al, bl, cl, dl, "mul_lo");
 	if (_verbose > 2) cout << "Compiler: MUL done (" << vv << ")" << endl;
 	--_vd;
 }
@@ -346,19 +388,22 @@ void Compiler::visit(DivExpr &e) {
 
 	VInterval rhs = compile(*e.rhs());
 
-	round_up();
-	Value *ah = cforce_round(_builder.CreateFDiv(lhs.lo, rhs.lo, "div_hi_a"));
-	Value *bh = cforce_round(_builder.CreateFDiv(lhs.lo, rhs.hi, "div_hi_b"));
-	Value *ch = cforce_round(_builder.CreateFDiv(lhs.hi, rhs.lo, "div_hi_c"));
-	Value *dh = cforce_round(_builder.CreateFDiv(lhs.hi, rhs.hi, "div_hi_d"));
-	_iv.hi = cmax4(ah, bh, ch, dh, "div_hi");
+	_iv = Compiler::opcall(_ivdiv, lhs, rhs, "divcall");
 
-	round_down();
-	Value *al = cforce_round(_builder.CreateFDiv(lhs.lo, rhs.lo, "div_lo_a"));
-	Value *bl = cforce_round(_builder.CreateFDiv(lhs.lo, rhs.hi, "div_lo_b"));
-	Value *cl = cforce_round(_builder.CreateFDiv(lhs.hi, rhs.lo, "div_lo_c"));
-	Value *dl = cforce_round(_builder.CreateFDiv(lhs.hi, rhs.hi, "div_lo_d"));
-	_iv.lo = cmin4(al, bl, cl, dl, "div_lo");
+//
+//	round_up();
+//	Value *ah = cforce_round(_builder.CreateFDiv(lhs.lo, rhs.lo, "div_hi_a"));
+//	Value *bh = cforce_round(_builder.CreateFDiv(lhs.lo, rhs.hi, "div_hi_b"));
+//	Value *ch = cforce_round(_builder.CreateFDiv(lhs.hi, rhs.lo, "div_hi_c"));
+//	Value *dh = cforce_round(_builder.CreateFDiv(lhs.hi, rhs.hi, "div_hi_d"));
+//	_iv.hi = cmax4(ah, bh, ch, dh, "div_hi");
+//
+//	round_down();
+//	Value *al = cforce_round(_builder.CreateFDiv(lhs.lo, rhs.lo, "div_lo_a"));
+//	Value *bl = cforce_round(_builder.CreateFDiv(lhs.lo, rhs.hi, "div_lo_b"));
+//	Value *cl = cforce_round(_builder.CreateFDiv(lhs.hi, rhs.lo, "div_lo_c"));
+//	Value *dl = cforce_round(_builder.CreateFDiv(lhs.hi, rhs.hi, "div_lo_d"));
+//	_iv.lo = cmin4(al, bl, cl, dl, "div_lo");
 	if (_verbose > 2) cout << "Compiler: DIV done (" << vv << ")" << endl;
 	--_vd;
 }
@@ -414,6 +459,7 @@ void Compiler::visit(ExptExpr &e) {
 	int vv = ++_vd;
 	if (_verbose > 1) cout << "Compiler: EXPT ^ " << e.power() << " (" << vv << ")" << endl;
 	if (_verbose > 2) cout << "Compiler: EXPT ^ " << e.power() << " value (" << vv << ")" << endl;
+
 	VInterval base = compile(*e.base());
 	int expt = e.power();
 	if (expt == 0) {
@@ -423,103 +469,113 @@ void Compiler::visit(ExptExpr &e) {
 		_iv.lo = _builder.CreateSelect(retnan, get_dbl(rmath::NaN()), get_dbl(1), "expt_zero_res_lo");
 		_iv.hi = _builder.CreateSelect(retnan, get_dbl(rmath::NaN()), get_dbl(1), "expt_zero_res_hi");
 	} else {
-		bool negative = false;
-		Value *reslo = nullptr, *reshi = nullptr;
-		if (expt < 0) { negative = true; expt *= -1; }
-		if (expt & 1) {
-			round_down();
-			reslo = cpow(base.lo, e.power(), "expt_odd_lo");
-			round_up();
-			reshi = cpow(base.hi, e.power(), "expt_odd_hi");
-		} else {
-			Value *test = _builder.CreateFCmpOGT(base.lo, zero(), "expt_even_are_both_pos_p");
-			Function *fn = _builder.GetInsertBlock()->getParent();
+		Value *bbox = c_i2v(base, "expt_base_box");
+		Value *pow = ConstantInt::get(Type::getInt32Ty(_module->getContext()), expt);
+		Value *cres = _builder.CreateCall2(_ivpow, bbox, pow, "expt_res");
+		unsigned idx0[1] = {0};
+		unsigned idx1[1] = {1};
+		_iv.lo = _builder.CreateExtractValue(cres, idx0, "expt_res_hi");
+		_iv.hi = _builder.CreateExtractValue(cres, idx1, "expt_res_lo");
 
-			BasicBlock *pos_block = BasicBlock::Create(_module->getContext(), "expt_even_both_are_pos", fn);
-			BasicBlock *test_block = BasicBlock::Create(_module->getContext(), "expt_even_both_are_not_pos");
 
-			BasicBlock *neg_block = BasicBlock::Create(_module->getContext(), "expt_even_both_are_neg");
-			BasicBlock *mid_block = BasicBlock::Create(_module->getContext(), "expt_even_contains_zero");
-			BasicBlock *merge_block = BasicBlock::Create(_module->getContext(), "expt_even_merge");
-			round_up(); // ensure that we're rounding up at the start of each block. no_op if this is alread the case
 
-			_builder.CreateCondBr(test, pos_block, test_block);
-
-			// no need to push the block list back because fn was a parameter to BasicBlock::Create
-			_builder.SetInsertPoint(pos_block); // both are pos
-			Value *pos_block_res_lo = nullptr, *pos_block_res_hi = nullptr;
-			{
-				branched();
-				round_down();
-				pos_block_res_lo = cpow(base.lo, e.power(), "expt_even_pos_block_res_lo");
-				round_up();
-				pos_block_res_hi = cpow(base.hi, e.power(), "expt_even_pos_block_res_hi");
-
-				_builder.CreateBr(merge_block);
-			}
-
-			fn->getBasicBlockList().push_back(test_block);
-			_builder.SetInsertPoint(test_block); // lo < 0, dont know about hi.
-			{
-				branched();
-				Value *test2 = _builder.CreateFCmpOLT(base.hi, zero(), "expt_even_are_both_neg_p");
-
-				_builder.CreateCondBr(test2, neg_block, mid_block);
-
-			}
-
-			fn->getBasicBlockList().push_back(neg_block);
-			_builder.SetInsertPoint(neg_block); // both are neg
-			Value *neg_block_res_lo = nullptr, *neg_block_res_hi = nullptr;
-			{
-				branched();
-				round_down();
-				neg_block_res_lo = cpow(base.hi, e.power(), "expt_even_neg_block_res_lo");
-				round_up();
-				neg_block_res_hi = cpow(base.lo, e.power(), "expt_even_pos_block_res_hi");
-
-				_builder.CreateBr(merge_block);
-			}
-
-			fn->getBasicBlockList().push_back(mid_block);
-			_builder.SetInsertPoint(mid_block); // interval contains zero
-			Value *mid_block_res_lo = nullptr, *mid_block_res_hi = nullptr;
-			{
-				branched();
-				round_up();
-				mid_block_res_lo = zero();
-				Value *lo_pow = cpow(base.lo, e.power(), "expt_even_mid_block_lo_");
-				Value *hi_pow = cpow(base.hi, e.power(), "expt_even_mid_block_hi_");
-				mid_block_res_hi = cmax(lo_pow, hi_pow, "expt_even_mid_block_res_hi");
-				_builder.CreateBr(merge_block);
-			}
-
-			fn->getBasicBlockList().push_back(merge_block);
-			_builder.SetInsertPoint(merge_block); // last block, creates phi nodes
-
-			PHINode *phi_lo = _builder.CreatePHI(Type::getDoubleTy(_module->getContext()), 3, "expt_lo");
-			PHINode *phi_hi = _builder.CreatePHI(Type::getDoubleTy(_module->getContext()), 3, "expt_hi");
-
-			phi_lo->addIncoming(pos_block_res_lo, pos_block);
-			phi_hi->addIncoming(pos_block_res_hi, pos_block);
-
-			phi_lo->addIncoming(neg_block_res_lo, neg_block);
-			phi_hi->addIncoming(neg_block_res_hi, neg_block);
-
-			phi_lo->addIncoming(mid_block_res_lo, mid_block);
-			phi_hi->addIncoming(mid_block_res_hi, mid_block);
-
-			// we don't want to assign to _iv yet because we might still need to invert.
-			reslo = phi_lo;
-			reshi = phi_hi;
-		}
-		if (negative) {
-			branched();
-			_iv = cinvert(reslo, reshi, "expt_invert_result");
-		} else {
-			_iv.lo = reslo;
-			_iv.hi = reshi;
-		}
+//		bool negative = false;
+//		Value *reslo = nullptr, *reshi = nullptr;
+//		if (expt < 0) { negative = true; expt *= -1; }
+//		if (expt & 1) {
+//			round_down();
+//			reslo = cpow(base.lo, e.power(), "expt_odd_lo");
+//			round_up();
+//			reshi = cpow(base.hi, e.power(), "expt_odd_hi");
+//		} else {
+//			Value *test = _builder.CreateFCmpOGT(base.lo, zero(), "expt_even_are_both_pos_p");
+//			Function *fn = _builder.GetInsertBlock()->getParent();
+//
+//			BasicBlock *pos_block = BasicBlock::Create(_module->getContext(), "expt_even_both_are_pos", fn);
+//			BasicBlock *test_block = BasicBlock::Create(_module->getContext(), "expt_even_both_are_not_pos");
+//
+//			BasicBlock *neg_block = BasicBlock::Create(_module->getContext(), "expt_even_both_are_neg");
+//			BasicBlock *mid_block = BasicBlock::Create(_module->getContext(), "expt_even_contains_zero");
+//			BasicBlock *merge_block = BasicBlock::Create(_module->getContext(), "expt_even_merge");
+//			round_up(); // ensure that we're rounding up at the start of each block. no_op if this is alread the case
+//
+//			_builder.CreateCondBr(test, pos_block, test_block);
+//
+//			// no need to push the block list back because fn was a parameter to BasicBlock::Create
+//			_builder.SetInsertPoint(pos_block); // both are pos
+//			Value *pos_block_res_lo = nullptr, *pos_block_res_hi = nullptr;
+//			{
+//				branched();
+//				round_down();
+//				pos_block_res_lo = cpow(base.lo, e.power(), "expt_even_pos_block_res_lo");
+//				round_up();
+//				pos_block_res_hi = cpow(base.hi, e.power(), "expt_even_pos_block_res_hi");
+//
+//				_builder.CreateBr(merge_block);
+//			}
+//
+//			fn->getBasicBlockList().push_back(test_block);
+//			_builder.SetInsertPoint(test_block); // lo < 0, dont know about hi.
+//			{
+//				branched();
+//				Value *test2 = _builder.CreateFCmpOLT(base.hi, zero(), "expt_even_are_both_neg_p");
+//
+//				_builder.CreateCondBr(test2, neg_block, mid_block);
+//
+//			}
+//
+//			fn->getBasicBlockList().push_back(neg_block);
+//			_builder.SetInsertPoint(neg_block); // both are neg
+//			Value *neg_block_res_lo = nullptr, *neg_block_res_hi = nullptr;
+//			{
+//				branched();
+//				round_down();
+//				neg_block_res_lo = cpow(base.hi, e.power(), "expt_even_neg_block_res_lo");
+//				round_up();
+//				neg_block_res_hi = cpow(base.lo, e.power(), "expt_even_pos_block_res_hi");
+//
+//				_builder.CreateBr(merge_block);
+//			}
+//
+//			fn->getBasicBlockList().push_back(mid_block);
+//			_builder.SetInsertPoint(mid_block); // interval contains zero
+//			Value *mid_block_res_lo = nullptr, *mid_block_res_hi = nullptr;
+//			{
+//				branched();
+//				round_up();
+//				mid_block_res_lo = zero();
+//				Value *lo_pow = cpow(base.lo, e.power(), "expt_even_mid_block_lo_");
+//				Value *hi_pow = cpow(base.hi, e.power(), "expt_even_mid_block_hi_");
+//				mid_block_res_hi = cmax(lo_pow, hi_pow, "expt_even_mid_block_res_hi");
+//				_builder.CreateBr(merge_block);
+//			}
+//
+//			fn->getBasicBlockList().push_back(merge_block);
+//			_builder.SetInsertPoint(merge_block); // last block, creates phi nodes
+//
+//			PHINode *phi_lo = _builder.CreatePHI(Type::getDoubleTy(_module->getContext()), 3, "expt_lo");
+//			PHINode *phi_hi = _builder.CreatePHI(Type::getDoubleTy(_module->getContext()), 3, "expt_hi");
+//
+//			phi_lo->addIncoming(pos_block_res_lo, pos_block);
+//			phi_hi->addIncoming(pos_block_res_hi, pos_block);
+//
+//			phi_lo->addIncoming(neg_block_res_lo, neg_block);
+//			phi_hi->addIncoming(neg_block_res_hi, neg_block);
+//
+//			phi_lo->addIncoming(mid_block_res_lo, mid_block);
+//			phi_hi->addIncoming(mid_block_res_hi, mid_block);
+//
+//			// we don't want to assign to _iv yet because we might still need to invert.
+//			reslo = phi_lo;
+//			reshi = phi_hi;
+//		}
+//		if (negative) {
+//			branched();
+//			_iv = cinvert(reslo, reshi, "expt_invert_result");
+//		} else {
+//			_iv.lo = reslo;
+//			_iv.hi = reshi;
+//		}
 	}
 	if (_verbose > 2) cout << "Compiler: EXPT ^ " << e.power() << " done (" << vv << ")" << endl;
 	--_vd;
@@ -551,6 +607,18 @@ void Compiler::optimize(Function &e) {
 	if (_verbose > 0) cout << "Compiler: OPTIMIZE" << endl;
 	_fpm_ref->run(e);
 	if (_verbose > 0) cout << "Compiler: OPTIMIZE done" << endl;
+}
+
+VInterval Compiler::opcall(Function *op, VInterval const &a, VInterval const &b, string const &name) {
+	Value *lbox = c_i2v(a, name+"_lhs");
+	Value *rbox = c_i2v(b, name+"_rhs");
+	Value *cres = _builder.CreateCall2(op, lbox, rbox, name+"_res");
+	unsigned idx0[1] = {0};
+	unsigned idx1[1] = {1};
+	VInterval res;
+	res.lo = _builder.CreateExtractValue(cres, idx0, name+"_res_hi");
+	res.hi = _builder.CreateExtractValue(cres, idx1, name+"_res_lo");
+	return res;
 }
 
 

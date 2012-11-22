@@ -12,6 +12,8 @@ vec_iv vec_iv_make(double x, double y) {
 }
 
 
+
+
 double vec_iv_lo(vec_iv x) { return -x[0]; }
 double vec_iv_hi(vec_iv x) { return x[1]; }
 double vec_iv_lneg(vec_iv x) { return x[0]; }
