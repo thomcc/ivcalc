@@ -60,8 +60,10 @@ public:
 	std::vector<std::string> const &params() const { return _pnames; }
 	std::vector<ExprPtr> const &partials() const { return _fpartials; }
 	size_t partial_count() const { return _fpartials.size() - 1; }
+	size_t nargs() const { return _pnames.size(); }
 	size_t expr_count() const { return _fpartials.size(); }
 	std::vector<interval> calculate(std::vector<interval> const &args);
+	void apply(std::vector<pod_interval> &dst, std::vector<pod_interval> const &src);
 	std::vector<interval> calculate(std::vector<ExprPtr> const &args);
 };
 

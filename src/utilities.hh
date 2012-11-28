@@ -58,6 +58,23 @@ static inline std::string &trim(std::string &s) {
 }
 
 
+template <typename T> inline void print_out(std::ostream &o, T t) { o << t; }
+template <typename A, typename... B> inline void print_out(std::ostream &o, A a, B... b) {
+	print_out(o, a);
+	print_out(o, b...);
+}
+
+inline std::string strjoin(std::vector<std::string> const &v, std::string const &with="") {
+	std::ostringstream ss;
+	bool fst = true;
+	for (auto const &s : v) {
+		if (fst) fst = false;
+		else ss << with;
+		ss << s;
+	}
+	return ss.str();
+}
+
 // used for visitor implementation, see visitorbase.hh
 
 class NullType {};

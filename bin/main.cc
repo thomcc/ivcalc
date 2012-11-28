@@ -68,6 +68,14 @@ void fill_randomly(vector<interval> &v, size_t n) {
 		v[i] = interval(next_real());
 }
 
+void fill_randomly(vector<pod_interval> &v, size_t n) {
+	for (size_t i = 0; i < n; ++i) {
+		real r = next_real();
+		v[i] = pod_interval{r, r};
+	}
+}
+
+
 class Timer {
 	typedef chrono::high_resolution_clock clock;
 	typedef chrono::nanoseconds time_unit;
@@ -91,19 +99,20 @@ public:
 
 unsigned partial_iterations = 1000;
 
-template <typename TimeUnit=chrono::milliseconds, typename PartialC>
-unsigned long long run_benchmark(PartialC &pc) {
+template <typename TimeUnit=chrono::milliseconds, typename C>
+unsigned long long run_benchmark(C &pc, string const &label="") {
 	using namespace chrono;
-	size_t nargs = pc.params().size();
-	vector<interval> args(nargs);
+	size_t nargs = pc.nargs();
+	vector<pod_interval> args(nargs);
+	vector<pod_interval> dummy(nargs+1);
 	Timer timer;
 	for (size_t i = 0; i < partial_iterations; ++i) {
 		fill_randomly(args, nargs);
 		timer.start();
-		pc.calculate(args);
+		pc.apply(dummy, args);
 		timer.stop();
 	}
-	std::cout << "ran " << partial_iterations << " iterations in " << timer.get_time<chrono::milliseconds>() << "ms" << endl;
+	cout << label << "ran " << partial_iterations << " iterations in " << timer.get_time<chrono::milliseconds>() << "ms" << endl;
 	return timer.get_time<TimeUnit>();
 }
 
@@ -126,10 +135,10 @@ void parse_cmd(string const &src, int &verbose, bool &benchmark, bool &codegen, 
 		int v = 0;
 		istringstream is(src.substr(2));
 		if (is >> v) {
-			verbose = std::min(std::max(v, 0), 3);
+			verbose = min(max(v, 0), 3);
 		} else if (verbose) verbose = 0;
 		else verbose++;
-		verbose = std::min(std::max(verbose, 0), 3);
+		verbose = min(max(verbose, 0), 3);
 		cout << "Verbiosity: " << verbose << endl;
 		break;
 	}
@@ -213,11 +222,12 @@ int handle_expr(ExprPtr const &expr,
 		if (benchmark) {
 			if (FuncExpr *fe = expr->as_func_expr()) {
 				Timer t;
-				PartialComp pcomp;
+//				PartialComp pcomp;
 				t.start();
+				shared_ptr<Compiled> cp;
 				if (jit) {
 					puts("compiling... (somewhat slow)");
-					pcomp = PartialComp(c, *fe);
+					cp = c->partials(*fe); //PartialComp(c, *fe);
 				}
 				PartialCalc pcalc(*fe, e);
 				t.stop();
@@ -225,16 +235,16 @@ int handle_expr(ExprPtr const &expr,
 
 				cout << (jit ? "Derived and compiled " : "Derived ") << pcalc.partial_count() << " partials in " << t.get_time<chrono::milliseconds>() <<"ms." << endl;
 				if (partials && jit) {
-					for (size_t i = 0; i < pcomp.expr_count(); ++i) {
-						cout << "\t";
-						print.print(*pcomp.partials().at(i));
-						cout << endl;
+//					for (size_t i = 0; i < pcomp.expr_count(); ++i) {
+//						cout << "\t";
+//						print.print(*pcomp.partials().at(i));
+//						cout << endl;
 //						cout.flush();
 //						pcomp.funcs().at(i)->dump();
 //						cout.flush();
-//						llvm::dbgs().flush();
-					}
-					pcomp.fn()->dump();
+//						dbgs().flush();
+//					}
+					cp->function()->dump();
 
 					did_codegen = true;
 				} else {
@@ -246,22 +256,23 @@ int handle_expr(ExprPtr const &expr,
 				}
 
 				cout << endl << "Benchmarking " << (jit ? "(jit) " : "(eval) ") << partial_iterations << " iterations of computing points on " << pcalc.expr_count() << " expressions..." << endl;
-				if (jit) run_benchmark(pcomp);
+				if (jit) run_benchmark(*cp);
 				else run_benchmark(pcalc);
 			}
 		}
 
 		if (!did_codegen) {
-			llvm::Function *f = nullptr;
+			puts("TODO: fix codegen after compiler rewrite");
+/*			Function *f = nullptr;
 			if (!partials && codegen) {
 				try {
-					f = c->compile_expr(expr);
+//					f = c->compile_expr(expr);
 				} catch (exception e) {
 					cerr << "Error during compilation: " << e.what() << endl;
 					return 1;
 				}
 				if (!f) cerr << "Compiler returned nullptr when compiling function" << endl;
-				f->dump();
+//				f->dump();
 			} else if (partials) {
 				if (FuncExpr *fe = expr->as_func_expr()) {
 					PartialComp pc(c, *fe);
@@ -269,11 +280,11 @@ int handle_expr(ExprPtr const &expr,
 						print.print(*pc.partials().at(i));
 						cout.flush();
 //						pc.funcs().at(i)->dump();
-//						llvm::dbgs().flush();
+//						dbgs().flush();
 					}
 					pc.fn()->dump();
 				}
-			}
+			}*/
 		}
 		return 0;
 	} else {
@@ -282,9 +293,9 @@ int handle_expr(ExprPtr const &expr,
 	}
 }
 template <typename... Args>
-std::unique_ptr<IParser> get_parser(bool sexp, Args&&... args) {
-	if (sexp) return SexpParser::get(std::forward<Args>(args)...);
-	return Parser::get(std::forward<Args>(args)...);
+unique_ptr<IParser> get_parser(bool sexp, Args&&... args) {
+	if (sexp) return SexpParser::get(forward<Args>(args)...);
+	return Parser::get(forward<Args>(args)...);
 }
 
 //template <typename Parser>
@@ -430,7 +441,7 @@ int benchcompare(string const &expr_src, int vb, bool opt, bool cg, bool sexp) {
 		string prefix = cg ? "; " : "";
 		cerr << prefix << "Compiling... " << flush;
 		compiler_timer.start();
-		PartialComp pcomp(&c, *fe); // todo: why does this want a pointer?
+		shared_ptr<Compiled> cp = c.partials(*fe);
 		compiler_timer.stop();
 		cerr << compiler_timer.get_time<chrono::milliseconds>() << "ms" << endl;
 
@@ -442,8 +453,8 @@ int benchcompare(string const &expr_src, int vb, bool opt, bool cg, bool sexp) {
 
 
 
-		unsigned long long compiled_runtime = run_benchmark<chrono::microseconds>(pcomp);
-		unsigned long long evalled_runtime = run_benchmark<chrono::microseconds>(pcalc);
+		unsigned long long compiled_runtime = run_benchmark<chrono::microseconds>(*cp,  "Compiler:  ");
+		unsigned long long evalled_runtime = run_benchmark<chrono::microseconds>(pcalc, "Evaluator: ");
 		unsigned long long compile_time = compiler_timer.get_time<chrono::microseconds>();
 		unsigned long long eval_prep_time = eval_timer.get_time<chrono::microseconds>();
 		cerr << endl << prefix << "Benchmark results" << endl;
@@ -470,10 +481,10 @@ int benchcompare(string const &expr_src, int vb, bool opt, bool cg, bool sexp) {
 
 int main(int argc, char *argv[]) {
 	FlagSet fset(argc, argv);
-	// if I had known llvm::cl existed, and was configurable,
+	// if I had known cl existed, and was configurable,
 	// I wouldn't have used FlagSet, but since that's not the case,
 	// I'm not sure how to implement these options that way...
-	std::string empty = "";
+	string empty = "";
 
 	int verbose = 0;
 	bool codegen = false;
@@ -483,9 +494,9 @@ int main(int argc, char *argv[]) {
 	bool dobench = false;
 	int bench = 1000;
 	bool repl = false;
-	std::string file = empty;
+	string file = empty;
 
-	std::string expr = empty;
+	string expr = empty;
 	bool stdin = false;
 	bool v = false;
 	bool no_optimize = false;
@@ -531,11 +542,11 @@ int main(int argc, char *argv[]) {
 		exit(2);
 	}
 
-	std::string expr_str = "";
+	string expr_str = "";
 	bool use_str = false;
 	if (expr != empty) { expr_str = expr; use_str = true; }
 	else if (stdin) {
-		std::string line;
+		string line;
 		while (getline(cin, line)) expr_str += " "+line;
 		use_str = true;
 	} else if (file != empty) {
@@ -563,9 +574,9 @@ int main(int argc, char *argv[]) {
 			return handle_expr(expr_str, verbose, !no_optimize, dobench, codegen, emit_partials, !interpret, sexp);
 		else
 			return ::repl(verbose, !no_optimize, dobench, codegen, emit_partials, !interpret, sexp);
-	} catch (std::exception const &e) {
+	} catch (exception const &e) {
 		cerr << "Uncaught exception: " << e.what() << endl;
-	} catch (std::string const &e) {
+	} catch (string const &e) {
 		cerr << "Uncaught exception: " << e << endl;
 	} catch (...) {
 		cerr << "Uncaught exception: (source unknown)." << endl;

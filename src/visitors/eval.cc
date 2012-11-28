@@ -112,6 +112,22 @@ vector<interval> PartialCalc::calculate(vector<ExprPtr> const &args) {
 		res.push_back(_ctx.eval(*Expr::make_call(name, copy_eptrs(args))));
 	return res;
 }
+void PartialCalc::apply(vector<pod_interval> &dst, vector<pod_interval> const &src) {
+	if (src.size() != _pnames.size()) throw iv_arithmetic_error("Wrong number of arguments");
+	vector<ExprPtr> es;
+	for (auto const &iv : src)
+		es.push_back(Expr::make_lit(iv.lo, iv.hi));
+	vector<interval> result = calculate(es);
+	if (dst.size() != result.size())
+		dst.resize(result.size(), iv_make_empty());
+
+	int j = 0;
+	for (auto const &i : result)
+		dst[j++] = pod_interval{i.lo(), i.hi()};
+}
+
+
+
 PartialCalc::PartialCalc() {}
 
 

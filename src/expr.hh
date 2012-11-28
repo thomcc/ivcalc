@@ -59,6 +59,7 @@ public:
 	static ExprPtr make_lit(real min, real max);
 	static ExprPtr make_call(std::string const &name, std::vector<ExprPtr> args);
 	static ExprPtr make_func(std::string const &name, std::vector<std::string> const &params, ExprPtr impl);
+	static ExprPtr make_func(ExprPtr impl);
 	static ExprPtr make_empty();
 	static void stats();
 
@@ -180,8 +181,10 @@ public:
 
 
 	EXPR_VISITABLE()
+
 	static void *operator new(size_t size) { return _pool.allocate(size); }
 	static void operator delete(void *p) { _pool.deallocate(p); }
+
 	static void stats() { _pool.stats(); }
 private:
 	static MemPool _pool;
@@ -402,6 +405,8 @@ inline ExprPtr Expr::make_lit(interval v) { return ExprPtr(new LitExpr(v)); }
 inline ExprPtr Expr::make_lit(real min, real max) { return ExprPtr(new LitExpr(min, max)); }
 inline ExprPtr Expr::make_call(std::string const &name, std::vector<ExprPtr> args) { return ExprPtr(new CallExpr(name, std::move(args))); }
 inline ExprPtr Expr::make_func(std::string const &name, std::vector<std::string> const &params, ExprPtr impl) { return ExprPtr(new FuncExpr(name, params, std::move(impl))); }
+inline ExprPtr Expr::make_func(ExprPtr impl) { return ExprPtr(new FuncExpr(std::move(impl))); }
+
 inline ExprPtr Expr::make_empty() { return ExprPtr(new EmptyExpr()); }
 
 inline void copy_eptrs(std::vector<ExprPtr> const &e, std::vector<ExprPtr> &dst) {
@@ -420,3 +425,5 @@ inline std::vector<ExprPtr> copy_eptrs(std::vector<ExprPtr> const &e) {
 
 
 #endif
+
+

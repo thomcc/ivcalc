@@ -2,6 +2,7 @@
 .SUFFIXES: .cc .c
 
 CXX = clang++
+# -faddress-sanitizer
 
 WARNINGS = -Wall -Wswitch -Wno-virtual-dtor -Woverloaded-virtual
 USE_CXX_11 = -std=c++11 -stdlib=libc++ -isystem /usr/lib/c++/v1 -isystem /usr/include/c++/4.2.1 -isystem /usr/include/c++/4.2.1/ext
