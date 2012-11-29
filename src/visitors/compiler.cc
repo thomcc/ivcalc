@@ -15,7 +15,7 @@
 #include <llvm/ExecutionEngine/GenericValue.h>
 
 #ifndef SSE_INTERVAL_FUNCS
-#  define SSE_INTERVAL_FUNCS 1
+#  define SSE_INTERVAL_FUNCS 0
 #endif
 
 #ifndef PURE_FUNCTIONS
