@@ -116,7 +116,7 @@ unsigned long long run_benchmark(C &pc, string const &label="") {
 	return timer.get_time<TimeUnit>();
 }
 
-void parse_cmd(string const &src, int &verbose, bool &benchmark, bool &codegen, bool &partials, bool &jit, bool &opt, bool &sexp) {
+void parse_cmd(string const &src, int &verbose, bool &benchmark, bool &codegen, bool &jit, bool &opt, bool &sexp) {
 	switch(src[1]) {
 	case 'b':
 		benchmark = !benchmark;
@@ -126,11 +126,11 @@ void parse_cmd(string const &src, int &verbose, bool &benchmark, bool &codegen, 
 		codegen = !codegen;
 		cout << "Printing LLVM IR? " << boolalpha << codegen << endl;
 		break;
-	case 'p':
+/*	case 'p':
 		partials = !partials;
 		if (partials) codegen = true;
 		cout << "Printing LLVM IR for expressions and partials? " << boolalpha << partials << endl;
-		break;
+		break;*/
 	case 'v': {
 		int v = 0;
 		istringstream is(src.substr(2));
@@ -175,7 +175,7 @@ void parse_cmd(string const &src, int &verbose, bool &benchmark, bool &codegen, 
 		cout << "  !j        -- use JIT instead of interpreter" << endl;
 		cout << "  !c        -- toggle printing llvm ir" << endl;
 		cout << "  !o        -- toggle whether or not the JIT compiler performs optimizations" << endl;
-		cout << "  !p        -- toggle printing of code for partials (forces !c when true)" << endl;
+//		cout << "  !p        -- toggle printing of code for partials (forces !c when true)" << endl;
 		cout << "  !v [0-3]  -- change verbose mode" << endl;
 		cout << "  !i <uint> -- set benchmark iterations to <uint>" << endl;
 		cout << "  !q        -- quit." << endl;
@@ -190,19 +190,20 @@ int handle_expr(ExprPtr const &expr,
                 int verbose,
                 bool benchmark,
                 bool codegen,
-                bool partials,
                 bool jit,
                 Evaluator &e,
                 Compiler *c,
                 Printer &print) {
 	if (expr.get()) {
+
 		if (verbose) {
 			cout << "Parsed: ";
 			print.print(*expr);
 			cout << endl;
 		}
-		bool did_codegen = false;
 
+		bool did_codegen = false;
+		shared_ptr<Compiled> cmp;
 		interval i = e.eval(*expr);
 
 		if (!i.is_empty()) {
@@ -224,17 +225,17 @@ int handle_expr(ExprPtr const &expr,
 				Timer t;
 //				PartialComp pcomp;
 				t.start();
-				shared_ptr<Compiled> cp;
+//				shared_ptr<Compiled> cmp;
 				if (jit) {
 					puts("compiling... (somewhat slow)");
-					cp = c->partials(*fe); //PartialComp(c, *fe);
+					cmp = c->partials(*fe); //PartialComp(c, *fe);
 				}
 				PartialCalc pcalc(*fe, e);
 				t.stop();
 
 
 				cout << (jit ? "Derived and compiled " : "Derived ") << pcalc.partial_count() << " partials in " << t.get_time<chrono::milliseconds>() <<"ms." << endl;
-				if (partials && jit) {
+				if (codegen && jit) {
 //					for (size_t i = 0; i < pcomp.expr_count(); ++i) {
 //						cout << "\t";
 //						print.print(*pcomp.partials().at(i));
@@ -244,7 +245,7 @@ int handle_expr(ExprPtr const &expr,
 //						cout.flush();
 //						dbgs().flush();
 //					}
-					cp->function()->dump();
+					cmp->function()->dump();
 
 					did_codegen = true;
 				} else {
@@ -256,14 +257,22 @@ int handle_expr(ExprPtr const &expr,
 				}
 
 				cout << endl << "Benchmarking " << (jit ? "(jit) " : "(eval) ") << partial_iterations << " iterations of computing points on " << pcalc.expr_count() << " expressions..." << endl;
-				if (jit) run_benchmark(*cp);
+				if (jit) run_benchmark(*cmp);
 				else run_benchmark(pcalc);
 			}
+		} else if (codegen && jit) {
+			if (FuncExpr *fe = expr->as_func_expr()) {
+				Function *f = c->compile_func(*fe);
+				f->dump();
+			} else {
+				Function *f = c->compile_func(FuncExpr(std::move(expr->clone())));
+				f->dump();
+			}
 		}
+/*
+		if ((codegen || partials) && (!did_codegen)) {
 
-		if (!did_codegen) {
-			puts("TODO: fix codegen after compiler rewrite");
-/*			Function *f = nullptr;
+			Function *f = nullptr;
 			if (!partials && codegen) {
 				try {
 //					f = c->compile_expr(expr);
@@ -274,18 +283,20 @@ int handle_expr(ExprPtr const &expr,
 				if (!f) cerr << "Compiler returned nullptr when compiling function" << endl;
 //				f->dump();
 			} else if (partials) {
+
 				if (FuncExpr *fe = expr->as_func_expr()) {
-					PartialComp pc(c, *fe);
-					for (size_t i = 0; i < pc.expr_count(); ++i) {
-						print.print(*pc.partials().at(i));
-						cout.flush();
+//					PartialComp pc(c, *fe);
+//					for (size_t i = 0; i < pc.expr_count(); ++i) {
+//						print.print(*pc.partials().at(i));
+//						cout.flush();
 //						pc.funcs().at(i)->dump();
 //						dbgs().flush();
-					}
+//					}
 					pc.fn()->dump();
 				}
-			}*/
-		}
+			}
+			//*/
+//		}
 		return 0;
 	} else {
 		cerr << "Error: NULL expr!" << endl;
@@ -299,7 +310,7 @@ unique_ptr<IParser> get_parser(bool sexp, Args&&... args) {
 }
 
 //template <typename Parser>
-int repl(int verbose, bool opt, bool benchmark, bool codegen, bool emit_partials, bool jit, bool sexp) {
+int repl(int verbose, bool opt, bool benchmark, bool codegen, bool jit, bool sexp) {
 
 	cout << endl;
 	cout << "Interval arithmetic evaluator/compiler." << endl;
@@ -326,7 +337,7 @@ int repl(int verbose, bool opt, bool benchmark, bool codegen, bool emit_partials
 			if (src[0] == '!') {
 				bool opt = c.is_optimizing();//c->is_optimizing();
 				int v = c.verbiosity();
-				parse_cmd(src, v, benchmark, codegen, emit_partials, jit, opt, sexp);
+				parse_cmd(src, v, benchmark, codegen, jit, opt, sexp);
 				c.set_verbose(v);
 				c.set_optimizing(opt);
 				//c->set_optimizing(opt);
@@ -346,13 +357,13 @@ int repl(int verbose, bool opt, bool benchmark, bool codegen, bool emit_partials
 			if (cin.eof()) return 0;
 			return 2;
 		}
-		int ret = handle_expr(expr, c.verbiosity(), benchmark, codegen, emit_partials, jit, e, &c, print);
+		int ret = handle_expr(expr, c.verbiosity(), benchmark, codegen, jit, e, &c, print);
 		if (ret) return ret;
 	}
 }
 
 //template <typename Parser>
-int handle_expr(string const &expr_src, int vb, bool opt, bool bm, bool cg, bool part, bool jit, bool sexp) {
+int handle_expr(string const &expr_src, int vb, bool opt, bool bm, bool cg, bool jit, bool sexp) {
 	Compiler c;// = Compiler::get();
 	c.set_verbose(vb);
 	c.set_optimizing(opt);
@@ -373,7 +384,7 @@ int handle_expr(string const &expr_src, int vb, bool opt, bool bm, bool cg, bool
 	}
 	if (parser->errors() != 0) return parser->errors();
 
-	return handle_expr(expr, vb, bm, cg, part, jit, e, &c, print);
+	return handle_expr(expr, vb, bm, cg, jit, e, &c, print);
 }
 
 string millistring(unsigned long long ctime) {
@@ -455,21 +466,31 @@ int benchcompare(string const &expr_src, int vb, bool opt, bool cg, bool sexp) {
 
 		unsigned long long compiled_runtime = run_benchmark<chrono::microseconds>(*cp,  "Compiler:  ");
 		unsigned long long evalled_runtime = run_benchmark<chrono::microseconds>(pcalc, "Evaluator: ");
+
 		unsigned long long compile_time = compiler_timer.get_time<chrono::microseconds>();
 		unsigned long long eval_prep_time = eval_timer.get_time<chrono::microseconds>();
+
+		unsigned long long ctotal_time = compiled_runtime + compile_time;
+		unsigned long long etotal_time = evalled_runtime + eval_prep_time;
+
+
+		string cprep_str = microstring(compile_time), eprep_str = microstring(eval_prep_time);
+		string crun_str = microstring(compiled_runtime), erun_str = microstring(evalled_runtime);
+		string ctotal_str = microstring(ctotal_time), etotal_str = microstring(etotal_time);
+
 		cerr << endl << prefix << "Benchmark results" << endl;
 		cerr << prefix << "iterations:             " << partial_iterations << endl;
 		cerr << prefix << "number of partials:     " << pcalc.partial_count() << endl;
-		cerr << prefix << "compile time:           " << microstring(compile_time) << endl;
-		cerr << prefix << "eval prep time:         " << microstring(eval_prep_time) << endl;
-		cerr << prefix << "  fraction:             " << (double(compile_time) / double(eval_prep_time)) << endl;
-		cerr << prefix << "compiled code runtime:  " << microstring(compiled_runtime) << endl;
-		cerr << prefix << "evaluated code runtime: " << microstring(evalled_runtime) << endl;
-		cerr << prefix << "  fraction:             " << (double(compiled_runtime) / double(evalled_runtime)) << endl;
-		cerr << prefix << "compile total:          " << microstring(compiled_runtime + compile_time) << endl;
-		cerr << prefix << "evalled total:          " << microstring(evalled_runtime + eval_prep_time) << endl;
-		cerr << prefix << "  fraction:             " << (double(compiled_runtime + compile_time) / double(evalled_runtime + eval_prep_time)) << endl;
-		cerr << endl;
+		cerr << prefix << "compile time:           " << cprep_str << endl;
+		cerr << prefix << "eval prep time:         " << eprep_str << endl;
+		cerr << prefix << "  fraction:             " << (double(compile_time) / double(eval_prep_time)) << endl << endl;
+		cerr << prefix << "compiled code runtime:  " << crun_str << endl;
+		cerr << prefix << "evaluated code runtime: " << erun_str << endl;
+		cerr << prefix << "  fraction:             " << (double(compiled_runtime) / double(evalled_runtime)) << endl << endl;
+		cerr << prefix << "compile total:          " << ctotal_str << endl;
+		cerr << prefix << "evalled total:          " << etotal_str << endl;
+		cerr << prefix << "  fraction:             " << (double(ctotal_time) / double(etotal_time)) << endl;
+
 		AssemblyAnnotationWriter writer;
 		raw_os_ostream rawstrm(cout);
 		if (cg) c.module()->print(rawstrm, &writer);
@@ -489,7 +510,6 @@ int main(int argc, char *argv[]) {
 	int verbose = 0;
 	bool codegen = false;
 	bool simplify = true;
-	bool emit_partials = false;
 	bool interpret = false;
 	bool dobench = false;
 	int bench = 1000;
@@ -506,14 +526,13 @@ int main(int argc, char *argv[]) {
 	fset.Bool(v, "v", "same as -verbose=1");
 	fset.Bool(no_optimize, "no-opt", "control optimizations for the JIT compiler");
 	fset.Bool(codegen, "codegen", "emit generated llvm-ir?");
-	fset.Bool(emit_partials, "partials", "emit llvm-ir for partial derivatives?");
 	fset.Bool(interpret, "interpret", "Interpret expressions instead of using the JIT");
 	fset.Bool(simplify, "simplify", "Simplify expressions.");
 	fset.Bool(dobench, "bench", "run benchmark on partials for expressions?");
 	fset.Bool(bench_compare, "bench-both", "bench both JIT and interpreter. Not available with -repl");
 	fset.Int(bench, "iter", "number of benchmark iterations. Implies -b");
 	fset.Bool(sexp, "sexp", "use s-expression parser");
-	fset.Bool(repl, "repl", "use repl? Incompatible with -file, -expr, -stdin");
+	fset.Bool(repl, "repl", "use repl? Incompatible with -file, -expr, -stdin. vaguely buggy. ");
 	fset.String(file, "file", "read from file. Incompatible with -repl, -expr, -stdin");
 	fset.String(expr, "expr", "evaluate expr. Incompatible with -repl, -file, -stdin");
 	fset.Bool(stdin, "stdin", "read from stdin? Incompatible with -repl, -file, -expr");
@@ -571,9 +590,9 @@ int main(int argc, char *argv[]) {
 		if (bench_compare)
 			return benchcompare(expr_str, verbose, no_optimize, codegen, sexp);
 		if (use_str)
-			return handle_expr(expr_str, verbose, !no_optimize, dobench, codegen, emit_partials, !interpret, sexp);
+			return handle_expr(expr_str, verbose, !no_optimize, dobench, codegen, !interpret, sexp);
 		else
-			return ::repl(verbose, !no_optimize, dobench, codegen, emit_partials, !interpret, sexp);
+			return ::repl(verbose, !no_optimize, dobench, codegen, !interpret, sexp);
 	} catch (exception const &e) {
 		cerr << "Uncaught exception: " << e.what() << endl;
 	} catch (string const &e) {

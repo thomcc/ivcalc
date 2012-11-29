@@ -87,6 +87,10 @@ public:
 
 	std::shared_ptr<Compiled> lookup_partials(std::string const &name);
 
+	llvm::Function *compile_func_partials(FuncExpr const &f);
+	llvm::Function *compile_func(FuncExpr const &f);
+
+
 	bool is_optimizing() const { return _optimizing; }
 	void set_optimizing(bool val=true) { _optimizing = val; }
 
@@ -132,9 +136,6 @@ private:
 	std::pair<llvm::Value*, llvm::Value*> unbox(llvm::Value *i);
 	llvm::Value *box(llvm::Value *lo, llvm::Value *hi);
 	llvm::Value *get_fp(double d=0);
-
-	llvm::Function *compile_func_partials(FuncExpr const &f);
-	llvm::Function *compile_func(FuncExpr const &f);
 
 	void visit(EmptyExpr&) { assert(0); }
 	void visit(AddExpr &e);

@@ -431,25 +431,25 @@ void set_rounding_mode_down(void);
 calc::real force_rounding(calc::real d);
 // todo: compare accuracy. benchmarks show they're much faster,
 // if they're just as accurate, USE THEM
-//typedef __m128d vec_iv;
-//vec_iv _vec_iv_raw_make(double x, double y);
-//vec_iv vec_iv_make(double x, double y);
-//double vec_iv_lo(vec_iv x);
-//double vec_iv_hi(vec_iv x);
-//double vec_iv_lneg(vec_iv x);
-//vec_iv vec_iv_add(vec_iv x, vec_iv y);
-//vec_iv vec_iv_negate(vec_iv x);
-//vec_iv vec_iv_sub(vec_iv x, vec_iv y);
-//vec_iv vec_iv_mul(vec_iv x, vec_iv y);
-//vec_iv vec_iv_invert(vec_iv x);
-//vec_iv vec_iv_div(vec_iv x, vec_iv y);
-//
-////pod_interval iv_mul(pod_interval a, pod_interval b);
-//pod_interval ivvmul(pod_interval a, pod_interval b);
-//pod_interval ivvsub(pod_interval a, pod_interval b);
-//pod_interval ivvadd(pod_interval a, pod_interval b);
-//pod_interval ivvdiv(pod_interval a, pod_interval b);
-//
+typedef __m128d vec_iv;
+vec_iv _vec_iv_raw_make(double x, double y);
+vec_iv vec_iv_make(double x, double y);
+double vec_iv_lo(vec_iv x);
+double vec_iv_hi(vec_iv x);
+double vec_iv_lneg(vec_iv x);
+vec_iv vec_iv_add(vec_iv x, vec_iv y);
+vec_iv vec_iv_negate(vec_iv x);
+vec_iv vec_iv_sub(vec_iv x, vec_iv y);
+vec_iv vec_iv_mul(vec_iv x, vec_iv y);
+vec_iv vec_iv_invert(vec_iv x);
+vec_iv vec_iv_div(vec_iv x, vec_iv y);
+
+
+pod_interval iv_vmul(pod_interval a, pod_interval b);
+pod_interval iv_vsub(pod_interval a, pod_interval b);
+pod_interval iv_vadd(pod_interval a, pod_interval b);
+pod_interval iv_vdiv(pod_interval a, pod_interval b);
+
 
 }
 

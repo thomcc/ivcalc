@@ -14,9 +14,15 @@
 #include "llvm/Transforms/Vectorize.h"
 #include <llvm/ExecutionEngine/GenericValue.h>
 
+#ifndef SSE_INTERVAL_FUNCS
+#  define SSE_INTERVAL_FUNCS 1
+#endif
+
 #ifndef PURE_FUNCTIONS
 #  define PURE_FUNCTIONS 1
 #endif
+
+#define PURE_FUNCTIONS 1
 
 namespace calc {
 
@@ -116,10 +122,17 @@ void Compiler::init_module() {
 
 	vector<Type*> ivs(2, _iv_type);
 	FunctionType *iv_op = FunctionType::get(_iv_type, ivs, false);
-	Constant *ivadd = _module->getOrInsertFunction("iv_add", iv_op);
-	Constant *ivsub = _module->getOrInsertFunction("iv_sub", iv_op);
-	Constant *ivmul = _module->getOrInsertFunction("iv_mul", iv_op);
-	Constant *ivdiv = _module->getOrInsertFunction("iv_div", iv_op);
+#if SSE_INTERVAL_FUNCS
+	Constant *ivadd = _module->getOrInsertFunction("iv_vadd", iv_op);
+	Constant *ivsub = _module->getOrInsertFunction("iv_vsub", iv_op);
+	Constant *ivmul = _module->getOrInsertFunction("iv_vmul", iv_op);
+	Constant *ivdiv = _module->getOrInsertFunction("iv_vdiv", iv_op);
+#else
+	Constant *ivadd = _module->getOrInsertFunction("iv_vadd", iv_op);
+	Constant *ivsub = _module->getOrInsertFunction("iv_vsub", iv_op);
+	Constant *ivmul = _module->getOrInsertFunction("iv_vmul", iv_op);
+	Constant *ivdiv = _module->getOrInsertFunction("iv_vdiv", iv_op);
+#endif
 	Type *powargs[2] = {_iv_type, Type::getInt32Ty(_module->getContext())};
 	FunctionType *iv_pow_type = FunctionType::get(_iv_type, powargs, false);
 	Constant *ivpow = _module->getOrInsertFunction("iv_pow", iv_pow_type);
@@ -466,8 +479,6 @@ vector<interval> Compiled::apply(MutableArrayRef<interval> v) {
 	apply(vec, v);
 	return vec;
 }
-
-
 
 
 }
